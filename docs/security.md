@@ -1,5 +1,8 @@
 # Security, testing and deployment boundaries
 
+See the [TraceDesk threat model](threat-model.md) for assets, attack paths and
+planned evidence. Update it with each implemented trust boundary.
+
 Use server-side sessions, password hashing, CSRF protection, session fixation
 protection, safe error responses and security headers. Replace all MP3 route and
 role assumptions. Each read/write checks project membership and applicable
@@ -28,6 +31,9 @@ Database suites must fail their required CI job when isolation configuration is
 missing; a skipped database suite is not release evidence. Before schema mutation,
 verify the dedicated database and schema ownership. Do not copy MP3's application
 database/environment-file fallback behavior.
+
+The [isolated database guide](test-database.md) describes the test-only helper and
+required configuration.
 
 ## Deployment sequence
 

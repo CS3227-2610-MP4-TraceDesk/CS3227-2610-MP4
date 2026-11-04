@@ -16,6 +16,14 @@ rights for third-party/team material. Preserve provenance before any publication
 | Client/settings tests and fake provider | Module test sources | Map fixture replaces Spring mock; test executor explicitly shut down |
 | Gradle wrapper | Root build tooling | Same wrapper version, fresh minimal module build; no desktop tasks or old plugin build |
 | SDD/handoff/review patterns | `.agents/skills`, `harness`, `workflow` | Rewritten for TraceDesk; no old approval gates, identities or personal paths |
+| Frontend build, lint and unit-test configuration | `frontend/` | MP3 versions and lockfile adapted; TraceDesk starter page and CSRF helper |
+| Browser/a11y harness | `frontend/playwright.config.ts`, `frontend/e2e/` | Dedicated static preview and synthetic smoke test; authenticated role journeys remain later work |
+| Isolated PostgreSQL test pattern | `backend/db-test-support` | Fresh test-only helper with explicit guard and owned-schema cleanup; no MP3 migrations/accounts |
+| Threat-model structure | `docs/threat-model.md` | New TraceDesk assets, threats, controls and planned evidence |
+
+[Engineering provenance](engineering-reuse.json) records ten adapted frontend
+tooling, browser and CSRF files with their original source hashes. Other new engineering files
+adapt patterns from MP3 rather than being verbatim copies.
 
 Workflow inspiration: MP3 `workflow/README.md`, `workflow/agent-workflow.md`,
 `.agents/skills/specification-driven-development/SKILL.md` and
@@ -37,7 +45,7 @@ exposed to controllers and makes no live provider requests during tests.
 | 4 | Typed request/context/prompt pattern | Three TraceDesk capabilities, field allowlists and prompt versions; unauthorized context tests |
 | 5 | Reporter vertical slice and reviewable suggestion UI | Report → AI preview → explicit apply; cancellation/session/stale-result tests |
 | 6 | Developer and QA vertical slices | Separate permissions and evaluation cases; shared gateway and preview control |
-| 7 | Security/CSRF and PostgreSQL/browser fixtures | Adapt as each relevant layer lands; never copy old routes, schemas or fixtures wholesale |
+| 7 | Security/CSRF and PostgreSQL/browser fixtures | Base helpers now exist; integrate with real sessions, migrations, role routes and seeded journeys as those layers land |
 | 8 | Deployment/evaluation/coordination evidence | Same-revision CI prerequisites, environment separation, actual agent runs and context experiments |
 
 Strict parser techniques are conditional on structured-output needs. Do not carry

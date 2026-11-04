@@ -1,0 +1,56 @@
+{
+  "source_repository": "CS3227-2610-MP3",
+  "source_revision": "24a1ae7bd758ca9e9eb607d8f8371d3001e9451c",
+  "entries": [
+    {
+      "source_path": "frontend/package.json",
+      "sha256": "e54a2c384ee85c5aed9ba73e5ef0794e308a8a3cf993eea30482d58d24f97e77",
+      "destination": "frontend/package.json"
+    },
+    {
+      "source_path": "frontend/package-lock.json",
+      "sha256": "edd5ff9b9356d18a9750bbf4937c82a940559379231a940be96feec012c5fafd",
+      "destination": "frontend/package-lock.json"
+    },
+    {
+      "source_path": "frontend/vite.config.ts",
+      "sha256": "721a03eae5e1630a2f2f2947ade41c3c96e1cd0b6cd12779dfede279bd7346fb",
+      "destination": "frontend/vite.config.ts"
+    },
+    {
+      "source_path": "frontend/eslint.config.js",
+      "sha256": "acb01b8911a9d6a7e1e3dc8637a9c71dbc16299e566c60c4ac6ed447afc96215",
+      "destination": "frontend/eslint.config.js"
+    },
+    {
+      "source_path": "frontend/tsconfig.json",
+      "sha256": "eb83452aaca155485e1483a41eb65d4efb667da5030e891928a3304b323613d1",
+      "destination": "frontend/tsconfig.json"
+    },
+    {
+      "source_path": "frontend/tsconfig.app.json",
+      "sha256": "829e935d0df003fbcb22870631a83804bfcbcacd9d78b4a6382af1f7c3bce418",
+      "destination": "frontend/tsconfig.app.json"
+    },
+    {
+      "source_path": "frontend/tsconfig.node.json",
+      "sha256": "b2da0b26acff699fe586bf16a8755b8908269bcfd32a3143ffb7cb0a790d2311",
+      "destination": "frontend/tsconfig.node.json"
+    },
+    {
+      "source_path": "frontend/playwright.config.ts",
+      "sha256": "f0f0e3b89f0c97199af3027bff7cbd4e662c9e9b8a258eba09baf84c4aa5023b",
+      "destination": "frontend/playwright.config.ts"
+    },
+    {
+      "source_path": "frontend/src/test/setup.ts",
+      "sha256": "977afde26bba6a51325908cd7713cbfdc87d18f06b78b237c8f364c44864b7de",
+      "destination": "frontend/src/test/setup.ts"
+    },
+    {
+      "source_path": "frontend/src/shared/csrf.ts",
+      "sha256": "84262817cb0623e99dbfeac76210207ec53b834588fffc3302618b4b99d95c42",
+      "destination": "frontend/src/shared/csrf.ts"
+    }
+  ]
+}

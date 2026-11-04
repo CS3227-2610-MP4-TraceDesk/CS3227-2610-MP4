@@ -28,6 +28,9 @@ replay_pid*
 **/build/
 node_modules/
 dist/
+frontend/e2e-results/
+frontend/test-results/
+frontend/.vite/
 __pycache__/
 .DS_Store
 .env

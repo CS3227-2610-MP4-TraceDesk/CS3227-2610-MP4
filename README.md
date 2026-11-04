@@ -7,10 +7,10 @@ human-reviewed AI capability.
 ## Current status
 
 Architecture and reuse selections were confirmed by the repository user on
-2026-11-04. This checkout contains the engineering foundation and an isolated,
-tested provider transport extraction. It is not yet a runnable web application.
-Authentication, persistence, the secured gateway, and role features remain to be
-implemented in the order recorded in the integration plan.
+2026-11-04. This checkout contains the engineering foundation, a static frontend
+starter, an isolated database test helper, and the tested provider transport.
+Authentication, application persistence, the secured gateway, and role features
+remain to be implemented in the order recorded in the integration plan.
 
 ## Start here
 
@@ -20,6 +20,9 @@ implemented in the order recorded in the integration plan.
 - [Development workflow](workflow/README.md)
 - [Development harness](harness/README.md)
 - [Foundation specification](workflow/specs/foundation.md)
+- [Engineering foundation specification](workflow/specs/engineering-foundations.md)
+- [Threat model](docs/threat-model.md)
+- [Isolated database testing](docs/test-database.md)
 
 ## Repository layout
 
@@ -29,12 +32,13 @@ implemented in the order recorded in the integration plan.
 | `docs/` | TraceDesk requirements, architecture, AI/security policies, reuse provenance |
 | `harness/` | Development-agent roles and coordination protocol; execution uses the host's agent tools |
 | `workflow/` | Specifications, acceptance index, handoff/evidence templates, decisions and progress |
-| `backend/` | Java modules; currently only internal provider transport and synthetic tests |
+| `backend/` | Internal provider transport and PostgreSQL test support |
+| `frontend/` | React starter, static browser smoke tests, build and lint setup |
 | `tools/` | Portable repository checks |
-| `.github/workflows/` | Foundation CI; deployment is not configured |
+| `.github/workflows/` | Foundation, frontend and isolated database CI; deployment is not configured |
 
-Do not add empty application directories: create the React frontend and backend
-domain/application modules when their first vertical slice is implemented.
+Create backend domain and application modules when the first vertical slice is
+implemented. The frontend currently shows only a static introduction page.
 
 ## Verify the foundation
 
@@ -43,9 +47,13 @@ Use JDK 25 and Python 3. Run from the repository root:
 ```sh
 python3 tools/check_foundation.py
 ./gradlew :backend:ai-transport:test
+cd frontend && npm ci && npm run check && npm run build && npm run test:e2e
 ```
 
 The Java tests use synthetic loopback HTTP responses. They need no provider key,
-database, or application environment file. Initial Gradle dependency resolution
-may require network access. See [verification evidence](workflow/evidence/foundation.md)
-for what actually ran in this checkout.
+database, or application environment file. Database integration tests require an
+explicitly confirmed dedicated PostgreSQL test database; CI supplies an ephemeral
+service. Initial dependency and browser setup may require network access. See
+[verification evidence](workflow/evidence/foundation.md) for the original foundation
+and [engineering evidence](workflow/evidence/engineering-foundations.md) for this
+extension.
