@@ -23,6 +23,7 @@ remain to be implemented in the order recorded in the integration plan.
 - [Engineering foundation specification](workflow/specs/engineering-foundations.md)
 - [Threat model](docs/threat-model.md)
 - [Isolated database testing](docs/test-database.md)
+- [Local Docker setup](docs/docker.md)
 
 ## Repository layout
 
@@ -36,6 +37,7 @@ remain to be implemented in the order recorded in the integration plan.
 | `frontend/` | React starter, static browser smoke tests, build and lint setup |
 | `tools/` | Portable repository checks |
 | `.github/workflows/` | Foundation, frontend and isolated database CI; deployment is not configured |
+| `compose.yaml`, `Dockerfile`, `docker/` | Local containers and built frontend image |
 
 Create backend domain and application modules when the first vertical slice is
 implemented. The frontend currently shows only a static introduction page.
@@ -57,3 +59,5 @@ service. Initial dependency and browser setup may require network access. See
 [verification evidence](workflow/evidence/foundation.md) for the original foundation
 and [engineering evidence](workflow/evidence/engineering-foundations.md) for this
 extension.
+
+For a container-based local environment, see the [Docker guide](docs/docker.md).

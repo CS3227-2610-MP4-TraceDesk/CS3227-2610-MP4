@@ -47,3 +47,6 @@ from core application availability.
 
 No production deployment, account creation or data migration is authorized merely
 by the presence of this document.
+
+The [local Docker configuration](docker.md) uses loopback ports and synthetic
+credentials. Its frontend health response is not an application readiness check.

@@ -1,0 +1,60 @@
+name: tracedesk-mp4
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: tracedesk_dev
+      POSTGRES_USER: tracedesk_dev
+      POSTGRES_PASSWORD: ${TRACEDESK_DEV_DB_PASSWORD:-tracedesk_dev_only}
+    ports:
+      - "127.0.0.1:${TRACEDESK_DEV_DB_PORT:-54329}:5432"
+    volumes:
+      - dev-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracedesk_dev -d tracedesk_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  frontend-dev:
+    build:
+      context: .
+      target: development
+    ports:
+      - "127.0.0.1:${TRACEDESK_DEV_FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    profiles: [dev]
+
+  frontend-preview:
+    build:
+      context: .
+      target: frontend
+    ports:
+      - "127.0.0.1:${TRACEDESK_PREVIEW_PORT:-8080}:8080"
+    profiles: [preview]
+
+  test-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: tracedesk_test
+      POSTGRES_USER: tracedesk_test
+      POSTGRES_PASSWORD: synthetic_test_password
+    ports:
+      - "127.0.0.1:${TRACEDESK_TEST_DB_PORT:-54330}:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracedesk_test -d tracedesk_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    profiles: [test]
+
+volumes:
+  dev-db-data:
+  frontend-node-modules:

@@ -102,3 +102,27 @@ jobs:
             backend/db-test-support/build/test-results/test/
             backend/db-test-support/build/reports/tests/test/
           retention-days: 7
+
+  container-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the compiled frontend image
+        run: docker build --target frontend --tag tracedesk-frontend:${{ github.sha }} .
+      - name: Check its frontend health response
+        run: |
+          docker run --detach --rm --name tracedesk-frontend-smoke \
+            --publish 127.0.0.1:18080:8080 tracedesk-frontend:${{ github.sha }}
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl --fail --silent http://127.0.0.1:18080/health/frontend \
+              | grep -q '"component":"frontend"'; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+      - name: Stop smoke container
+        if: always()
+        run: docker stop tracedesk-frontend-smoke || true

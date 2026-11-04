@@ -1,0 +1,17 @@
+.git
+.gradle
+.agents
+.codex
+.env
+.env.*
+**/node_modules
+**/build
+**/dist
+frontend/e2e-results
+frontend/test-results
+frontend/.vite
+workflow/evidence
+*.log
+*.pem
+*.key
+.DS_Store

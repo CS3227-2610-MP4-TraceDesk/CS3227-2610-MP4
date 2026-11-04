@@ -20,6 +20,7 @@ rights for third-party/team material. Preserve provenance before any publication
 | Browser/a11y harness | `frontend/playwright.config.ts`, `frontend/e2e/` | Dedicated static preview and synthetic smoke test; authenticated role journeys remain later work |
 | Isolated PostgreSQL test pattern | `backend/db-test-support` | Fresh test-only helper with explicit guard and owned-schema cleanup; no MP3 migrations/accounts |
 | Threat-model structure | `docs/threat-model.md` | New TraceDesk assets, threats, controls and planned evidence |
+| Multi-stage container pattern | `Dockerfile`, `compose.yaml`, `docker/` | Frontend build/runtime and local PostgreSQL profiles; no MP3 deployment credentials or incident application image |
 
 [Engineering provenance](engineering-reuse.json) records ten adapted frontend
 tooling, browser and CSRF files with their original source hashes. Other new engineering files
