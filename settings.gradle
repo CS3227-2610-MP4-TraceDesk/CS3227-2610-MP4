@@ -1,0 +1,2 @@
+rootProject.name = 'tracedesk'
+include 'backend:ai-transport'

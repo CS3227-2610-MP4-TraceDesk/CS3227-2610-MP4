@@ -1,0 +1,61 @@
+{
+  "source_repository": "CS3227-2610-MP3",
+  "source_revision": "24a1ae7bd758ca9e9eb607d8f8371d3001e9451c",
+  "entries": [
+    {
+      "source_path": "src/main/java/com/company/incidentdesk/infrastructure/soclaas/SoclaasClient.java",
+      "source_sha256": "e5a90240c472fb660d0f0c6254b149090af17815ccf18b448354eb9fde9be5db",
+      "destination": "backend/ai-transport/src/main/java/com/tracedesk/ai/internal/soclaas/SoclaasClient.java"
+    },
+    {
+      "source_path": "src/main/java/com/company/incidentdesk/infrastructure/soclaas/BoundedBodySubscriber.java",
+      "source_sha256": "0517eaa9f3e36e2baff7f716a2bcd1984f9f7a0cc8a707e5c2782c746094b45f",
+      "destination": "backend/ai-transport/src/main/java/com/tracedesk/ai/internal/soclaas/BoundedBodySubscriber.java"
+    },
+    {
+      "source_path": "src/main/java/com/company/incidentdesk/infrastructure/soclaas/SoclaasException.java",
+      "source_sha256": "1cc8b3bddf567a60b2cc137c044825bd1dc1b92ed5d55e6db05a68b77aebb3a7",
+      "destination": "backend/ai-transport/src/main/java/com/tracedesk/ai/internal/soclaas/SoclaasException.java"
+    },
+    {
+      "source_path": "src/main/java/com/company/incidentdesk/infrastructure/soclaas/SoclaasSettings.java",
+      "source_sha256": "5610fa9056a73ccb2a163ef02116ab1c7af514ecaf3861fdf4b842a217df1b15",
+      "destination": "backend/ai-transport/src/main/java/com/tracedesk/ai/internal/soclaas/SoclaasSettings.java"
+    },
+    {
+      "source_path": "src/test/java/com/company/incidentdesk/infrastructure/soclaas/SoclaasClientTest.java",
+      "source_sha256": "d0c841737e7eb6e05d034ee32d2e861b797f37fc85b84c6669972ad83d7b7519",
+      "destination": "backend/ai-transport/src/test/java/com/tracedesk/ai/internal/soclaas/SoclaasClientTest.java"
+    },
+    {
+      "source_path": "src/test/java/com/company/incidentdesk/infrastructure/soclaas/SoclaasSettingsTest.java",
+      "source_sha256": "f8f15e985244af6b69f508d5f5aa802c89f94159aa80ecf33303539eafab3d98",
+      "destination": "backend/ai-transport/src/test/java/com/tracedesk/ai/internal/soclaas/SoclaasSettingsTest.java"
+    },
+    {
+      "source_path": "src/test/java/com/company/incidentdesk/infrastructure/soclaas/AiGatewayFakeProvider.java",
+      "source_sha256": "c6cc3c4e79a05da4cc4b75913c78865b2335b11e787e9b6e14551d89271215a3",
+      "destination": "backend/ai-transport/src/test/java/com/tracedesk/ai/internal/soclaas/AiGatewayFakeProvider.java"
+    },
+    {
+      "source_path": "gradlew",
+      "source_sha256": "2467e92a901c92f33cbfadc546f85322729538ad8bd02bc2eabd009151bef4fa",
+      "destination": "gradlew"
+    },
+    {
+      "source_path": "gradlew.bat",
+      "source_sha256": "1070f200d263f68e2fb8d76c6a4fd0f7c4c64ebe0cd06ad83f42ad50d6c5565c",
+      "destination": "gradlew.bat"
+    },
+    {
+      "source_path": "gradle/wrapper/gradle-wrapper.jar",
+      "source_sha256": "76805e32c009c0cf0dd5d206bddc9fb22ea42e84db904b764f3047de095493f3",
+      "destination": "gradle/wrapper/gradle-wrapper.jar"
+    },
+    {
+      "source_path": "gradle/wrapper/gradle-wrapper.properties",
+      "source_sha256": "c94d41b634a5e0ff8a2f812023697b1337eebac18e9962610356a1793f72896d",
+      "destination": "gradle/wrapper/gradle-wrapper.properties"
+    }
+  ]
+}
