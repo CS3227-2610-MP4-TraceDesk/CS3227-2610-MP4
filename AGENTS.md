@@ -18,6 +18,12 @@ gateway. See [architecture](docs/architecture.md) for module boundaries.
   `tracedesk-review` for review requests. Read only relevant references.
 - Use [harness coordination](harness/README.md) when a task calls for specialized
   agents. This file does not itself require spawning agents for every edit.
+- Personal workflow preferences are scoped by contributor. For this user's work,
+  follow the [Reporter workflow](workflow/reporter/README.md), including its
+  Agentic SE gates and evidence collection. Do not impose those personal process
+  choices on teammates; shared security, architecture and course requirements
+  still apply to everyone. Store this user's workflow artifacts under
+  `workflow/reporter/`. Reporter is a workflow label, not a limit on feature scope.
 
 ## Authorization and evidence
 

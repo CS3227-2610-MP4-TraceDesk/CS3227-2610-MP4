@@ -5,6 +5,17 @@ Start from [the foundation decision](decisions/001-foundation.md) and
 applicable contract through [the acceptance index](acceptance-criteria.md).
 Specifications own criteria; the index only links to them.
 
+## Contributor workflows
+
+This directory retains shared decisions, acceptance criteria and baseline templates.
+Personal process choices and evidence live in contributor subdirectories:
+
+- [Reporter workflow](reporter/README.md): this user's Agentic SE process, templates,
+  experiments, tools and evidence. It does not prescribe teammates' workflows.
+
+Teammates may maintain their own directories. Shared architecture/security contracts
+and course requirements continue to apply across contributors.
+
 ## Feature loop
 
 1. State the feature's actors, preconditions, inputs/limits, output, allowed and
