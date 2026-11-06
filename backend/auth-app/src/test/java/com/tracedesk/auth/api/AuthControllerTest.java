@@ -10,6 +10,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mock.web.MockHttpSession;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -134,6 +137,21 @@ class AuthControllerTest {
   assertNotEquals("known-token",session.getAttribute(AuthController.CSRF));
  }
 
+ @Test void absoluteLifetimeExpiresAtEightHourBoundaryWithoutWaiting() throws Exception {
+  AuthStore store=mock(AuthStore.class);
+  PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
+  UUID actor=UUID.randomUUID();
+  var clock=new MutableClock(Instant.parse("2026-01-01T08:00:00Z"));
+  MockMvc mvc=MockMvcBuilders.standaloneSetup(new AuthController(store,new ProjectAuthorization(store),encoder,clock)).build();
+  when(store.enabled(actor)).thenReturn(true);
+  MockHttpSession session=authenticatedSession(actor);
+  session.setAttribute(AuthController.AUTH_AT,clock.millis()-8L*60*60*1000+1);
+  mvc.perform(get("/api/session").session(session)).andExpect(status().isOk());
+  clock.advanceMillis(1);
+  mvc.perform(get("/api/session").session(session)).andExpect(status().isUnauthorized());
+  assertTrue(session.isInvalid(),"absolute expiry invalidates the server session at the exact boundary");
+ }
+
  private static MockHttpSession authenticatedSession(UUID actor) {
   MockHttpSession session=new MockHttpSession();
   session.setAttribute(AuthController.USER,actor);
@@ -142,6 +160,15 @@ class AuthControllerTest {
   return session;
  }
  private static AuthController controller(AuthStore store, PasswordEncoder encoder) {
-  return new AuthController(store,new ProjectAuthorization(store),encoder);
+  return new AuthController(store,new ProjectAuthorization(store),encoder,Clock.systemUTC());
+ }
+
+ private static final class MutableClock extends Clock {
+  private Instant now;
+  MutableClock(Instant now) { this.now=now; }
+  void advanceMillis(long millis) { now=now.plusMillis(millis); }
+  @Override public ZoneId getZone() { return ZoneId.of("UTC"); }
+  @Override public Clock withZone(ZoneId zone) { return this; }
+  @Override public Instant instant() { return now; }
  }
 }

@@ -1,0 +1,401 @@
+package com.tracedesk.auth.api;
+
+import com.tracedesk.testing.IsolatedPostgres;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.WebApplicationType;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
+import org.flywaydb.core.Flyway;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.net.HttpCookie;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.ByteArrayInputStream;
+import java.io.ObjectInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/** Full HTTP boundary check over HTTPS and a fresh, owned PostgreSQL schema. */
+class AuthHttpsIntegrationTest {
+    private static final String PASSWORD = "synthetic-long-password-2026";
+    private static final String PRIVACY_CANARY = "https-event-canary-7f31c9";
+
+    @Test
+    void realHttpsSessionCsrfAndRoleMembershipBoundaries() throws Exception {
+        Path temp = Files.createTempDirectory("tracedesk-auth-https-");
+        try (IsolatedPostgres db = IsolatedPostgres.open(System.getenv())) {
+            Flyway.configure().dataSource(db).locations("classpath:db/migration")
+                    .schemas(db.schema()).defaultSchema(db.schema()).load().migrate();
+            String dbUrl = System.getenv("TRACEDESK_TEST_JDBC_URL") +
+                    (System.getenv("TRACEDESK_TEST_JDBC_URL").contains("?") ? "&" : "?") +
+                    "currentSchema=" + db.schema();
+            String storePassword = UUID.randomUUID().toString().replace("-", "");
+            Path keyStorePath = temp.resolve("ephemeral.p12");
+            createKeyStore(keyStorePath, storePassword);
+            SSLContext clientTls = trustKeyStore(keyStorePath, storePassword);
+
+            SpringApplication app = new SpringApplication(com.tracedesk.auth.AuthApplication.class);
+            app.setWebApplicationType(WebApplicationType.SERVLET);
+            app.setDefaultProperties(Map.ofEntries(
+                    Map.entry("server.address", "127.0.0.1"),
+                    Map.entry("server.port", "0"),
+                    Map.entry("server.ssl.enabled", "true"),
+                    Map.entry("server.ssl.key-store", keyStorePath.toAbsolutePath().toString()),
+                    Map.entry("server.ssl.key-store-password", storePassword),
+                    Map.entry("server.ssl.key-store-type", "PKCS12"),
+                    Map.entry("server.ssl.key-alias", "tracedesk-test"),
+                    Map.entry("TRACEDESK_DATABASE_URL", dbUrl),
+                    Map.entry("TRACEDESK_DATABASE_USER", System.getenv("TRACEDESK_TEST_DATABASE_USER")),
+                    Map.entry("TRACEDESK_DATABASE_PASSWORD", System.getenv("TRACEDESK_TEST_DATABASE_PASSWORD")),
+                    Map.entry("spring.flyway.schemas", db.schema()),
+                    Map.entry("spring.flyway.default-schema", db.schema()),
+                    Map.entry("logging.level.root", "WARN")));
+
+            try (ConfigurableApplicationContext context = app.run()) {
+                JdbcTemplate sql = context.getBean(JdbcTemplate.class);
+                UUID projectA = UUID.randomUUID();
+                UUID projectB = UUID.randomUUID();
+                sql.update("insert into td_projects(id,name) values(?,?)", projectA, "Synthetic A");
+                sql.update("insert into td_projects(id,name) values(?,?)", projectB, "Synthetic B");
+                Argon2PasswordEncoder encoder = new Argon2PasswordEncoder(16, 32, 1, 19456, 2);
+                List<UUID> actors = new ArrayList<>();
+                String[] roles = {"REPORTER", "DEVELOPER", "QA_REVIEWER"};
+                for (int i = 0; i < roles.length; i++) {
+                    UUID id = UUID.randomUUID();
+                    actors.add(id);
+                    String login = "https-" + roles[i].toLowerCase() + "@example.test";
+                    sql.update("insert into td_users(id,login_normalized,password_hash) values(?,?,?)",
+                            id, login, encoder.encode(PASSWORD));
+                    sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,?,'ACTIVE')",
+                            projectA, id, roles[i]);
+                }
+                UUID disabledActor = UUID.randomUUID();
+                sql.update("insert into td_users(id,login_normalized,password_hash,enabled) values(?,?,?,false)",
+                        disabledActor, "disabled@example.test", encoder.encode(PASSWORD));
+
+                URI base = URI.create("https://127.0.0.1:" +
+                        context.getEnvironment().getProperty("local.server.port"));
+                for (int i = 0; i < roles.length; i++) {
+                    CookieManager cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+                    HttpClient client = HttpClient.newBuilder().cookieHandler(cookies).sslContext(clientTls)
+                            .connectTimeout(Duration.ofSeconds(5)).build();
+                    HttpResponse<String> csrf = send(client, base, "GET", "/api/csrf", null, null);
+                    assertEquals(200, csrf.statusCode());
+                    String token = jsonField(csrf.body(), "token");
+                    assertFalse(token.isBlank());
+                    assertSecureResponse(csrf);
+                    HttpCookie anonymous = cookies.getCookieStore().getCookies().stream()
+                            .filter(c -> c.getName().equals("TDSESSION")).findFirst().orElseThrow();
+                    String anonymousId = anonymous.getValue();
+
+                    String login = "https-" + roles[i].toLowerCase() + "@example.test";
+                    HttpResponse<String> loggedIn = send(client, base, "POST", "/api/session/login",
+                            "{\"login\":\"" + login + "\",\"password\":\"" + PASSWORD + "\"}", token);
+                    assertEquals(200, loggedIn.statusCode(), roles[i]);
+                    assertEquals(actors.get(i).toString(), jsonField(loggedIn.body(), "userId"));
+                    assertSecureResponse(loggedIn);
+                    HttpCookie authenticated = cookies.getCookieStore().getCookies().stream()
+                            .filter(c -> c.getName().equals("TDSESSION")).findFirst().orElseThrow();
+                    assertNotEquals(anonymousId, authenticated.getValue(), "login must rotate session ID");
+                    HttpClient fixationReplay = HttpClient.newBuilder().sslContext(clientTls).build();
+                    HttpResponse<String> preAuthReplay = sendWithCookie(fixationReplay, base, anonymousId);
+                    assertEquals(401, preAuthReplay.statusCode(), "pre-authentication session identifier must be invalid after login");
+
+                    HttpResponse<String> session = send(client, base, "GET", "/api/session", null, null);
+                    assertEquals(200, session.statusCode());
+                    assertEquals(actors.get(i).toString(), jsonField(session.body(), "userId"));
+                    assertFalse(session.body().contains("\"role\""));
+                    assertSecureResponse(session);
+                    assertNonPersistentCookie(loggedIn);
+
+                    HttpResponse<String> allowed = send(client, base, "GET", "/api/projects/" + projectA, null, null);
+                    assertEquals(200, allowed.statusCode(), roles[i]);
+                    assertEquals("Synthetic A", jsonField(allowed.body(), "name"));
+                    assertTrue(allowed.body().contains("\"id\""));
+                    assertEquals(2, java.util.regex.Pattern.compile("\"[^\"]+\"\\s*:").matcher(allowed.body()).results().count());
+                    HttpResponse<String> denied = send(client, base, "GET", "/api/projects/" + projectB +
+                            "?userId=" + UUID.randomUUID() + "&role=ADMIN&note=" + PRIVACY_CANARY, null, null);
+                    assertEquals(404, denied.statusCode(), roles[i]);
+                    assertEquals("NOT_FOUND", jsonField(denied.body(), "code"));
+                    assertFalse(denied.body().contains("Synthetic B"));
+                    assertFalse(denied.body().contains(PRIVACY_CANARY));
+                    if (i == 1) {
+                        sql.update("update td_project_memberships set state='DISABLED' where project_id=? and user_id=?", projectA, actors.get(i));
+                        HttpResponse<String> disabledMembership = send(client, base, "GET", "/api/projects/" + projectA, null, null);
+                        assertEquals(404, disabledMembership.statusCode(), "fresh authorization denies a disabled membership");
+                        assertEquals("NOT_FOUND", jsonField(disabledMembership.body(), "code"));
+                        assertFalse(disabledMembership.body().contains("Synthetic A"));
+                        sql.update("update td_project_memberships set state='ACTIVE' where project_id=? and user_id=?", projectA, actors.get(i));
+                    }
+                    HttpResponse<String> malformed = send(client, base, "GET", "/api/projects/" +
+                            projectA.toString().toUpperCase(), null, null);
+                    assertEquals(400, malformed.statusCode());
+                    assertEquals("INVALID_REQUEST", jsonField(malformed.body(), "code"));
+
+                    HttpResponse<String> staleCsrf = send(client, base, "POST", "/api/session/logout", "{}", token);
+                    assertEquals(403, staleCsrf.statusCode(), "pre-authentication CSRF token must be stale after login");
+                    assertEquals("CSRF_INVALID", jsonField(staleCsrf.body(), "code"));
+                    assertEquals(200, send(client, base, "GET", "/api/session", null, null).statusCode(),
+                            "stale CSRF denial must not change session state");
+
+                    HttpResponse<String> refreshedCsrf = send(client, base, "GET", "/api/csrf", null, null);
+                    String logoutToken = jsonField(refreshedCsrf.body(), "token");
+                    assertNotEquals(token, logoutToken, "authentication rotates CSRF token");
+                    String authenticatedId = cookies.getCookieStore().getCookies().stream()
+                            .filter(c -> c.getName().equals("TDSESSION")).findFirst().orElseThrow().getValue();
+                    String repositorySessionId = new String(java.util.Base64.getDecoder().decode(authenticatedId), StandardCharsets.UTF_8);
+
+                    if (i == 0) {
+                        var priorSession = sql.queryForMap("select primary_id,session_id,last_access_time,max_inactive_interval,expiry_time from spring_session where principal_name=?", actors.get(i).toString());
+                        assertEquals(repositorySessionId, ((String) priorSession.get("session_id")).trim());
+                        long authAtBefore = sessionAttributeLong(sql, (String) priorSession.get("primary_id"), "td.authAt");
+                        Thread.sleep(5);
+                        HttpResponse<String> renewed = send(client, base, "GET", "/api/session", null, null);
+                        assertEquals(200, renewed.statusCode());
+                        var renewedSession = sql.queryForMap("select last_access_time,max_inactive_interval,expiry_time from spring_session where principal_name=?", actors.get(i).toString());
+                        long renewedAt = ((Number) renewedSession.get("last_access_time")).longValue();
+                        assertTrue(renewedAt > ((Number) priorSession.get("last_access_time")).longValue(),
+                                "authenticated access renews the idle timestamp");
+                        assertEquals(1800, ((Number) renewedSession.get("max_inactive_interval")).intValue());
+                        assertEquals(renewedAt + 1_800_000L, ((Number) renewedSession.get("expiry_time")).longValue());
+                        assertEquals(authAtBefore, sessionAttributeLong(sql, (String) priorSession.get("primary_id"), "td.authAt"),
+                                "idle renewal must not move the absolute-authentication timestamp");
+                        sql.update("update spring_session set last_access_time=0,expiry_time=0 where session_id=?", repositorySessionId);
+                        HttpResponse<String> idleExpired = send(client, base, "GET", "/api/session", null, null);
+                        assertEquals(401, idleExpired.statusCode(), "an idle-expired JDBC session is rejected");
+                        assertEquals("UNAUTHENTICATED", jsonField(idleExpired.body(), "code"));
+                        assertEquals(0, sql.queryForObject("select count(*) from spring_session where session_id=?", Integer.class, repositorySessionId));
+                    }
+
+                    if (i == 1) {
+                        sql.execute("alter table td_project_memberships rename to td_project_memberships_unavailable");
+                        try {
+                            HttpResponse<String> membershipOutage = send(client, base, "GET", "/api/projects/" + projectA, null, null);
+                            assertEquals(503, membershipOutage.statusCode());
+                            assertEquals("SERVICE_UNAVAILABLE", jsonField(membershipOutage.body(), "code"));
+                            assertFalse(membershipOutage.body().contains("Synthetic A"));
+                            assertSecureResponse(membershipOutage);
+                        } finally {
+                            sql.execute("alter table td_project_memberships_unavailable rename to td_project_memberships");
+                        }
+                        sql.execute("alter table td_users rename to td_users_unavailable");
+                        try {
+                        HttpResponse<String> userStoreOutage = send(client, base, "GET", "/api/session", null, null);
+                            assertEquals(503, userStoreOutage.statusCode());
+                            assertEquals("SERVICE_UNAVAILABLE", jsonField(userStoreOutage.body(), "code"));
+                            assertSecureResponse(userStoreOutage);
+                        } finally {
+                            sql.execute("alter table td_users_unavailable rename to td_users");
+                        }
+                        sql.execute("alter table td_security_events rename to td_security_events_unavailable");
+                        try {
+                            HttpResponse<String> eventStoreOutage = send(client, base, "GET", "/api/projects/" + projectB, null, null);
+                            assertEquals(503, eventStoreOutage.statusCode());
+                            assertEquals("SERVICE_UNAVAILABLE", jsonField(eventStoreOutage.body(), "code"));
+                            assertFalse(eventStoreOutage.body().contains("Synthetic B"));
+                            assertSecureResponse(eventStoreOutage);
+                        } finally {
+                            sql.execute("alter table td_security_events_unavailable rename to td_security_events");
+                        }
+                    }
+
+                    if (i == 2) {
+                        sql.execute("alter table spring_session rename to spring_session_unavailable");
+                        try {
+                            HttpResponse<String> sessionOutage = send(client, base, "GET", "/api/session", null, null);
+                            assertEquals(503, sessionOutage.statusCode());
+                            assertEquals("SERVICE_UNAVAILABLE", jsonField(sessionOutage.body(), "code"));
+                            assertFalse(sessionOutage.body().contains(actors.get(i).toString()));
+                            assertSecureResponse(sessionOutage);
+                        } finally {
+                            sql.execute("alter table spring_session_unavailable rename to spring_session");
+                        }
+                        HttpResponse<String> restoredSession = send(client, base, "GET", "/api/session", null, null);
+                        assertEquals(200, restoredSession.statusCode(), "restoring the isolated session table restores service");
+                        sql.update("update td_users set enabled=false where id=?", actors.get(i));
+                        HttpResponse<String> disabledUserSession = send(client, base, "GET", "/api/session", null, null);
+                        assertEquals(401, disabledUserSession.statusCode(), "disabled user cannot continue using an existing session");
+                        assertEquals("UNAUTHENTICATED", jsonField(disabledUserSession.body(), "code"));
+                    }
+
+                    if (i == 1) {
+                        HttpResponse<String> logout = send(client, base, "POST", "/api/session/logout", "{}", logoutToken);
+                        assertEquals(204, logout.statusCode());
+                        assertSecureResponse(logout);
+
+                        HttpClient replay = HttpClient.newBuilder().sslContext(clientTls).build();
+                        HttpResponse<String> replayResponse = sendWithCookie(replay, base, authenticatedId);
+                        assertEquals(401, replayResponse.statusCode(), "logout must invalidate server session");
+                        assertEquals("UNAUTHENTICATED", jsonField(replayResponse.body(), "code"));
+                        assertSecureResponse(replayResponse);
+                        assertClearedCookie(logout);
+                        HttpResponse<String> afterLogoutCsrf = send(client, base, "GET", "/api/csrf", null, null);
+                        assertNotEquals(logoutToken, jsonField(afterLogoutCsrf.body(), "token"),
+                                "the next anonymous session obtains fresh CSRF state after logout");
+                    }
+
+                    assertEquals(0, sql.queryForObject("select count(*) from td_security_events where " +
+                            "route_template not in ('/api/session/login','/api/session/logout','/api/projects/{projectId}') " +
+                            "or event_code not in ('LOGIN_DENIED','LOGIN_INVALID_REQUEST','CSRF_INVALID','UNAUTHENTICATED','PROJECT_DENIED','PROJECT_INVALID_ID')", Integer.class));
+                    assertEquals(0, sql.queryForObject("select count(*) from td_security_events where " +
+                            "actor_id is not null and actor_id not in (?,?,?)", Integer.class, actors.get(0), actors.get(1), actors.get(2)));
+                    assertEquals(0, sql.queryForObject("select count(*) from td_security_events where " +
+                            "concat_ws('|',event_code,route_template,actor_id::text,project_id::text) like ?", Integer.class,
+                            "%" + PRIVACY_CANARY + "%"));
+                    assertEquals(actors.get(i), sql.queryForObject("select actor_id from td_security_events where event_code='PROJECT_DENIED' and project_id=? order by id desc limit 1", UUID.class, projectB));
+                    assertEquals(List.of("actor_id", "event_code", "id", "occurred_at", "outcome_status", "project_id", "request_id", "route_template"),
+                            sql.queryForList("select column_name from information_schema.columns where table_schema=? and table_name='td_security_events' order by column_name", String.class,
+                                    db.schema()));
+                }
+
+                List<HttpResponse<String>> failedLogins = new ArrayList<>();
+                List<String> failureLogins = List.of(PRIVACY_CANARY + "@example.test", "not-an-email",
+                        "disabled@example.test", "https-reporter@example.test");
+                for (String login : failureLogins) {
+                    CookieManager failedCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+                    HttpClient failedClient = HttpClient.newBuilder().cookieHandler(failedCookies).sslContext(clientTls).build();
+                    String csrfToken = jsonField(send(failedClient, base, "GET", "/api/csrf", null, null).body(), "token");
+                    String rejectedPassword = (login.equals(PRIVACY_CANARY + "@example.test")
+                            || login.equals("https-reporter@example.test")) ? PRIVACY_CANARY : PASSWORD;
+                    String body = "{\"login\":\"" + login + "\",\"password\":\"" + rejectedPassword + "\"}";
+                    HttpResponse<String> failure = send(failedClient, base, "POST", "/api/session/login", body, csrfToken);
+                    assertFalse(failure.body().contains(PRIVACY_CANARY));
+                    assertClearedCookie(failure);
+                    assertEquals(0, sql.queryForObject("select count(*) from td_security_events where concat_ws('|',event_code,route_template,actor_id::text,project_id::text) like ?", Integer.class,
+                            "%" + csrfToken + "%"), "CSRF values are not persisted in security events");
+                    failedLogins.add(failure);
+                }
+                assertEquals(401, failedLogins.get(0).statusCode());
+                assertEquals(failedLogins.get(0).body(), failedLogins.get(1).body(), "format-invalid login matches unknown-user failure");
+                assertEquals(failedLogins.get(0).body(), failedLogins.get(2).body(), "disabled-user login matches unknown-user failure");
+                assertEquals(failedLogins.get(0).body(), failedLogins.get(3).body(), "wrong-password login matches unknown-user failure");
+                assertEquals("INVALID_CREDENTIALS", jsonField(failedLogins.get(0).body(), "code"));
+                assertEquals(0, sql.queryForObject("select count(*) from td_security_events where concat_ws('|',event_code,route_template,actor_id::text,project_id::text) like ?", Integer.class,
+                        "%" + PRIVACY_CANARY + "%"), "login IDs, passwords, paths and query text are not persisted in events");
+                assertEquals(0, sql.queryForObject("select count(*) from td_security_events where concat_ws('|',event_code,route_template,actor_id::text,project_id::text) like ?", Integer.class,
+                        "%" + PRIVACY_CANARY + "%"));
+
+                CookieManager forgedCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+                HttpClient forgedClient = HttpClient.newBuilder().cookieHandler(forgedCookies).sslContext(clientTls).build();
+                String forgedCsrf = jsonField(send(forgedClient, base, "GET", "/api/csrf", null, null).body(), "token");
+                HttpResponse<String> forgedLogin = send(forgedClient, base, "POST", "/api/session/login",
+                        "{\"login\":\"https-reporter@example.test\",\"password\":\"" + PASSWORD + "\",\"userId\":\"" + actors.get(0) + "\",\"role\":\"REPORTER\"}", forgedCsrf);
+                assertEquals(400, forgedLogin.statusCode(), "identity/role request fields are rejected");
+                assertEquals("INVALID_REQUEST", jsonField(forgedLogin.body(), "code"));
+                assertEquals(401, send(forgedClient, base, "GET", "/api/session", null, null).statusCode(),
+                        "forged login claims do not create an authenticated session");
+            }
+        } finally {
+            try (var paths = Files.walk(temp)) {
+                paths.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
+                    try { Files.deleteIfExists(path); } catch (java.io.IOException ignored) { }
+                });
+            }
+        }
+    }
+
+    private static HttpResponse<String> send(HttpClient client, URI base, String method, String path,
+                                              String body, String csrf) throws Exception {
+        HttpRequest.Builder request = HttpRequest.newBuilder(base.resolve(path)).timeout(Duration.ofSeconds(10));
+        if (csrf != null) request.header("X-CSRF-TOKEN", csrf);
+        if (body == null) request.method(method, HttpRequest.BodyPublishers.noBody());
+        else request.header("Content-Type", "application/json").method(method, HttpRequest.BodyPublishers.ofString(body));
+        return client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private static String jsonField(String json, String key) {
+        var matcher = java.util.regex.Pattern.compile("\\\"" + java.util.regex.Pattern.quote(key) +
+                "\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"").matcher(json);
+        assertTrue(matcher.find(), "missing JSON field " + key + " in " + json);
+        return matcher.group(1);
+    }
+
+    private static long sessionAttributeLong(JdbcTemplate sql, String primaryId, String name) throws Exception {
+        byte[] bytes = sql.queryForObject("select attribute_bytes from spring_session_attributes where session_primary_id=? and attribute_name=?",
+                byte[].class, primaryId, name);
+        try (ObjectInputStream input = new ObjectInputStream(new ByteArrayInputStream(bytes))) {
+            return (Long) input.readObject();
+        }
+    }
+
+    private static HttpResponse<String> sendWithCookie(HttpClient client, URI base, String sessionId) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(base.resolve("/api/session"))
+                .header("Cookie", "TDSESSION=" + sessionId).GET().build();
+        return client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private static void assertSecureResponse(HttpResponse<String> response) {
+        Map<String, List<String>> headers = response.headers().map();
+        assertTrue(headers.containsKey("strict-transport-security"));
+        assertEquals("nosniff", response.headers().firstValue("x-content-type-options").orElse("").toLowerCase());
+        assertEquals("no-referrer", response.headers().firstValue("referrer-policy").orElse(""));
+        assertTrue(response.headers().firstValue("content-security-policy").orElse("").contains("default-src 'self'"));
+        assertTrue(response.headers().firstValue("cache-control").orElse("").contains("no-store"));
+        for (String setCookie : headers.getOrDefault("set-cookie", List.of())) {
+            if (setCookie.startsWith("TDSESSION=")) {
+                assertTrue(setCookie.contains("HttpOnly"));
+                assertTrue(setCookie.contains("Secure"));
+                assertTrue(setCookie.toLowerCase().contains("samesite=lax"));
+                assertTrue(setCookie.contains("Path=/"));
+                assertFalse(setCookie.toLowerCase().contains("domain="));
+            }
+        }
+    }
+
+    private static void assertNonPersistentCookie(HttpResponse<String> response) {
+        List<String> cookies = response.headers().allValues("set-cookie").stream()
+                .filter(value -> value.startsWith("TDSESSION=")).toList();
+        assertFalse(cookies.isEmpty(), "authentication must set the session cookie");
+        for (String cookie : cookies) {
+            assertFalse(cookie.toLowerCase().contains("max-age="), "session cookie must not persist in the browser");
+            assertFalse(cookie.toLowerCase().contains("expires="), "session cookie must not persist in the browser");
+        }
+    }
+
+    private static void assertClearedCookie(HttpResponse<String> response) {
+        List<String> cookies = response.headers().allValues("set-cookie").stream()
+                .filter(value -> value.startsWith("TDSESSION=")).toList();
+        assertFalse(cookies.isEmpty(), "logout expires the session cookie");
+        assertTrue(cookies.stream().anyMatch(value -> value.toLowerCase().contains("max-age=0")));
+        assertTrue(cookies.stream().allMatch(value -> value.contains("HttpOnly") && value.contains("Secure")
+                && value.toLowerCase().contains("samesite=lax") && value.contains("Path=/")));
+    }
+
+    private static void createKeyStore(Path path, String password) throws Exception {
+        String keytool = Path.of(System.getProperty("java.home"), "bin", "keytool").toString();
+        Process process = new ProcessBuilder(keytool, "-genkeypair", "-alias", "tracedesk-test", "-keyalg", "RSA",
+                "-keysize", "2048", "-validity", "2", "-storetype", "PKCS12", "-keystore", path.toString(),
+                "-storepass", password, "-keypass", password, "-dname", "CN=localhost", "-ext", "SAN=ip:127.0.0.1")
+                .redirectErrorStream(true).start();
+        byte[] output = process.getInputStream().readAllBytes();
+        if (process.waitFor() != 0) throw new IllegalStateException("Could not create ephemeral test TLS identity: " + new String(output));
+    }
+
+    private static SSLContext trustKeyStore(Path path, String password) throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        try (var input = Files.newInputStream(path)) { keyStore.load(input, password.toCharArray()); }
+        TrustManagerFactory managers = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        managers.init(keyStore);
+        SSLContext context = SSLContext.getInstance("TLS");
+        context.init(null, managers.getTrustManagers(), null);
+        return context;
+    }
+}
