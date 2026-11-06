@@ -1,0 +1,161 @@
+{
+  "captureDate": "2026-11-07",
+  "captures": [
+    {
+      "file": "images/qa-queue-dark.png",
+      "screen": "QA queue",
+      "sidebar": "expanded",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "theme": "dark"
+    },
+    {
+      "file": "images/qa-summary-dark.png",
+      "screen": "QA Summary",
+      "sidebar": "expanded",
+      "bug": "TD-023",
+      "chat": false,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "theme": "dark"
+    },
+    {
+      "file": "images/qa-summary-collapsed-dark.png",
+      "screen": "QA Summary",
+      "sidebar": "collapsed",
+      "bug": "TD-023",
+      "chat": false,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "theme": "dark"
+    },
+    {
+      "file": "images/qa-ai-review-dark.png",
+      "screen": "QA Summary with AI",
+      "sidebar": "collapsed",
+      "bug": "TD-023",
+      "chat": true,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "theme": "dark"
+    },
+    {
+      "file": "images/qa-verification-dark.png",
+      "screen": "QA Verification board",
+      "sidebar": "collapsed",
+      "bug": "TD-023",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "theme": "dark"
+    },
+    {
+      "file": "images/qa-templates-dark.png",
+      "screen": "QA template library",
+      "sidebar": "collapsed",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "theme": "dark"
+    },
+    {
+      "file": "images/qa-template-editor-dark.png",
+      "screen": "QA template editor",
+      "sidebar": "collapsed",
+      "expandedCase": 0,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "theme": "dark"
+    },
+    {
+      "file": "images/appearance-light.png",
+      "screen": "Appearance settings",
+      "sidebar": "collapsed",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "theme": "light"
+    },
+    {
+      "file": "images/qa-summary-light.png",
+      "screen": "QA Summary",
+      "sidebar": "collapsed",
+      "bug": "TD-023",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "theme": "light"
+    },
+    {
+      "file": "images/qa-summary-mobile-dark.png",
+      "screen": "QA Summary",
+      "sidebar": "collapsed",
+      "bug": "TD-023",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "deviceScaleFactor": 1,
+      "theme": "dark"
+    }
+  ],
+  "darkSDKPalette": {
+    "--color-text": "rgb(255, 255, 255)",
+    "--color-text-secondary": "rgb(175, 175, 175)",
+    "--color-text-tertiary": "rgb(143, 143, 143)",
+    "--color-text-inverse": "rgb(13, 13, 13)",
+    "--color-text-info-soft": "rgb(51, 156, 255)",
+    "--color-text-warning-soft": "rgb(251, 106, 34)",
+    "--color-text-danger-soft": "rgb(250, 66, 62)",
+    "--color-text-success-soft": "rgb(4, 184, 76)"
+  },
+  "lightSDKPalette": {
+    "--color-text": "rgb(13, 13, 13)",
+    "--color-text-secondary": "rgb(93, 93, 93)",
+    "--color-text-tertiary": "rgb(143, 143, 143)",
+    "--color-text-inverse": "rgb(255, 255, 255)",
+    "--color-text-info-soft": "rgb(0, 79, 153)",
+    "--color-text-warning-soft": "rgb(146, 59, 15)",
+    "--color-text-danger-soft": "rgb(186, 38, 35)",
+    "--color-text-success-soft": "rgb(0, 134, 53)"
+  },
+  "measurements": {
+    "toolbarHeight": 46,
+    "pillHeight": 32,
+    "pillInset": 16,
+    "statusGap": 15,
+    "summaryWidth": 1101,
+    "summaryPadding": "8px 24px 24px",
+    "columnGap": "40px",
+    "mapWidth": 300
+  },
+  "browser": "156.0.8078.81",
+  "os": "Windows",
+  "font": "Segoe UI (system font stack)",
+  "reducedMotion": "reduce",
+  "fixture": "Built-in synthetic TD-023 and default templates; no field edits",
+  "sourceIdentity": "source/identity.json"
+}
