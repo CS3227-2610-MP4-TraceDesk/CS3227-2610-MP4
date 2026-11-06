@@ -109,3 +109,51 @@ production environment, release gate, or human approval is claimed.
 
 Deferred Reporter milestone: development-context comparison remains due before
 final MP4 acceptance. No comparative efficiency or quality claim is made here.
+
+## Follow-up verification on a separate branch
+
+Date: 2026-11-06. Branch: `codex/auth-verification`, based on pushed commit
+`ac5bab3d72ce6a144525495537febc32dcfe208a`. This is an uncommitted local
+verification follow-up; `main` was not changed. Application acceptance remains
+partial. The earlier candidate and its fingerprint above refer to the earlier
+implementation run, not this branch.
+
+- Real HTTPS test now uses a temporary test-only PKCS12 key and a fresh owned
+  PostgreSQL schema. It verifies HTTPS cookie attributes, HSTS and security
+  headers, CSRF token rotation and stale-token denial, session ID rotation and
+  replay denial, all three role memberships, cross-project denial, ignored forged
+  claims, disabled memberships/users, logout expiry/replay, anonymous failure
+  equivalence, and canary exclusion from responses and audit data.
+- Session idle duration is set to 1,800 seconds. The integration test checks the
+  JDBC session timeout and idle renewal without moving the eight-hour absolute
+  authentication timestamp, then sets the stored idle timestamps to expired
+  values and confirms HTTP rejection without waiting 30 minutes. The exact
+  millisecond 30-minute boundary is not exercised. The absolute eight-hour
+  boundary is tested deterministically with an injected clock: one millisecond
+  before remains valid; exactly eight hours is rejected and invalidates the
+  session, so no eight-hour wall-clock wait is needed.
+- Membership, user, audit-event and existing-session persistence outages return
+  generic HTTP 503 responses with security headers and no sensitive details.
+  A new-session creation outage through `/api/csrf` was experimentally found to
+  return HTTP 500 within Spring Session's handling; it was excluded from the
+  passing assertions and remains an explicit follow-up. Do not interpret the
+  outage verification as covering session creation failures.
+- Normalized duplicate login and foreign-key constraints are verified in the
+  persistence integration test.
+- Focused HTTPS run passed. Full forced rerun passed:
+  `:backend:auth-app:test :backend:db-test-support:test --rerun-tasks --no-daemon`;
+  JUnit XML: 20 tests, 0 failures, 0 errors, 0 skipped (auth app 16; DB support 4).
+  Runtime: OpenJDK 25.0.4.1, Gradle 9.6.1, isolated PostgreSQL test service at
+  local port 54330. Synthetic test profile only; password omitted. No `.env*`,
+  live application database, production identity or production data accessed.
+  This is local verification, not CI or deployment verification.
+- `git diff --check` passed on the implementation diff before evidence updates.
+  Test source bytes measured: HTTPS integration test 29,487 UTF-8 bytes and
+  persistence failure filter 2,387 UTF-8 bytes. These are file sizes, not model
+  context/token measurements.
+- Independent GPT-6 Luna verification auditor reviewed the updated change set
+  read-only: 9 files, 88,032 UTF-8 bytes, three calls, zero retries; elapsed time
+  and tokens unavailable. It found no security defect or scope expansion and
+  confirmed safe outage-header assertions. Its remaining test limitation is the
+  exact 30-minute idle boundary. The Spring Session new-session outage finding
+  above came from coordinator execution and is separate from reviewer findings.

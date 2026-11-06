@@ -5,6 +5,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.tracedesk.auth.application.ProjectAuthorization;
+import com.tracedesk.auth.domain.LoginPolicy;
 
 import java.util.List;
 import java.util.UUID;
@@ -32,6 +33,11 @@ class AuthPersistenceIntegrationTest {
             sql.update("insert into td_projects(id,name) values(?,?)", projectA, "Synthetic Project A");
             sql.update("insert into td_projects(id,name) values(?,?)", projectB, "Synthetic Project B");
 
+            String normalizedDuplicate = LoginPolicy.normalize("ＲＥＰＯＲＴＥＲ@EXAMPLE.TEST");
+            assertEquals("reporter@example.test", normalizedDuplicate);
+            assertThrows(org.springframework.dao.DataAccessException.class,
+                    () -> user(sql, normalizedDuplicate), "normalized login identifiers are unique");
+
             UUID boundaryProject = UUID.randomUUID();
             sql.update("insert into td_projects(id,name) values(?,?)", boundaryProject, "🙂".repeat(120));
             assertThrows(org.springframework.dao.DataAccessException.class,
@@ -49,6 +55,10 @@ class AuthPersistenceIntegrationTest {
                     () -> membership(sql, projectA, reporter, "REPORTER", "ACTIVE"), "duplicate memberships are rejected");
             assertThrows(org.springframework.dao.DataAccessException.class,
                     () -> membership(sql, projectB, reporter, "ADMIN", "ACTIVE"), "unrecognized roles are rejected");
+            assertThrows(org.springframework.dao.DataAccessException.class,
+                    () -> membership(sql, UUID.randomUUID(), reporter, "REPORTER", "ACTIVE"), "project foreign key is enforced");
+            assertThrows(org.springframework.dao.DataAccessException.class,
+                    () -> membership(sql, projectA, UUID.randomUUID(), "REPORTER", "ACTIVE"), "user foreign key is enforced");
 
             sql.update("update td_project_memberships set state='DISABLED' where project_id=? and user_id=?", projectA, developer);
             assertTrue(authorization.readableProject(developer, projectA).isEmpty());

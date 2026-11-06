@@ -11,7 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-import java.time.Instant;
+import java.time.Clock;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,7 +22,8 @@ public class AuthController {
     private final ProjectAuthorization authorization;
     private final PasswordEncoder encoder;
     private final String dummyHash;
-    public AuthController(AuthStore store, ProjectAuthorization authorization, PasswordEncoder encoder) { this.store=store; this.authorization=authorization; this.encoder=encoder; this.dummyHash=encoder.encode("dummy-password-never-valid"); }
+    private final Clock clock;
+    public AuthController(AuthStore store, ProjectAuthorization authorization, PasswordEncoder encoder, Clock clock) { this.store=store; this.authorization=authorization; this.encoder=encoder; this.clock=clock; this.dummyHash=encoder.encode("dummy-password-never-valid"); }
     public static final class LoginRequest {
         public String login;
         public String password;
@@ -64,7 +65,7 @@ public class AuthController {
         boolean matches=encoder.matches(body.password(),hash);
         if(user.isEmpty()||!user.get().enabled()||!matches){invalidateAndExpire(req,res);denied("LOGIN_DENIED","/api/session/login",401,null,null);return error(HttpStatus.UNAUTHORIZED,"INVALID_CREDENTIALS");}
         HttpSession session=req.getSession(true); req.changeSessionId(); session=req.getSession(false);
-        session.setAttribute(USER,user.get().id()); session.setAttribute(org.springframework.session.FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME,user.get().id().toString()); session.setAttribute(AUTH_AT,Instant.now().toEpochMilli()); session.setAttribute(CSRF,UUID.randomUUID().toString()+UUID.randomUUID());
+        session.setAttribute(USER,user.get().id()); session.setAttribute(org.springframework.session.FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME,user.get().id().toString()); session.setAttribute(AUTH_AT,clock.millis()); session.setAttribute(CSRF,UUID.randomUUID().toString()+UUID.randomUUID());
         return ResponseEntity.ok(new LoginReply(user.get().id()));
     }
     private void invalidateAndExpire(HttpServletRequest req,HttpServletResponse res) {
@@ -79,7 +80,7 @@ public class AuthController {
     private UUID actor(HttpServletRequest req) {
         HttpSession s=req.getSession(false); if(s==null)return null;
         Object id=s.getAttribute(USER), at=s.getAttribute(AUTH_AT); if(!(id instanceof UUID actor)||!(at instanceof Long authAt))return null;
-        long now=Instant.now().toEpochMilli(); if(now-authAt>8L*60*60*1000){s.invalidate();return null;} return actor;
+        long now=clock.millis(); if(now-authAt>=8L*60*60*1000){s.invalidate();return null;} return actor;
     }
     @PostMapping("/api/session/logout") public ResponseEntity<?> logout(HttpServletRequest req,HttpServletResponse res) {
         UUID actor=actor(req); if(actor==null)return error(HttpStatus.UNAUTHORIZED,"UNAUTHENTICATED");

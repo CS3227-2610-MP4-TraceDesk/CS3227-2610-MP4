@@ -6,14 +6,13 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.context.SecurityContextPersistenceFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
-import org.springframework.context.annotation.Bean;
 
 @Configuration
 public class SecurityConfig {
     @Bean PasswordEncoder passwordEncoder() { return new Argon2PasswordEncoder(16, 32, 1, 19456, 2); }
     @Bean FilterRegistrationBean<ResponsePolicyFilter> responsePolicyFilter() { FilterRegistrationBean<ResponsePolicyFilter> bean=new FilterRegistrationBean<>(); bean.setFilter(new ResponsePolicyFilter()); bean.setOrder(-200); return bean; }
+    @Bean FilterRegistrationBean<PersistenceFailureFilter> persistenceFailureFilter() { FilterRegistrationBean<PersistenceFailureFilter> bean=new FilterRegistrationBean<>(); bean.setFilter(new PersistenceFailureFilter()); bean.setOrder(Integer.MIN_VALUE); return bean; }
     @Bean FilterRegistrationBean<LoginBodyLimitFilter> loginBodyLimitFilter(com.tracedesk.auth.persistence.AuthStore store) { FilterRegistrationBean<LoginBodyLimitFilter> bean=new FilterRegistrationBean<>(); bean.setFilter(new LoginBodyLimitFilter(store)); bean.setOrder(-100); return bean; }
     @Bean SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable()).authorizeHttpRequests(auth -> auth.anyRequest().permitAll())

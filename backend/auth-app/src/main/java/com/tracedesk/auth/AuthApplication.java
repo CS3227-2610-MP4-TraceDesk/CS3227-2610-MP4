@@ -6,10 +6,12 @@ import org.springframework.session.jdbc.config.annotation.web.http.EnableJdbcHtt
 import org.springframework.context.annotation.Bean;
 import com.tracedesk.auth.application.ProjectAccessRepository;
 import com.tracedesk.auth.application.ProjectAuthorization;
+import java.time.Clock;
 
 @SpringBootApplication
 @EnableJdbcHttpSession(maxInactiveIntervalInSeconds = 1800)
 public class AuthApplication {
+    @Bean Clock clock() { return Clock.systemUTC(); }
     @Bean ProjectAuthorization projectAuthorization(ProjectAccessRepository repository) {
         return new ProjectAuthorization(repository);
     }
