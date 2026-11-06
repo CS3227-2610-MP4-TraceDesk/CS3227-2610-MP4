@@ -13,6 +13,15 @@ project/object authorization, AI gateway bypass, provider/data bounds, stale res
 handling, transaction/accounting races, test isolation and secret-safe diagnostics.
 Look for old incident imports, copied schemas and misleading pass/approval claims.
 
+For UI changes, also read the applicable portions of the
+[design system](../../../docs/ui-design-system.md),
+[shared UI criteria](../../../workflow/specs/shared-ui.md), and the matching
+[reference state](../../../workflow/ui/reference/README.md). Review shared component
+reuse, semantic SDK variants, measured geometry, per-bug state, keyboard/focus,
+contrast, safe rendering and narrow-window action visibility. Distinguish an
+isolated screenshot result from actual native-window viewport evidence. Require
+the changed criteria's verification, not a generic claim of visual similarity.
+
 Return findings with severity, source location, concrete impact and the missing
 criterion/test. Explain what was reviewed and what remains unverified. Report no
 findings if none are supported. Do not invent an independent or human approval.

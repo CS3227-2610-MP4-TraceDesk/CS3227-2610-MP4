@@ -16,6 +16,10 @@ gateway. See [architecture](docs/architecture.md) for module boundaries.
 - Use the local `tracedesk-spec-development` skill for behavioral implementation;
   use `tracedesk-ai-integration` for provider/gateway changes and
   `tracedesk-review` for review requests. Read only relevant references.
+- For frontend identity, components and layouts, use `tracedesk-ui` and the
+  directory instructions in [frontend/AGENTS.md](frontend/AGENTS.md). The
+  [design system](docs/ui-design-system.md) and [captured UI reference](workflow/ui/reference/README.md)
+  provide portable values and Apple-derived interaction rules for all teammates.
 - Use [harness coordination](harness/README.md) when a task calls for specialized
   agents. This file does not itself require spawning agents for every edit.
 - Personal workflow preferences are scoped by contributor. For this user's work,
