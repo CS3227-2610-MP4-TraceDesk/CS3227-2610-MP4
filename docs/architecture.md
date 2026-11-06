@@ -1,6 +1,8 @@
 # Architecture
 
-Status: approved direction, 2026-11-04. Detailed role contracts are developed per slice.
+Status: approved direction. Shared role decisions are recorded in
+[ADR 002](../workflow/decisions/002-shared-role-contracts.md); detailed role
+contracts are developed per slice.
 
 ```text
 React role UI → API/session security → TraceDesk application services

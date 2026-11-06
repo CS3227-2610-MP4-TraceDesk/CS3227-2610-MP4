@@ -9,6 +9,8 @@ gateway. See [architecture](docs/architecture.md) for module boundaries.
 
 - Read [product scope](docs/product.md) and the applicable specification indexed
   in [acceptance criteria](workflow/acceptance-criteria.md) before changing behavior.
+- Use the [shared role contracts](workflow/decisions/002-shared-role-contracts.md)
+  for authentication, persistence, lifecycle, and AI interface decisions.
 - For AI/security work also read [AI policy](docs/ai-policy.md) and
   [security and deployment](docs/security.md).
 - Use the local `tracedesk-spec-development` skill for behavioral implementation;

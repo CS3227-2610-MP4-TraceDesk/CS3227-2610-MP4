@@ -11,9 +11,11 @@ Baseline: earlier TraceDesk proposal, confirmed by the user on 2026-11-04.
 | QA reviewer | Maintain verification checklists, verify proposed resolutions, close or reopen bugs | Draft regression tests and assess gaps in resolution evidence |
 
 Shared flow: report → investigate → propose resolution → verify → close or reopen.
-Concrete status names, transition preconditions, editing rules, and assignment
-mechanics belong in the first domain specification before implementation. Do not
-infer MP3's category-based access or reporter-controlled closure rules.
+The shared statuses and role boundaries are recorded in
+[ADR 002](../workflow/decisions/002-shared-role-contracts.md). Transition
+preconditions, editing rules, and assignment mechanics belong in the first domain
+specification before implementation. Do not infer MP3's category-based access or
+reporter-controlled closure rules.
 
 ## MVP boundaries
 

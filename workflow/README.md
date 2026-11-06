@@ -1,6 +1,7 @@
 # TraceDesk engineering workflow
 
-Start from [the approved decision](decisions/001-foundation.md), then locate the
+Start from [the foundation decision](decisions/001-foundation.md) and
+[shared role contracts](decisions/002-shared-role-contracts.md), then locate the
 applicable contract through [the acceptance index](acceptance-criteria.md).
 Specifications own criteria; the index only links to them.
 
