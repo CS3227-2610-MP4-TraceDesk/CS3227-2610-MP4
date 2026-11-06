@@ -11,6 +11,13 @@ invariants and course requirements still apply to everyone.
 
 ## Apply to this user's implementation work
 
+For this user's future specialized development agents (specifier, implementer and
+independent reviewer), select `gpt-6-luna` explicitly when spawning them. Pass
+the bounded task context and applicable references to each agent. If that model
+is unavailable, report the limitation instead of silently substituting another
+model. This is a contributor preference for development agents; it does not
+select TraceDesk's application AI provider or rewrite historical run records.
+
 Follow the [completion gates](agentic-se.md): specifications before behavior changes,
 actual specialized coordination and independent review for meaningful changes,
 security tests, measured experiments and honest evidence. Use personal templates

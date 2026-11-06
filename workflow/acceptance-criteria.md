@@ -7,6 +7,7 @@
 | [Local Docker environment](specs/docker-local.md) | TD-DKR-01 through TD-DKR-06 | See owning specification and evidence |
 | [Reporter measurement tooling](reporter/specs/agentic-measurements.md) | TD-MET-01 through TD-MET-09 | See owning specification and evidence |
 | [GitHub Actions coverage](reporter/specs/github-actions-coverage.md) | TD-CI-01 through TD-CI-05 | See owning specification and Reporter evidence |
+| [Authentication and project membership](specs/auth-membership.md) | TD-AUTH-01 through TD-AUTH-12 | Bounded implementation present; partial verification and deferred criteria are recorded in Reporter evidence |
 
 Add Reporter, Developer, QA and shared gateway specifications as their implementation
 begins. Do not declare unimplemented features accepted because their design is approved.

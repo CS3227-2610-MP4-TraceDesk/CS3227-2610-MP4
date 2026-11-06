@@ -1,3 +1,4 @@
 rootProject.name = 'tracedesk'
 include 'backend:ai-transport'
 include 'backend:db-test-support'
+include 'backend:auth-app'
