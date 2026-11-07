@@ -1,5 +1,10 @@
 # Authentication and membership slice evidence
 
+Current integrated candidate: see [AUTH-VERIFY issue #4 evidence](auth-verification.md)
+for the pinned source/test identity, complete case matrix, test outcomes and
+independent review. The sections below retain their historical candidate scope
+and status; they are not the current acceptance snapshot.
+
 Date: 2026-11-06. Status: focused implementation verified and independently
 reviewed; feature acceptance remains partial for the contract gaps below.
 

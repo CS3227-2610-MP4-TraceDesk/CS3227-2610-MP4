@@ -104,8 +104,8 @@ Independently inspect the integrated diff and test assertions from AUTH-DATA/AUT
 
 ### Proposed acceptance criteria and verification
 
-- [ ] **TD-AUTH-11:** A reviewer who did not author the implementation inspects the actual diff, canonical spec and test results. The evidence matrix links TD-AUTH-01–10 to executable checks, exact commands, candidate identity and outcomes. It covers all roles/two projects, forged identity, session rotation/logout/expiry, CSRF, stale membership/role changes, synchronized races, safe errors/logs, missing persistence configuration and no unauthorized reads/writes/provider calls. Findings carry severity/location/impact, return through a recorded handoff and are retested after correction. Required failures/skips/unavailable checks cannot be reported as passing.
-- [ ] **TD-AUTH-12:** Record real role intervals, selected context references and UTF-8 byte counts, observable tool calls/retries, test counts and review corrections under `workflow/reporter/`. Keep unknown tokens/costs unknown and distinguish selected-file bytes from inherited/unobservable total context. Link sanitized raw observations, a pinned candidate/working-tree manifest and reflection. State sample size and limitations; do not claim comparative savings from a single run.
+- [x] **TD-AUTH-11:** A reviewer who did not author the implementation inspects the actual diff, canonical spec and test results. The evidence matrix links TD-AUTH-01–10 to executable checks, exact commands, candidate identity and outcomes. It covers all roles/two projects, forged identity, session rotation/logout/expiry, CSRF, stale membership/role changes, synchronized races, safe errors/logs, missing persistence configuration and no unauthorized reads/writes/provider calls. Findings carry severity/location/impact, return through a recorded handoff and are retested after correction. Required failures/skips/unavailable checks cannot be reported as passing.
+- [x] **TD-AUTH-12:** Record real role intervals, selected context references and UTF-8 byte counts, observable tool calls/retries, test counts and review corrections under `workflow/reporter/`. Keep unknown tokens/costs unknown and distinguish selected-file bytes from inherited/unobservable total context. Link sanitized raw observations, a pinned candidate/working-tree manifest and reflection. State sample size and limitations; do not claim comparative savings from a single run.
 
 ### Measurement and security evidence plan
 
@@ -116,3 +116,5 @@ Map applicable threat rows explicitly. Prompt injection, AI budgets/context deli
 ### Dependencies and completion gate
 
 Depends on AUTH-PLAN, AUTH-DATA and AUTH-API; plan review/tests early, but final verification uses their integrated candidate. Reviewer owns independent findings; coordinator integrates evidence and records actual handoffs and resolved corrections. Complete only when applicable tests pass, material findings are resolved, evidence/measurements validate and remaining milestone gaps are explicit. Human student ownership stays unknown until supplied.
+
+Verified for the pinned issue #4 candidate on 2026-11-07: see [AUTH-VERIFY evidence](../evidence/auth-verification.md), including independent review, measured observations, source manifest and explicit milestone limitations. This does not close the GitHub issue or claim deployment acceptance.

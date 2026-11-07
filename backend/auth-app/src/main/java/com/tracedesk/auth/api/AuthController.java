@@ -25,13 +25,20 @@ public class AuthController {
     private final Clock clock;
     public AuthController(AuthStore store, ProjectAuthorization authorization, PasswordEncoder encoder, Clock clock) { this.store=store; this.authorization=authorization; this.encoder=encoder; this.clock=clock; this.dummyHash=encoder.encode("dummy-password-never-valid"); }
     public static final class LoginRequest {
-        public String login;
-        public String password;
-        private boolean unknownField;
-        @com.fasterxml.jackson.annotation.JsonAnySetter public void unknown(String name, Object value) { unknownField = true; }
+        private String login;
+        private String password;
+        private boolean invalidField;
+        // Object values preserve JSON types instead of coercing numbers/booleans to credentials.
+        @JsonProperty("login") public void readLogin(Object value) {
+            if (value instanceof String text) login = text; else invalidField = true;
+        }
+        @JsonProperty("password") public void readPassword(Object value) {
+            if (value instanceof String text) password = text; else invalidField = true;
+        }
+        @com.fasterxml.jackson.annotation.JsonAnySetter public void unknown(String name, Object value) { invalidField = true; }
         String login() { return login; }
         String password() { return password; }
-        boolean hasUnknownField() { return unknownField; }
+        boolean hasInvalidField() { return invalidField; }
     }
     record LoginReply(UUID userId) { }
     record SessionReply(UUID userId) { }
@@ -55,7 +62,7 @@ public class AuthController {
         HttpSession s=req.getSession(true); String token=(String)s.getAttribute(CSRF); if(token==null){token=UUID.randomUUID()+UUID.randomUUID().toString();s.setAttribute(CSRF,token);} return new CsrfReply(token);
     }
     @PostMapping("/api/session/login") public ResponseEntity<?> login(@RequestBody LoginRequest body,HttpServletRequest req,HttpServletResponse res) {
-        if(body==null||body.hasUnknownField()||body.login()==null||!LoginPolicy.validPassword(body.password())) {
+        if(body==null||body.hasInvalidField()||body.login()==null||!LoginPolicy.validPassword(body.password())) {
             denied("LOGIN_INVALID_REQUEST","/api/session/login",400,null,null); return error(HttpStatus.BAD_REQUEST,"INVALID_REQUEST");
         }
         if(!csrf(req)){denied("CSRF_INVALID","/api/session/login",403,null,null);return error(HttpStatus.FORBIDDEN,"CSRF_INVALID");}

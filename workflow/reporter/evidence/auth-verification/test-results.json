@@ -1,0 +1,256 @@
+{
+  "candidate_id": "aabf8005f7c9-plus-1cbed719f37b55b9",
+  "fingerprint_sha256": "1cbed719f37b55b9cb009f4106202dd4fd08cd5fb1d207f23fde8a61cdf58283",
+  "command": "./gradlew :backend:auth-app:test :backend:db-test-support:test --rerun-tasks --no-daemon",
+  "coordinator_observed_window_utc": {
+    "start": "2026-11-07T06:42:13Z",
+    "end": "2026-11-07T06:43:10Z",
+    "includes": "tool approval, execution and output collection; not pure process time"
+  },
+  "gradle_reported_build_seconds": 18,
+  "environment": {
+    "java": "25.0.4.1",
+    "gradle": "9.6.1",
+    "database_service": "ephemeral Compose test-db; PostgreSQL18.6; random owned schemas",
+    "database_settings": "documented synthetic test configuration; values omitted"
+  },
+  "process_exit_code": 0,
+  "totals": {
+    "tests": 24,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.api.AuthControllerTest",
+      "timestamp_utc": "2026-11-07T06:42:38.889000Z",
+      "duration_seconds": 1.949,
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "projectReadUsesSessionActorAndHidesCrossProjectMembership()",
+          "duration_seconds": 1.335,
+          "outcome": "passed"
+        },
+        {
+          "name": "absoluteLifetimeExpiresAtEightHourBoundaryWithoutWaiting()",
+          "duration_seconds": 0.054,
+          "outcome": "passed"
+        },
+        {
+          "name": "logoutChecksCsrfBeforeAuthenticationAndExpiry()",
+          "duration_seconds": 0.048,
+          "outcome": "passed"
+        },
+        {
+          "name": "denialEventFailureStillRevokesExistingSession()",
+          "duration_seconds": 0.14,
+          "outcome": "passed"
+        },
+        {
+          "name": "projectDenialFailsClosedWhenSecurityEventStoreIsUnavailable()",
+          "duration_seconds": 0.042,
+          "outcome": "passed"
+        },
+        {
+          "name": "logoutRequiresCsrfAndInvalidatesSessionReplay()",
+          "duration_seconds": 0.04,
+          "outcome": "passed"
+        },
+        {
+          "name": "successfulLoginRotatesSessionAndReplacesCsrfToken()",
+          "duration_seconds": 0.11,
+          "outcome": "passed"
+        },
+        {
+          "name": "oversizedValidJsonIsRejectedBeforeDeserialization()",
+          "duration_seconds": 0.044,
+          "outcome": "passed"
+        },
+        {
+          "name": "csrfRequiredBeforeCredentialsAndBadCredentialShapeIsUniform()",
+          "duration_seconds": 0.083,
+          "outcome": "passed"
+        },
+        {
+          "name": "unknownFieldsAreRequestErrors()",
+          "duration_seconds": 0.039,
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.api.AuthHttpsIntegrationTest",
+      "timestamp_utc": "2026-11-07T06:42:40.840000Z",
+      "duration_seconds": 4.776,
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "realHttpsSessionCsrfAndRoleMembershipBoundaries(CapturedOutput)",
+          "duration_seconds": 4.773,
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.api.AuthRevocationRaceIntegrationTest",
+      "timestamp_utc": "2026-11-07T06:42:45.616000Z",
+      "duration_seconds": 1.182,
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "authorizedInFlightReadMayFinishButCommittedRevocationBlocksReplay()",
+          "duration_seconds": 1.182,
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.application.LoginPolicyTest",
+      "timestamp_utc": "2026-11-07T06:42:46.798000Z",
+      "duration_seconds": 0.002,
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "passwordBoundsCountCodePointsAndBytes()",
+          "duration_seconds": 0.0,
+          "outcome": "passed"
+        },
+        {
+          "name": "normalizesNfkcTrimAndLocaleRootCase()",
+          "duration_seconds": 0.001,
+          "outcome": "passed"
+        },
+        {
+          "name": "rejectsMalformedIdentifiers()",
+          "duration_seconds": 0.0,
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.application.ProjectAuthorizationTest",
+      "timestamp_utc": "2026-11-07T06:42:46.801000Z",
+      "duration_seconds": 0.05,
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "onlyEnabledUserProjectAndActiveMembershipCanRead()",
+          "duration_seconds": 0.05,
+          "outcome": "passed"
+        },
+        {
+          "name": "policyDoesNotDependOnFrameworkTypes()",
+          "duration_seconds": 0.0,
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.persistence.AuthPersistenceIntegrationTest",
+      "timestamp_utc": "2026-11-07T06:42:46.851000Z",
+      "duration_seconds": 0.738,
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "migrationConstraintsMembershipFreshnessSessionRevocationAndEvents()",
+          "duration_seconds": 0.737,
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.security.PersistenceFailureFilterTest",
+      "timestamp_utc": "2026-11-07T06:42:47.589000Z",
+      "duration_seconds": 0.002,
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "unhandledApiFailureDoesNotCopyPartialResponseBody()",
+          "duration_seconds": 0.001,
+          "outcome": "passed"
+        },
+        {
+          "name": "persistenceFailureReplacesBufferedApiBodyWithGenericUnavailableResponse()",
+          "duration_seconds": 0.0,
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "module": "db-test-support",
+      "suite": "com.tracedesk.testing.IsolatedPostgresGuardTest",
+      "timestamp_utc": "2026-11-07T06:42:48.589000Z",
+      "duration_seconds": 0.028,
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "rejectsMissingConfirmationBeforeConnecting()",
+          "duration_seconds": 0.013,
+          "outcome": "passed"
+        },
+        {
+          "name": "rejectsProductionTargetEvenWithDifferentJdbcPrefix()",
+          "duration_seconds": 0.005,
+          "outcome": "passed"
+        },
+        {
+          "name": "rejectsNonTestNamesAndConnectionParameters()",
+          "duration_seconds": 0.001,
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "module": "db-test-support",
+      "suite": "com.tracedesk.testing.IsolatedPostgresIntegrationTest",
+      "timestamp_utc": "2026-11-07T06:42:48.618000Z",
+      "duration_seconds": 0.237,
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "ownsSelectsAndDropsOnlyItsSchema()",
+          "duration_seconds": 0.236,
+          "outcome": "passed"
+        }
+      ]
+    }
+  ],
+  "system_output_retained": false,
+  "source_fingerprint_unchanged_after_tests": true
+}
