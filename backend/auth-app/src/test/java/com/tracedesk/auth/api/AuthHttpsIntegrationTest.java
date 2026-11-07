@@ -237,6 +237,22 @@ class AuthHttpsIntegrationTest {
                         } finally {
                             sql.execute("alter table spring_session_unavailable rename to spring_session");
                         }
+
+                        sql.execute("alter table spring_session rename to spring_session_unavailable");
+                        try {
+                            CookieManager freshCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+                            HttpClient freshClient = HttpClient.newBuilder().cookieHandler(freshCookies).sslContext(clientTls)
+                                    .connectTimeout(Duration.ofSeconds(5)).build();
+                            HttpResponse<String> creationOutage = send(freshClient, base, "GET", "/api/csrf", null, null);
+                            assertEquals(503, creationOutage.statusCode());
+                            assertEquals("SERVICE_UNAVAILABLE", jsonField(creationOutage.body(), "code"));
+                            assertFalse(freshCookies.getCookieStore().getCookies().stream()
+                                    .anyMatch(cookie -> cookie.getName().equals("TDSESSION")),
+                                    "failed session creation must not issue a session cookie");
+                            assertSecureResponse(creationOutage);
+                        } finally {
+                            sql.execute("alter table spring_session_unavailable rename to spring_session");
+                        }
                         HttpResponse<String> restoredSession = send(client, base, "GET", "/api/session", null, null);
                         assertEquals(200, restoredSession.statusCode(), "restoring the isolated session table restores service");
                         sql.update("update td_users set enabled=false where id=?", actors.get(i));

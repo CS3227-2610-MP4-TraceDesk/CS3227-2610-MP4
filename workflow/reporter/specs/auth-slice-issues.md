@@ -1,15 +1,15 @@
-# Authentication slice: proposed GitHub issue bodies
+# Authentication slice: issue planning and progress
 
-Status: issue-planning artifact, not an accepted behavior specification or implementation evidence.
-Prepared for the user's 2026-11-06 instruction to create spec-driven GitHub issues before implementation.
-Human owner: not supplied. Coordinator replaces dependency keys with actual issue links after creation.
-All criteria below are proposed stable IDs; the canonical owner will be `workflow/specs/auth-membership.md` (planned; not yet created), linked from [workflow/acceptance-criteria.md](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/acceptance-criteria.md), before application code changes.
+Status: issue-planning artifact with progress updated for AUTH-DATA. The canonical behavior contract now exists at `workflow/specs/auth-membership.md`; current candidate evidence is linked below. This file does not close or update the corresponding GitHub issues.
+Prepared from the user's 2026-11-06 request to create spec-driven GitHub issues before implementation.
+Human owner: not supplied. GitHub issue links remain external to this planning file.
+Criteria retain stable IDs; status and candidate evidence are recorded per issue and in [workflow/acceptance-criteria.md](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/acceptance-criteria.md).
 
 Shared authority: [AGENTS.md](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/AGENTS.md), [docs/product.md](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/product.md), [docs/architecture.md](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/architecture.md), [docs/security.md](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/security.md), [docs/threat-model.md](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/threat-model.md), [workflow/decisions/002-shared-role-contracts.md](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/decisions/002-shared-role-contracts.md). Personal gates and evidence follow [workflow/reporter/README.md](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/reporter/README.md) and [workflow/reporter/agentic-se.md](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/reporter/agentic-se.md).
 
 ## Issue 1: AUTH-PLAN — Specify the first authentication and project authorization slice
 
-Contract sources: [shared role contracts](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/decisions/002-shared-role-contracts.md), [architecture](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/architecture.md), [security](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/security.md), [Reporter completion gates](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/reporter/agentic-se.md). Canonical feature specification: `workflow/specs/auth-membership.md` (planned; not yet created by this issue-planning task). Criteria are proposed and unchecked.
+Contract sources: [shared role contracts](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/decisions/002-shared-role-contracts.md), [architecture](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/architecture.md), [security](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/security.md), [Reporter completion gates](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/reporter/agentic-se.md). Canonical feature specification: [workflow/specs/auth-membership.md](../../specs/auth-membership.md); its specification review is recorded in [authentication evidence](../evidence/auth-membership.md).
 
 ### Problem and outcome
 
@@ -41,7 +41,7 @@ No application issue may start before this contract gate is met. Specifier owns 
 
 ## Issue 2: AUTH-DATA — Implement membership persistence and project access policy
 
-Contract sources: [shared role contracts](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/decisions/002-shared-role-contracts.md), [architecture](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/architecture.md), [security](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/security.md), [Reporter completion gates](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/reporter/agentic-se.md). Canonical feature specification: `workflow/specs/auth-membership.md` (planned; not yet created by this issue-planning task). Criteria are proposed and unchecked.
+Contract sources: [shared role contracts](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/decisions/002-shared-role-contracts.md), [architecture](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/architecture.md), [security](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/docs/security.md), [Reporter completion gates](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/blob/main/workflow/reporter/agentic-se.md). Canonical feature specification: [workflow/specs/auth-membership.md](../../specs/auth-membership.md). Candidate verification is recorded in [AUTH-DATA evidence](../evidence/auth-membership.md#auth-data-issue-2-follow-up).
 
 ### Problem and outcome
 
@@ -53,9 +53,9 @@ Own fresh ordered TraceDesk migrations, repository ports/adapters and pure autho
 
 ### Proposed acceptance criteria and verification
 
-- [ ] **TD-AUTH-04:** Fresh migrations apply to the dedicated isolated test schema; required identity/project/membership references, role validity and membership uniqueness/cardinality constraints reject invalid and duplicate fixtures. Tests assert persisted results, not only successful migration startup.
-- [ ] **TD-AUTH-05:** A policy matrix allows only the canonical role/project operations and denies anonymous identity, non-member, wrong role and forged/cross-project target. Trusted actor and project/object checks cannot be replaced by browser-provided identity or a global role check. Tests cover all three roles and at least two projects and verify zero unauthorized data delivery/mutation.
-- [ ] **TD-AUTH-06:** Missing/unavailable persistence fails closed. Existing sessions cannot retain access after committed membership removal/disable/role change beyond the precise canonical freshness guarantee. An integration test uses independent transactions and explicit synchronization to verify that guarantee and defined race outcomes. Any in-scope domain mutation and business audit succeed or roll back together; if no domain mutations exist, evidence explicitly marks that assertion inapplicable and confirms no write endpoint was introduced.
+- [x] **TD-AUTH-04:** Fresh migrations apply to the dedicated isolated test schema; required identity/project/membership references, role validity and membership uniqueness/cardinality constraints reject invalid and duplicate fixtures. Tests assert persisted results, not only successful migration startup. Verified on the `codex/auth-data` candidate; see the linked evidence and run record.
+- [x] **TD-AUTH-05:** The policy and HTTP tests allow the canonical project read for all three roles and deny anonymous, non-member and forged/cross-project access. Tests cover at least two projects and assert no unauthorized project data is delivered. The canonical contract grants the read to every active role, so no role-specific project-read denial exists; invalid role values are rejected by persistence. Verified on the `codex/auth-data` candidate; see the linked evidence and run record.
+- [x] **TD-AUTH-06:** Unavailable persistence fails closed. Existing sessions are invalidated after committed membership removal/disable/role change, and synchronized authorization/revocation tests verify the documented query boundary. The HTTP suite verifies session-creation outage returns 503 without issuing a session cookie. Business mutation/audit atomicity is inapplicable: no domain mutation or membership administration endpoint exists. Verified on the `codex/auth-data` candidate; see the linked evidence and run record.
 
 ### Threats, dependencies and evidence
 
