@@ -57,9 +57,9 @@ session revocation. Unauthorized cross-project data is not returned in the tests
 | TD-AUTH-01 | Spec reviewed | Canonical behavior contract and independent spec review recorded in the run log. |
 | TD-AUTH-02 | Partial | Selected denial, malformed input, membership and synchronized revocation/read cases tested; not a complete API matrix. |
 | TD-AUTH-03 | Partial | Contract review corrected one contradiction; final independent code review found no source-level security defect. Other implementation criteria remain partially evidenced. |
-| TD-AUTH-04 | Partial | Isolated migrations and key constraints tested. Exact normalization/duplicate-login, all FK cases and complete schema inventory need review. |
-| TD-AUTH-05 | Partial | Framework-independent policy/service and persistence tests cover project separation and active/disabled cases; complete all-role HTTP matrix and forged-identity integration are not demonstrated. |
-| TD-AUTH-06 | Partial | Persistence operation atomically updates membership/user state and deletes sessions; rollback, success, disable, removal and synchronized read/revocation are tested. Session-store outage remains untested. |
+| TD-AUTH-04 | Verified for AUTH-DATA | Fresh isolated migrations and synthetic fixtures verify normalized-login uniqueness, user/project foreign keys, duplicate membership, role/state constraints, UUID-backed records and project-name bounds. See [AUTH-DATA follow-up](#auth-data-issue-2-follow-up). |
+| TD-AUTH-05 | Verified for AUTH-DATA | Pure policy, persistence, and HTTPS tests cover all three roles, two projects, disabled/non-member denial, forged claims and zero cross-project data delivery. Project reads are allowed to every active role by contract. See [AUTH-DATA follow-up](#auth-data-issue-2-follow-up). |
+| TD-AUTH-06 | Verified for AUTH-DATA | Tests cover fail-closed membership/session/event persistence, role/removal/disable session invalidation, rollback on session deletion failure, synchronized query/revocation behavior and new-session outage. No domain mutation or membership admin endpoint exists, so business mutation/audit atomicity is inapplicable. See [AUTH-DATA follow-up](#auth-data-issue-2-follow-up). |
 | TD-AUTH-07 | Partial | Password/identifier policy, session rotation and failure paths covered by unit/controller tests; no complete real HTTP cookie-jar/security matrix. |
 | TD-AUTH-08 | Partial | CSRF, logout replay and cookie behavior have focused tests; full HTTPS cookie attributes and timeout/expiry boundaries remain unverified. |
 | TD-AUTH-09 | Partial | No AI/provider or business mutation path was added; complete request-field forgery and role matrix remain unverified. |
@@ -67,8 +67,39 @@ session revocation. Unauthorized cross-project data is not returned in the tests
 | TD-AUTH-11 | Verified for this bounded review | Separate GPT-6 Luna reviewer found no source-level security defect, confirmed the added revocation/race tests close its verification-gap finding, and reported no issue in those edits. Reviewer did not rerun tests; coordinator reran the focused suite successfully. |
 | TD-AUTH-12 | Partial | Measured source bytes, observable calls and test outcomes recorded; token/cost and hidden context telemetry unavailable; development comparison remains a deferred MP4 milestone. |
 
-No criterion is marked fully accepted by this evidence. No browser, deployed URL,
-production environment, release gate, or human approval is claimed.
+At the time of this 2026-11-06 candidate, no criterion was marked fully
+accepted. No browser, deployed URL, production environment, release gate, or
+human approval was claimed for that candidate.
+
+## AUTH-DATA issue #2 follow-up
+
+Date: 2026-11-07. Candidate branch: `codex/auth-data`, based on
+`e685ee0fc77b0b10bbf76c29cb323412f36185a8`. The implementation and tests are
+uncommitted. The focused database-backed suite passed 20 tests (16 auth-app,
+4 db-test-support), with 0 failures, 0 errors, and 0 skips; `git diff --check`
+passed. The implementation-file fingerprint is
+`f51d141d0140588ecce84defb333c930cf0bce8a01719482d3d66c3bfaeb411b` (sorted
+relative paths and file bytes, NUL-separated). The verification command was:
+
+```sh
+JAVA_HOME=/opt/homebrew/opt/openjdk@25 \
+PATH=/opt/homebrew/opt/openjdk@25/bin:$PATH \
+TRACEDESK_TEST_DATABASE_CONFIRM_ISOLATED=true \
+TRACEDESK_TEST_JDBC_URL=jdbc:postgresql://127.0.0.1:54330/tracedesk_test \
+TRACEDESK_TEST_DATABASE_USER=tracedesk_test \
+TRACEDESK_TEST_DATABASE_PASSWORD=[synthetic value omitted] \
+./gradlew :backend:auth-app:test :backend:db-test-support:test --rerun-tasks --no-daemon
+```
+
+The independent GPT-6 Luna reviewer examined the actual diff and assertions and
+reported no supported correctness finding. The reviewer did not rerun tests;
+the pass result is from the coordinator/implementer run. This verifies the
+bounded AUTH-DATA criteria on this candidate only. TD-AUTH-01–03 and 07–12,
+browser/deployment checks, and the planned development-context comparison remain
+partial or deferred; this does not mark the whole authentication slice accepted.
+The focused-versus-broader development-context comparison remains owned by the
+coordinator and due before final MP4 acceptance, as specified in the existing
+experiment plan; this run is not a comparative result.
 
 ## Review and workflow measurements
 

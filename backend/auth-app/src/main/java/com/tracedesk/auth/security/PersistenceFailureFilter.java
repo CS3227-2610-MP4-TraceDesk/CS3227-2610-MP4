@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.dao.DataAccessException;
+import org.springframework.web.util.ContentCachingResponseWrapper;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -14,14 +15,20 @@ import java.sql.SQLException;
 public final class PersistenceFailureFilter extends OncePerRequestFilter {
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                               FilterChain chain) throws ServletException, IOException {
+        ContentCachingResponseWrapper buffered = new ContentCachingResponseWrapper(response);
         try {
-            chain.doFilter(request, response);
+            chain.doFilter(request, buffered);
+            buffered.copyBodyToResponse();
         } catch (RuntimeException failure) {
             if (!isPersistenceFailure(failure)) throw failure;
-            unavailable(request, response);
+            buffered.resetBuffer();
+            unavailable(request, buffered);
+            buffered.copyBodyToResponse();
         } catch (ServletException failure) {
             if (!isPersistenceFailure(failure)) throw failure;
-            unavailable(request, response);
+            buffered.resetBuffer();
+            unavailable(request, buffered);
+            buffered.copyBodyToResponse();
         }
     }
 

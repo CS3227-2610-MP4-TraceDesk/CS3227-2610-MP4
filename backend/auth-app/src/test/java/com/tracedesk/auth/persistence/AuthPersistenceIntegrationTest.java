@@ -42,6 +42,9 @@ class AuthPersistenceIntegrationTest {
             sql.update("insert into td_projects(id,name) values(?,?)", boundaryProject, "🙂".repeat(120));
             assertThrows(org.springframework.dao.DataAccessException.class,
                     () -> sql.update("insert into td_projects(id,name) values(?,?)", UUID.randomUUID(), "🙂".repeat(121)));
+            assertThrows(org.springframework.dao.DataAccessException.class,
+                    () -> sql.update("insert into td_projects(id,name) values(?,?)", UUID.randomUUID(), " \t\n"),
+                    "project names containing only whitespace are rejected");
 
             membership(sql, projectA, reporter, "REPORTER", "ACTIVE");
             membership(sql, projectA, developer, "DEVELOPER", "ACTIVE");
@@ -55,6 +58,8 @@ class AuthPersistenceIntegrationTest {
                     () -> membership(sql, projectA, reporter, "REPORTER", "ACTIVE"), "duplicate memberships are rejected");
             assertThrows(org.springframework.dao.DataAccessException.class,
                     () -> membership(sql, projectB, reporter, "ADMIN", "ACTIVE"), "unrecognized roles are rejected");
+            assertThrows(org.springframework.dao.DataAccessException.class,
+                    () -> membership(sql, projectB, reporter, "REPORTER", "PENDING"), "unrecognized membership states are rejected");
             assertThrows(org.springframework.dao.DataAccessException.class,
                     () -> membership(sql, UUID.randomUUID(), reporter, "REPORTER", "ACTIVE"), "project foreign key is enforced");
             assertThrows(org.springframework.dao.DataAccessException.class,
