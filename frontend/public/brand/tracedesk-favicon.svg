@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>TraceDesk</title>
+  <rect width="64" height="64" rx="14" fill="#f8f7f3" />
+  <g stroke="#2f3136" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 25 17 C 25 10 20 7 17 10 M 39 17 C 39 10 44 7 47 10" />
+    <path d="M 18 30 Q 10 28 8 33 M 15 39 Q 8 39 6 44 M 19 49 Q 12 50 11 55 M 46 30 Q 54 28 56 33 M 49 39 Q 56 39 58 44 M 45 49 Q 52 50 53 55" />
+  </g>
+  <path fill="#2f3136" d="M 19 26
+    A 13 12 0 0 1 45 26
+    A 21 23 0 0 1 53 39
+    A 21 21 0 0 1 35 60
+    L 35 35 A 3 3 0 0 0 29 35
+    L 29 60
+    A 21 21 0 0 1 11 39
+    A 21 23 0 0 1 19 26 Z" />
+</svg>
