@@ -164,9 +164,18 @@ search. Sidebar collapse and resize preserve the selected bug and open report
 details. The Change map appears at an available Summary pane width of 800px or
 more and shows a fallback for bugs without patch data.
 
-This slice presents report details, proposed fix, and activity for inspection.
-Comment submission, AI review, checklist editing, Test templates, and
-authenticated role and API wiring remain separate slices.
+Issue #24 extends the development QA workspace with a bug-scoped overview,
+review discussion, Verification board and list, and Test templates. A reviewer
+can close a ready bug once every named check passes or reopen it with a reason.
+Applying a template copies its cases and guidance into the selected bug. Later
+template edits and deletions leave those copies intact.
+
+The simulated AI review opens beside the selected bug on wide workspaces and
+stacks on narrow workspaces. The Change map returns when chat is collapsed.
+Suggestions enter the checklist only after the reviewer selects and adds them.
+Review tabs, drafts, conversations, and results are scoped to the selected bug.
+All changes use in-memory fixtures in the development preview. Authenticated
+role and API wiring remain separate.
 
 ## Decisions still owned elsewhere
 
