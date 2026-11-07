@@ -1,5 +1,6 @@
 import { Badge } from '@openai/apps-sdk-ui/components/Badge'
-import { Bug, ChevronRight, Code, FileDocument, Folder } from '@openai/apps-sdk-ui/components/Icon'
+import { Bug, Code, FileDocument, Folder } from '@openai/apps-sdk-ui/components/Icon'
+import { Disclosure } from '../../shared/Disclosure'
 
 import type { QaBug } from './qaFixtures'
 
@@ -27,19 +28,17 @@ export function QaReviewSummary({ bug }: { bug: QaBug }) {
           </header>
 
           <p className="qa-summary-description">{bug.actual}</p>
-          <details className="qa-activity-row" id="qa-review-report" tabIndex={-1}>
-            <summary><ChevronRight aria-hidden="true" /><FileDocument aria-hidden="true" /> Original report</summary>
+          <Disclosure className="qa-activity-row" id="qa-review-report" tabIndex={-1} label={<><FileDocument aria-hidden="true" /> Original report</>}>
             <dl>
               <dt>Expected behavior</dt><dd>{bug.expected}</dd>
               <dt>Actual behavior</dt><dd>{bug.actual}</dd>
               <dt>Steps to reproduce</dt><dd>{bug.steps}</dd>
             </dl>
-          </details>
+          </Disclosure>
           {bug.logs && (
-            <details className="qa-activity-row" id="qa-report-logs" tabIndex={-1}>
-              <summary><ChevronRight aria-hidden="true" /><FileDocument aria-hidden="true" /> Report logs</summary>
+            <Disclosure className="qa-activity-row" id="qa-report-logs" tabIndex={-1} label={<><FileDocument aria-hidden="true" /> Report logs</>}>
               <pre>{bug.logs}</pre>
-            </details>
+            </Disclosure>
           )}
 
           {fix && (
@@ -51,15 +50,13 @@ export function QaReviewSummary({ bug }: { bug: QaBug }) {
 
           <section className="qa-summary-activity" aria-labelledby="qa-activity-heading">
             <h2 id="qa-activity-heading">Activity</h2>
-            <details className="qa-activity-row">
-              <summary><ChevronRight aria-hidden="true" /><Bug aria-hidden="true" /> Bug reported <span className="muted">Reporter</span></summary>
+            <Disclosure className="qa-activity-row" label={<><Bug aria-hidden="true" /> Bug reported <span className="muted">Reporter</span></>}>
               <p>{bug.actual}</p>
-            </details>
+            </Disclosure>
             {bug.entries.map((entry, index) => (
-              <details className="qa-activity-row" key={index}>
-                <summary><ChevronRight aria-hidden="true" /> {entry.title} <span className="muted">{entry.role}</span></summary>
+              <Disclosure className="qa-activity-row" key={index} label={<>{entry.title} <span className="muted">{entry.role}</span></>}>
                 <p>{entry.text}</p>
-              </details>
+              </Disclosure>
             ))}
           </section>
         </div>

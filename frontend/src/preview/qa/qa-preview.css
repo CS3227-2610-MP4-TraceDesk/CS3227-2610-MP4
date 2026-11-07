@@ -76,7 +76,6 @@
 .qa-activity-row summary { display: flex; min-height: 32px; align-items: center; gap: 8px; padding: 4px 8px; font-size: 13px; list-style: none; }
 .qa-activity-row summary::-webkit-details-marker { display: none; }
 .qa-activity-row summary svg { width: 14px; height: 14px; flex: none; color: var(--td-muted); }
-.qa-activity-row[open] summary > svg:first-child { transform: rotate(90deg); }
 .qa-activity-row summary .muted { margin-left: auto; font-size: 12px; }
 .qa-activity-row > p, .qa-activity-row > dl, .qa-activity-row > pre { margin: 0 12px 12px 30px; }
 .qa-activity-row dt { margin: 8px 0 2px; }
