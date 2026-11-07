@@ -1,9 +1,9 @@
 # DEV-PLAN issue #26 evidence
 
-Status: TD-DEV-01–05 contract drafted, independently reviewed once, and corrected.
-No Developer feature is implemented and no runtime acceptance is claimed.
-Human student ownership has not been supplied. No human approval of this contract
-is recorded here.
+Status: TD-DEV-01–05 contract drafted, independently reviewed once, corrected,
+then reviewed and approved by its human owner and merged (PR #33, merge commit
+`67db5fe`). No Developer feature is implemented and no runtime acceptance is
+claimed. Human owner: the Developer contributor, GitHub `Izn432`.
 
 - Feature and criteria: [Developer investigation contract](../../specs/developer-investigation.md), TD-DEV-01–05.
 - Drafted and reviewed on base `c116af7` (branch `codex/developer-workflow-scaffolding`,
@@ -67,12 +67,21 @@ The corrected contract was not sent back to the reviewer for a second pass.
 | Criterion | Status |
 | --- | --- |
 | TD-DEV-01–04 | Contract text present and corrected after one independent review; runtime evidence belongs to #27–31 |
-| TD-DEV-05 | Mapping to future tests present; this file records the actual review. A second review of the corrected text is still outstanding |
+| TD-DEV-05 | Mapping to future tests present; this file records the independent agent review and the human owner's review and approval. No second independent agent pass was run on the corrected text |
 
-## Developer contributor decisions (2026-11-08)
+## Human review and approval (2026-11-08)
 
-The Developer contributor reviewed the contract's design choices in this session
-and decided:
+The Developer contributor (`Izn432`) reviewed the contract in the Claude Code
+session that produced it:
+
+- Walked through every section of the spec and the four PR files, and asked
+  clarifying questions (review findings, the resolution concept).
+- Stated the contract "looks fine", then decided each open design choice and the
+  issue owners below.
+- Asked for the decisions to be committed (`0629845`), the PR to close #26, and
+  PR #33 to be merged after CI passed (all 10 checks passed).
+
+Decisions:
 
 - #29 (Developer side) lands the shared clarification migration, API and question
   UI. The QA contributor writes the QA verification spec and owns #32.
@@ -84,5 +93,6 @@ and decided:
 - Changed: the current assignee can add, edit and delete any note on the report.
   Notes keep their creator and record a last editor ("Created by X · edited by Y").
 
-These coordinator edits followed the review and have not been independently
-reviewed.
+The coordinator's edits that applied these decisions came after the independent
+agent review, so no agent reviewed them. The human owner saw them before
+approving the merge.
