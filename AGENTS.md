@@ -22,12 +22,13 @@ gateway. See [architecture](docs/architecture.md) for module boundaries.
   provide portable values and Apple-derived interaction rules for all teammates.
 - Use [harness coordination](harness/README.md) when a task calls for specialized
   agents. This file does not itself require spawning agents for every edit.
-- Personal workflow preferences are scoped by contributor. For this user's work,
-  follow the [Reporter workflow](workflow/reporter/README.md), including its
-  Agentic SE gates and evidence collection. Do not impose those personal process
-  choices on teammates; shared security, architecture and course requirements
-  still apply to everyone. Store this user's workflow artifacts under
-  `workflow/reporter/`. Reporter is a workflow label, not a limit on feature scope.
+- Contributor-specific process choices and evidence use both the
+  [Reporter workflow](workflow/reporter/README.md) and
+  [Developer workflow](workflow/developer/README.md). Use the workflow belonging
+  to the contributor and feature ownership for the current task; do not move or
+  relabel another contributor's historical evidence. These personal workflows do
+  not override shared security, architecture or course requirements, and their
+  directory names do not grant application permissions.
 
 ## Authorization and evidence
 

@@ -41,6 +41,7 @@ env.local
 *.pem
 *.key
 !gradle/wrapper/gradle-wrapper.jar
+**/bin/
 
 # Contributor-local agent run logs; durable summaries live in Reporter evidence.
 workflow/reporter/runs/
