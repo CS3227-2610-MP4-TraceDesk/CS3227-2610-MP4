@@ -15,7 +15,8 @@ export default defineConfig({
     : [['list'], ['html', { outputFolder: 'e2e-results/html', open: 'never' }]],
   outputDir: 'e2e-results/artifacts',
   use: {
-    baseURL: `http://127.0.0.1:${port}`,
+    baseURL: `https://localhost:${port}`,
+    ignoreHTTPSErrors: true,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off',
@@ -26,19 +27,21 @@ export default defineConfig({
     {
       name: 'development',
       testMatch: '**/login-preview.e2e.ts',
-      use: { baseURL: 'http://127.0.0.1:4178' },
+      use: { baseURL: 'https://localhost:4178', ignoreHTTPSErrors: true },
     },
   ],
   webServer: [
     {
       command: 'npm run preview -- --host 127.0.0.1 --port 4177 --strictPort',
-      url: 'http://127.0.0.1:4177',
+      url: 'https://localhost:4177',
+      ignoreHTTPSErrors: true,
       reuseExistingServer: false,
       timeout: 30_000,
     },
     {
       command: 'npm run dev -- --host 127.0.0.1 --port 4178 --strictPort',
-      url: 'http://127.0.0.1:4178',
+      url: 'https://localhost:4178',
+      ignoreHTTPSErrors: true,
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
     },

@@ -119,6 +119,8 @@ h2 { font-size: 14px; font-weight: 650; }
 .sign-in-field input:focus-visible { outline: none; }
 .sign-in-form > button { margin-top: 4px; }
 .sign-in-error { color: var(--color-text-danger-soft, #ba2623); font-size: 13px; }
+.sign-in-notice { margin-top: 16px; color: var(--td-muted); font-size: 13px; }
+.sign-in-retry { display: block; margin-top: 4px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; }
 .sign-in-demo { margin-top: 16px; color: var(--td-muted); font-size: 13px; }
 .sign-in-demo > summary { width: fit-content; display: flex; align-items: center; gap: 6px; list-style: none; }
 .sign-in-demo > summary::-webkit-details-marker { display: none; }
@@ -137,3 +139,4 @@ h2 { font-size: 14px; font-weight: 650; }
 
 .demo-workspace { max-width: 48rem; margin: 0 auto; padding: 48px 24px; }
 .demo-workspace p, .demo-workspace section { margin-block: 24px; }
+.auth-loading { min-height: 100dvh; display: grid; place-items: center; color: var(--td-muted); }

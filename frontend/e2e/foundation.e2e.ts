@@ -1,7 +1,9 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
+import { mockAuthApi } from './helpers/authApi'
 
 test('login supports production appearance, controls and keyboard access', async ({ page }) => {
+  await mockAuthApi(page)
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
   await expect(page.getByText('Demo accounts', { exact: true })).toHaveCount(0)
@@ -23,16 +25,18 @@ test('login supports production appearance, controls and keyboard access', async
   expect(lightResults.violations).toEqual([])
 })
 
-test('production never treats demo credentials as authentication', async ({ page }) => {
-  const mutations: string[] = []
-  page.on('request', request => {
-    if (request.method() !== 'GET') mutations.push(request.url())
-  })
+test('production sends credentials to the backend and never fakes a signed-in state', async ({ page }) => {
+  const requests = await mockAuthApi(page, { loginStatus: 401 })
   await page.goto('/')
   await page.getByLabel('Email', { exact: true }).fill('qa@tracedesk.test')
   await page.getByLabel('Password', { exact: true }).fill('tracedesk-demo')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('alert')).toHaveText('Sign-in is not connected yet.')
+  await expect(page.getByRole('alert')).toHaveText('Email or password is incorrect.')
   await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
-  expect(mutations).toEqual([])
+  expect(requests.find(request => request.path === '/api/session/login')).toMatchObject({
+    method: 'POST',
+    headers: expect.objectContaining({ 'x-csrf-token': 'synthetic-csrf-token' }),
+    body: JSON.stringify({ login: 'qa@tracedesk.test', password: 'tracedesk-demo' }),
+  })
+  expect(await page.getByRole('heading', { name: 'You’re signed in' }).count()).toBe(0)
 })
