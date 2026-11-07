@@ -24,6 +24,10 @@ remain to be implemented in the order recorded in the integration plan.
 - [Threat model](docs/threat-model.md)
 - [Isolated database testing](docs/test-database.md)
 - [Local Docker setup](docs/docker.md)
+- [UI identity and design system](docs/ui-design-system.md),
+  [UI specification](workflow/specs/shared-ui.md),
+  [reference screens](workflow/ui/reference/README.md), and
+  [UI implementation plan](workflow/plans/ui-foundation.md)
 
 ## Repository layout
 

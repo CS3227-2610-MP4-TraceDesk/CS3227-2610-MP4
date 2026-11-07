@@ -1,0 +1,56 @@
+{
+  "captured_date": "2026-11-07",
+  "source": "Local tracedesk-mockup design prototype; unversioned source",
+  "files": [
+    {
+      "path": "src/style.css",
+      "sha256": "559d0661265f6444735533d81a409f8658dba7f78c247301270cc7b8067983c1",
+      "bytes": 32212
+    },
+    {
+      "path": "package.json",
+      "sha256": "14e3e185211d8b343fa34a2b4831cefcba30391e208c6e5a3fdb685f43c9de9d",
+      "bytes": 386
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "2f9be428fa5566c9dc5cb4de9924a86bdc0e852c45080a7ce8a2e7df4953d6c1",
+      "bytes": 187789
+    },
+    {
+      "path": "src/Environments.tsx",
+      "sha256": "3116e245f6fa72c8e048e9788c9886ef948e2795b7c3d7d2dc332c3a2e293e04",
+      "bytes": 6104
+    },
+    {
+      "path": "src/main.tsx",
+      "sha256": "8e84ee343468ea74ea2ee26a5c36cb2c60aef891a4b1be3a8f470894df601f82",
+      "bytes": 51356
+    },
+    {
+      "path": "src/QAReviewChat.tsx",
+      "sha256": "2c99326fa05771a5f41d98606fb156706a95a505ccbd285a6841f90d17d74d5e",
+      "bytes": 3133
+    },
+    {
+      "path": "src/QAReviewSummary.tsx",
+      "sha256": "3a0e8e31351d3dcddbdebf4bb7d32a2b2a24c485cf839937b0e2f3a6064ad339",
+      "bytes": 4306
+    },
+    {
+      "path": "src/QAWorkspace.tsx",
+      "sha256": "9a7fe298e43f80b2653b277ad42a91b12729314739f48b99d516fc3bcbd052c3",
+      "bytes": 11362
+    },
+    {
+      "path": "src/TestTemplates.tsx",
+      "sha256": "9328a076cd51de6ca53006987b0c9d946adee8bb7ab05ebf6ab38badbf4fae09",
+      "bytes": 11007
+    },
+    {
+      "path": "src/VerificationBoard.tsx",
+      "sha256": "58d6862440af3b052203b0a43b09e220bb6f1f5c1a7fed7e05400b35fd497444",
+      "bytes": 4761
+    }
+  ]
+}
