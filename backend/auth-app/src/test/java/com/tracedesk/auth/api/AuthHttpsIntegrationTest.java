@@ -327,6 +327,38 @@ class AuthHttpsIntegrationTest {
                 assertEquals("INVALID_REQUEST", jsonField(forgedLogin.body(), "code"));
                 assertEquals(401, send(forgedClient, base, "GET", "/api/session", null, null).statusCode(),
                         "forged login claims do not create an authenticated session");
+
+                List<String> duplicateKeyBodies = List.of(
+                        "{\"login\":\"invalid-first@example.test\",\"login\":\"https-reporter@example.test\",\"password\":\"" + PASSWORD + "\"}",
+                        "{\"login\":\"https-reporter@example.test\",\"password\":\"wrong-first-password\",\"password\":\"" + PASSWORD + "\"}");
+                int invalidRequestEventsBefore = sql.queryForObject("select count(*) from td_security_events where event_code='LOGIN_INVALID_REQUEST' and route_template='/api/session/login'", Integer.class);
+                int credentialDenialsBefore = sql.queryForObject("select count(*) from td_security_events where event_code='LOGIN_DENIED' and route_template='/api/session/login'", Integer.class);
+                for (String duplicateKeyBody : duplicateKeyBodies) {
+                    CookieManager duplicateCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+                    HttpClient duplicateClient = HttpClient.newBuilder().cookieHandler(duplicateCookies).sslContext(clientTls).build();
+                    String duplicateCsrf = jsonField(send(duplicateClient, base, "GET", "/api/csrf", null, null).body(), "token");
+                    HttpResponse<String> duplicateKey = send(duplicateClient, base, "POST", "/api/session/login",
+                            duplicateKeyBody, duplicateCsrf);
+                    assertEquals(400, duplicateKey.statusCode());
+                    assertEquals("INVALID_REQUEST", jsonField(duplicateKey.body(), "code"));
+                    assertEquals("Invalid request", jsonField(duplicateKey.body(), "message"));
+                    assertFalse(duplicateKey.body().contains(PASSWORD));
+                    assertSecureResponse(duplicateKey);
+                    assertTrue(duplicateKey.headers().allValues("set-cookie").stream()
+                            .noneMatch(cookie -> cookie.startsWith("TDSESSION=")),
+                            "a malformed login must not issue or replace the session cookie");
+                    HttpResponse<String> duplicateSession = send(duplicateClient, base, "GET", "/api/session", null, null);
+                    assertEquals(401, duplicateSession.statusCode(), "duplicate fields containing valid credentials must remain anonymous");
+                    assertEquals("UNAUTHENTICATED", jsonField(duplicateSession.body(), "code"));
+                    assertSecureResponse(duplicateSession);
+                    assertEquals(0, sql.queryForObject("select count(*) from td_security_events where route_template='/api/session/login' and event_code not in ('LOGIN_INVALID_REQUEST','LOGIN_DENIED','CSRF_INVALID')", Integer.class));
+                }
+                assertEquals(invalidRequestEventsBefore + duplicateKeyBodies.size(),
+                        sql.queryForObject("select count(*) from td_security_events where event_code='LOGIN_INVALID_REQUEST' and route_template='/api/session/login'", Integer.class),
+                        "each duplicate-key request records its bounded malformed-login event");
+                assertEquals(credentialDenialsBefore,
+                        sql.queryForObject("select count(*) from td_security_events where event_code='LOGIN_DENIED' and route_template='/api/session/login'", Integer.class),
+                        "duplicate-key requests are rejected before credential verification");
             }
         } finally {
             try (var paths = Files.walk(temp)) {

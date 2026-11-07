@@ -119,6 +119,33 @@ class AuthControllerTest {
   verify(store).event("CSRF_INVALID","/api/session/logout",403,actor,null);
  }
 
+ @Test void logoutChecksCsrfBeforeAuthenticationAndExpiry() throws Exception {
+  AuthStore store=mock(AuthStore.class);
+  PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
+  var clock=new MutableClock(Instant.parse("2026-01-01T08:00:00Z"));
+  MockMvc mvc=MockMvcBuilders.standaloneSetup(new AuthController(store,new ProjectAuthorization(store),encoder,clock))
+      .setControllerAdvice(new ApiFailureHandler(store)).build();
+
+  MockHttpSession anonymous=new MockHttpSession();
+  anonymous.setAttribute(AuthController.CSRF,"anonymous-current-token");
+  mvc.perform(post("/api/session/logout").session(anonymous))
+      .andExpect(status().isForbidden()).andExpect(jsonPath("$.error.code").value("CSRF_INVALID"));
+  assertTrue(!anonymous.isInvalid(),"missing CSRF must not invalidate an anonymous session");
+  verify(store).event("CSRF_INVALID","/api/session/logout",403,null,null);
+
+  UUID expiredActor=UUID.randomUUID();
+  MockHttpSession expired=authenticatedSession(expiredActor);
+  expired.setAttribute(AuthController.AUTH_AT,clock.millis()-8L*60*60*1000);
+  mvc.perform(post("/api/session/logout").session(expired).header("X-CSRF-TOKEN","stale-token"))
+      .andExpect(status().isForbidden()).andExpect(jsonPath("$.error.code").value("CSRF_INVALID"));
+  assertTrue(!expired.isInvalid(),"invalid CSRF must be checked before expiry invalidation");
+  verify(store,times(2)).event("CSRF_INVALID","/api/session/logout",403,null,null);
+
+  mvc.perform(post("/api/session/logout").session(anonymous).header("X-CSRF-TOKEN","anonymous-current-token"))
+      .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+  assertTrue(!anonymous.isInvalid(),"valid CSRF without an actor returns 401 without logout");
+ }
+
  @Test void successfulLoginRotatesSessionAndReplacesCsrfToken() throws Exception {
   AuthStore store=mock(AuthStore.class);
   PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);

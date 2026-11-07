@@ -83,9 +83,16 @@ public class AuthController {
         long now=clock.millis(); if(now-authAt>=8L*60*60*1000){s.invalidate();return null;} return actor;
     }
     @PostMapping("/api/session/logout") public ResponseEntity<?> logout(HttpServletRequest req,HttpServletResponse res) {
+        if(!csrf(req)){denied("CSRF_INVALID","/api/session/logout",403,csrfEventActor(req),null);return error(HttpStatus.FORBIDDEN,"CSRF_INVALID");}
         UUID actor=actor(req); if(actor==null)return error(HttpStatus.UNAUTHORIZED,"UNAUTHENTICATED");
-        if(!csrf(req)){denied("CSRF_INVALID","/api/session/logout",403,actor,null);return error(HttpStatus.FORBIDDEN,"CSRF_INVALID");}
         req.getSession(false).invalidate(); jakarta.servlet.http.Cookie cookie=new jakarta.servlet.http.Cookie("TDSESSION","");cookie.setPath("/");cookie.setHttpOnly(true);cookie.setSecure(true);cookie.setAttribute("SameSite","Lax");cookie.setMaxAge(0);res.addCookie(cookie);return ResponseEntity.noContent().build();
+    }
+    private UUID csrfEventActor(HttpServletRequest req) {
+        HttpSession s=req.getSession(false); if(s==null)return null;
+        Object id=s.getAttribute(USER), at=s.getAttribute(AUTH_AT);
+        if(!(id instanceof UUID actor)||!(at instanceof Long authAt))return null;
+        long age=clock.millis()-authAt;
+        return age>=0&&age<8L*60*60*1000?actor:null;
     }
     @GetMapping("/api/projects/{projectId}") public ResponseEntity<?> project(@PathVariable String projectId,HttpServletRequest req) {
         UUID actor=actor(req); if(actor==null){denied("UNAUTHENTICATED","/api/projects/{projectId}",401,null,null);return error(HttpStatus.UNAUTHORIZED,"UNAUTHENTICATED");}
