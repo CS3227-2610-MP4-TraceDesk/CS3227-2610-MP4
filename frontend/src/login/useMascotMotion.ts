@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 
 const neutralPose = {
   x: 0,
@@ -9,6 +9,7 @@ const neutralPose = {
   leftPupilY: 0,
   rightPupilX: 0,
   rightPupilY: 0,
+  wake: 1,
 }
 const settleEasing = 'cubic-bezier(.2, .65, .25, 1)'
 
@@ -43,26 +44,29 @@ const blinkDurationMs = 180
 const blinkIntervalMs = 4600
 const antennaTwitchDurationMs = 440
 const antennaTwitchIntervalMs = 1900
+const wakeResponseMs = 85
+const interruptedWakeResponseMs = 35
+const wakeSettleThreshold = 0.001
 
 export function useMascotMotion() {
   const screen = useRef<HTMLElement>(null)
   const mascot = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const surface = screen.current!
     const figure = mascot.current!
     const hopLayer = figure.parentElement!
     const stage = hopLayer.parentElement!
-    const shadow = stage.querySelector('.sign-in-shadow')!
+    const shadow = stage.querySelector<HTMLDivElement>('.sign-in-shadow')!
     const passwordField = surface.querySelector('[data-password]')!
     const svg = figure.querySelector('svg')!
     const body = svg.querySelector<SVGGElement>('#beetle-body')!
     const head = svg.querySelector<SVGGElement>('#beetle-head')!
-    const eyes = svg.querySelector('#beetle-eyes')!
+    const eyes = svg.querySelector<SVGGElement>('#beetle-eyes')!
     const legs = svg.querySelector('#beetle-legs')!
     const leftPupil = svg.querySelector('#beetle-pupil-left')!
     const rightPupil = svg.querySelector('#beetle-pupil-right')!
-    const antennae = svg.querySelector('#beetle-antennae')!
+    const antennae = svg.querySelector<SVGGElement>('#beetle-antennae')!
     const happyEyes = document.createElementNS('http://www.w3.org/2000/svg', 'path')
     happyEyes.setAttribute('data-mascot-happy-eyes', '')
     happyEyes.setAttribute('d', 'M 277 208 Q 298 179 319 208 M 371 190 Q 389 165 407 190')
@@ -75,13 +79,16 @@ export function useMascotMotion() {
     head.append(happyEyes)
 
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
-    const pose = { ...neutralPose }
-    const target = { ...pose }
+    const pose = { ...neutralPose, wake: reducedMotion.matches ? 1 : 0 }
+    const target = { ...neutralPose }
+    let currentWakeResponseMs = wakeResponseMs
+    let wakePoseNeedsRendering = true
     let animationFrameId = 0
     let previousFrameTime = 0
     let pointerIsClose = false
     let pointerIsOverBeetle = false
     let hasPendingPat = false
+    let hasPendingApproach = false
     let isLookingAway = false
     let headTurnStartsAt = 0
     let lastPointerMoveTime = -Infinity
@@ -97,6 +104,15 @@ export function useMascotMotion() {
       head.setAttribute('transform', `matrix(1 0 ${lean} 1 ${-headBaseY * lean} 0)`)
       leftPupil.setAttribute('transform', `translate(${pose.leftPupilX} ${pose.leftPupilY})`)
       rightPupil.setAttribute('transform', `translate(${pose.rightPupilX} ${pose.rightPupilY})`)
+      if (wakePoseNeedsRendering) {
+        const sleepAmount = 1 - pose.wake
+        eyes.style.transform = `scaleY(${1 - sleepAmount * .92})`
+        antennae.style.transform = `rotate(${-8 * sleepAmount}deg)`
+        hopLayer.style.transform = `translateY(${-4 * sleepAmount}px)`
+        shadow.style.transform = `scale(${1 - sleepAmount * .12})`
+        shadow.style.opacity = String(1 - sleepAmount * .28)
+        wakePoseNeedsRendering = pose.wake < 1
+      }
     }
 
     function animatePose(time: number) {
@@ -105,21 +121,28 @@ export function useMascotMotion() {
         ? Math.min(time - previousFrameTime, maximumFrameIntervalMs)
         : initialFrameIntervalMs
       previousFrameTime = time
+      const wasWakingUp = pose.wake < 1
       let moving = false
       for (const key of Object.keys(pose) as (keyof typeof pose)[]) {
         const difference = target[key] - pose[key]
-        if (Math.abs(difference) < poseSettleThreshold) {
+        const threshold = key === 'wake' ? wakeSettleThreshold : poseSettleThreshold
+        if (Math.abs(difference) < threshold) {
           pose[key] = target[key]
         } else {
           moving = true
           if (key === 'head' && time < headTurnStartsAt) continue
-          const response = key === 'x' || key === 'y' || key === 'tilt' || key === 'head'
-            ? bodyResponseMs
-            : pupilResponseMs
+          let response = pupilResponseMs
+          if (key === 'wake') response = currentWakeResponseMs
+          else if (key === 'x' || key === 'y' || key === 'tilt' || key === 'head') response = bodyResponseMs
           pose[key] += difference * (1 - Math.exp(-elapsed / response))
         }
       }
       renderPose()
+      if (wasWakingUp && pose.wake === 1) {
+        if (hasPendingApproach && pointerIsClose && canPlayReaction()) playApproachHop()
+        else playPatReaction()
+        hasPendingApproach = false
+      }
       if (moving) animationFrameId = requestAnimationFrame(animatePose)
       else previousFrameTime = 0
     }
@@ -136,7 +159,7 @@ export function useMascotMotion() {
     }
 
     function isReactionPlaying() {
-      return reactionAnimations.some(animation => animation.playState === 'running')
+      return pose.wake < 1 || reactionAnimations.some(animation => animation.playState === 'running')
     }
 
     function animateAntennae(duration: number, degrees: number) {
@@ -184,6 +207,10 @@ export function useMascotMotion() {
     }
 
     function playApproachHop() {
+      if (pose.wake < 1) {
+        hasPendingApproach = true
+        return
+      }
       if (isReactionPlaying()) return
       cancelReaction()
       const duration = approachDurationMs
@@ -281,6 +308,7 @@ export function useMascotMotion() {
 
       if (isLookingAway || still) {
         hasPendingPat = false
+        hasPendingApproach = false
         cancelReaction()
       }
       if (still) {
@@ -296,6 +324,7 @@ export function useMascotMotion() {
 
     function handlePointerMove(event: PointerEvent) {
       if (event.pointerType === 'touch') return
+      currentWakeResponseMs = interruptedWakeResponseMs
       lastPointerMoveTime = performance.now()
       pointer = { x: event.clientX, y: event.clientY }
       const onPaint = event.target instanceof SVGGeometryElement && svg.contains(event.target)
@@ -311,10 +340,12 @@ export function useMascotMotion() {
       pointerIsClose = false
       pointerIsOverBeetle = false
       hasPendingPat = false
+      hasPendingApproach = false
       updateTargetPose()
     }
 
     function handleFocusChange() {
+      currentWakeResponseMs = interruptedWakeResponseMs
       queueMicrotask(() => {
         if (surface.isConnected) updateTargetPose()
       })
@@ -337,6 +368,9 @@ export function useMascotMotion() {
     surface.addEventListener('focusin', handleFocusChange)
     surface.addEventListener('focusout', handleFocusChange)
     reducedMotion.addEventListener('change', handleFocusChange)
+    // Establish the closed-eye pose before paint, then settle through the same loop as input.
+    renderPose()
+    updateTargetPose()
     return () => {
       surface.removeEventListener('pointermove', handlePointerMove)
       surface.removeEventListener('pointerleave', handlePointerLeave)

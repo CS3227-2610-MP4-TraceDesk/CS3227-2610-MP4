@@ -66,6 +66,14 @@ h2 { font-size: 14px; font-weight: 650; }
   border-radius: 24px;
   overflow: hidden;
   background: var(--td-page);
+  animation: sign-in-enter 300ms cubic-bezier(.2, .65, .25, 1) both;
+}
+@keyframes sign-in-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sign-in-card { animation: none; }
 }
 .sign-in-stage {
   position: relative;
