@@ -1,6 +1,10 @@
-export function App() {
+import { useEffect, useState } from 'react'
+import { Button } from '@openai/apps-sdk-ui/components/Button'
+import { SignIn } from './login/SignIn'
+
+function StarterWorkspace() {
   return (
-    <main className="app-shell">
+    <main className="demo-workspace">
       <p className="eyebrow">TraceDesk</p>
       <h1>Software bugs, from report to verification</h1>
       <p>
@@ -17,4 +21,26 @@ export function App() {
       </section>
     </main>
   )
+}
+
+export function App() {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [previewRole, setPreviewRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+  }, [theme])
+
+  if (import.meta.env.DEV && previewRole) {
+    return <>
+      <div className="demo-workspace" aria-label="Development preview">
+        <p>Demo account · {previewRole} · Local preview</p>
+        <Button color="secondary" variant="outline" onClick={() => setPreviewRole(null)}>Sign out</Button>
+      </div>
+      <StarterWorkspace />
+    </>
+  }
+
+  return <SignIn theme={theme} onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')} onSignIn={setPreviewRole} />
 }
