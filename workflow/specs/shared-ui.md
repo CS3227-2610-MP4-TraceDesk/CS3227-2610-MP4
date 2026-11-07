@@ -154,6 +154,20 @@ workflows, including the report editor opened by New report, have separate ports
   [workspace browser suite](../../frontend/e2e/workspace-preview.e2e.ts) as
   needed to cover desktop resize, mobile dismissal and reduced motion.
 
+## QA queue and Summary preview
+
+Issue #21 ports the queue and Summary to the development QA workspace using
+sample bugs. The queue and sidebar share search by bug ID or title. The main
+queue owns its filters, sort, list or grid mode, and status visibility. Selecting
+a bug opens its Summary, and returning to the queue restores its filters and
+search. Sidebar collapse and resize preserve the selected bug and open report
+details. The Change map appears at an available Summary pane width of 800px or
+more and shows a fallback for bugs without patch data.
+
+This slice presents report details, proposed fix, and activity for inspection.
+Comment submission, AI review, checklist editing, Test templates, and
+authenticated role and API wiring remain separate slices.
+
 ## Decisions still owned elsewhere
 
 Final logo artwork, extra product destinations, production diff ingestion,
