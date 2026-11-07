@@ -10,6 +10,8 @@ references from the [capture manifest](../workflow/ui/reference/README.md).
   existing component before adding an overlapping variant.
 - Follow the [shared shell integration rules](../workflow/specs/shared-ui.md#shared-shell-integration)
   when adding a role page or navigation destination.
+- Use the [shared opening and closing motion rules](../docs/ui-design-system.md#shared-opening-and-closing-motion)
+  for all roles. Keep timings and effects in shared components or styles.
 - Use the agreed Apps SDK UI components and per-purpose sizes. Keep tokens,
   typography, spacing, radius and semantic colours centralized.
 - Treat exact numeric contracts as authoritative over sampled screenshot pixels.

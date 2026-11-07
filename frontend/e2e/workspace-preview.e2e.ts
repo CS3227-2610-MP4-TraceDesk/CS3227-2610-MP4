@@ -26,6 +26,107 @@ test('role fixtures open the shared shell without an authentication request', as
   expect(apiRequests).toEqual([])
 })
 
+test('QA queue filters and opens a summary while preserving queue context', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/?workspace-preview=qa')
+  const queue = page.getByRole('region', { name: 'Verification' })
+  const summary = page.getByRole('article', { name: 'Bug review summary' })
+  const map = summary.getByRole('region', { name: 'Change map' })
+  const search = queue.getByRole('searchbox', { name: 'Find bug' })
+  const sidebar = page.getByRole('complementary', { name: 'Verification' })
+
+  await queue.getByRole('button', { name: 'Reviewed by me' }).click()
+  await expect(queue.getByRole('status')).toHaveText('No tickets in this queue.')
+  await queue.getByRole('button', { name: 'All bugs' }).click()
+  await search.fill('TD-023')
+  await expect(sidebar.getByRole('searchbox')).toHaveValue('TD-023')
+  await queue.getByRole('button', { name: /Refund totals/ }).press('Enter')
+  await expect(summary.getByRole('heading', { name: 'Refund totals are duplicated' })).toBeVisible()
+  await summary.getByText('Original report', { exact: true }).press('Enter')
+  await expect(summary.getByText('Each refund appears once.')).toBeVisible()
+  await expect(map).toHaveCSS('width', '300px')
+  await expect(map.getByText('refund-total.ts', { exact: true })).toBeVisible()
+  await expect(summary).toHaveCSS('max-width', '1152px')
+  await expect(summary).toHaveCSS('column-gap', '40px')
+
+  await page.setViewportSize({ width: 1118, height: 900 })
+  await expect(map).toBeHidden()
+  await expect(summary.getByText('Each refund appears once.')).toBeVisible()
+  await page.getByRole('separator', { name: 'Resize sidebar' }).press('Home')
+  await expect(map).toBeVisible()
+  await page.getByRole('button', { name: 'Back to verification queue' }).press('Enter')
+  await expect(search).toHaveValue('TD-023')
+  await expect(queue.getByRole('button', { name: 'All bugs' })).toHaveAttribute('aria-pressed', 'true')
+
+  await search.fill('TD-024')
+  await queue.getByRole('button', { name: /CSV export fails/ }).click()
+  await expect(map.getByText('No patch attached.')).toBeVisible()
+  await expect(summary.getByText('Each refund appears once.')).toHaveCount(0)
+})
+
+test('mobile QA sidebar opens a readable bug summary and dismisses the overlay', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/?workspace-preview=qa')
+  const toggle = page.getByRole('button', { name: 'Toggle sidebar' })
+  const sidebar = page.getByRole('complementary', { name: 'Verification' })
+  await toggle.press('Enter')
+  await sidebar.getByRole('button', { name: 'Refund totals are duplicated' }).click()
+  await expect(toggle).toBeFocused()
+  await expect(sidebar).toBeHidden()
+  await expect(page.getByRole('heading', { name: 'Refund totals are duplicated' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Change map' })).toBeHidden()
+  expect(await page.locator('.shell-content').evaluate(element => element.scrollWidth)).toBeLessThanOrEqual(274)
+})
+
+test('QA disclosures and popovers animate with shared timings and honor reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/?workspace-preview=qa')
+  const sort = page.getByRole('button', { name: 'Sort bugs' })
+  await sort.press('Enter')
+  const menu = page.getByRole('dialog', { name: 'Sort bugs' })
+  await expect(menu).toHaveCSS('transition-duration', '0.14s, 0.14s')
+  await expect(menu).toHaveCSS('opacity', '1')
+  await menu.evaluate(element => {
+    element.addEventListener('transitionrun', event => {
+      if ((event as TransitionEvent).propertyName === 'opacity' && element.getAttribute('data-state') === 'closed') {
+        document.documentElement.dataset.menuExitDuration = getComputedStyle(element).transitionDuration
+      }
+    })
+  })
+  await page.keyboard.press('Escape')
+  await expect(menu).toHaveCount(0)
+  await expect(page.locator('html')).toHaveAttribute('data-menu-exit-duration', '0.1s')
+  await expect(sort).toBeFocused()
+
+  await page.getByRole('button', { name: /Refund totals.*TD-023/ }).press('Enter')
+  const report = page.locator('#qa-review-report')
+  const trigger = report.locator('summary')
+  await trigger.press('Enter')
+  await expect(report).toHaveAttribute('open', '')
+  expect(await report.evaluate(element =>
+    getComputedStyle(element, '::details-content').transitionDuration,
+  )).toBe('0.18s, 0.18s')
+  await expect(report.getByText('Each refund appears once.')).toBeVisible()
+  await trigger.press('Enter')
+  await expect(report).not.toHaveAttribute('open')
+  expect(await report.evaluate(element =>
+    getComputedStyle(element, '::details-content').transitionDuration,
+  )).toBe('0.15s, 0.15s')
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await trigger.press('Enter')
+  await expect(report.getByText('Each refund appears once.')).toBeVisible()
+  expect(await report.evaluate(element => element.getAnimations({ subtree: true }).length)).toBe(0)
+  await page.getByRole('button', { name: 'Back to verification queue' }).click()
+  const display = page.getByRole('button', { name: 'Display options' })
+  await display.press('Enter')
+  await expect(page.getByRole('dialog', { name: 'Display options' })).toHaveCSS('transition-duration', '0s')
+  await page.keyboard.press('Escape')
+  await expect(display).toBeFocused()
+})
+
 test('desktop shell matches the reference dimensions and preserves sidebar selection', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.emulateMedia({ reducedMotion: 'reduce' })

@@ -27,10 +27,11 @@ type AppShellProps = {
   sidebar?: Omit<SidebarContent, 'children'> & {
     renderItems: (dismissOverlay: () => void) => ReactNode
   }
+  headerContent?: ReactNode
   children: ReactNode
 }
 
-export function AppShell({ items, activeId, onSelect, sidebar, children }: AppShellProps) {
+export function AppShell({ items, activeId, onSelect, sidebar, headerContent, children }: AppShellProps) {
   const sidebarId = useId()
   const sidebarRef = useRef<HTMLElement>(null)
   const toggleRef = useRef<HTMLButtonElement>(null)
@@ -142,6 +143,7 @@ export function AppShell({ items, activeId, onSelect, sidebar, children }: AppSh
                 <SidebarIcon />
               </Button>
             )}
+            {headerContent}
           </header>
           <main className="shell-content" inert={overlayVisible}>
             {children}
