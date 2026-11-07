@@ -14,11 +14,28 @@ docker compose --profile dev up --build -d --wait db frontend-dev
 docker compose ps
 ```
 
-Open `http://127.0.0.1:5173`. Source changes under `frontend/` refresh through
-Vite. The development database listens only on `127.0.0.1:54329` and persists in
-the `dev-db-data` Docker volume. It is named `tracedesk_dev`; the default local
+Open `https://localhost:5173`. Vite uses a locally generated, self-signed
+certificate; the browser will show a certificate warning until you trust that
+development certificate. Source changes under `frontend/` refresh through Vite.
+The Vite same-origin `/api` proxy forwards to the backend on the host at port
+8080. Start the backend from another terminal after the database is healthy:
+
+```sh
+TRACEDESK_DATABASE_URL=jdbc:postgresql://127.0.0.1:54329/tracedesk_dev \
+TRACEDESK_DATABASE_USER=tracedesk_dev \
+TRACEDESK_DATABASE_PASSWORD=tracedesk_dev_only \
+./gradlew :backend:auth-app:bootRun
+```
+
+Use a matching local password if `TRACEDESK_DEV_DB_PASSWORD` overrides the
+Compose default. The backend applies its fresh migrations at startup. Login
+requires an account already provisioned in this local database; the API has no
+account-creation route. Demo account shortcuts only fill credentials and are
+not authenticated unless those synthetic accounts have been provisioned. The
+development database listens only on `127.0.0.1:54329` and persists in the
+`dev-db-data` Docker volume. It is named `tracedesk_dev`; the default local
 account and password are synthetic and configurable with `.env` (copy from
-[`.env.example`](../.env.example)). No database tables or application users exist yet.
+[`.env.example`](../.env.example).
 
 To stop these containers while retaining development data:
 

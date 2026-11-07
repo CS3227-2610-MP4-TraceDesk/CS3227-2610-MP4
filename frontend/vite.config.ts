@@ -1,12 +1,15 @@
 import tailwindcss from '@tailwindcss/vite'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
+const apiProxyTarget = process.env.TRACEDESK_API_PROXY_TARGET ?? 'http://127.0.0.1:8080'
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [basicSsl(), react(), tailwindcss()],
   server: {
     proxy: {
-      '/api': 'http://127.0.0.1:8080',
+      '/api': { target: apiProxyTarget, changeOrigin: true },
     },
   },
   test: {

@@ -16,15 +16,17 @@ rights for third-party/team material. Preserve provenance before any publication
 | Client/settings tests and fake provider | Module test sources | Map fixture replaces Spring mock; test executor explicitly shut down |
 | Gradle wrapper | Root build tooling | Same wrapper version, fresh minimal module build; no desktop tasks or old plugin build |
 | SDD/handoff/review patterns | `.agents/skills`, `harness`, `workflow` | Rewritten for TraceDesk; no old approval gates, identities or personal paths |
-| Frontend build, lint and unit-test configuration | `frontend/` | MP3 versions and lockfile adapted; TraceDesk starter page and CSRF helper |
+| Frontend build, lint and unit-test configuration | `frontend/` | MP3 versions and lockfile adapted; the original cookie-based CSRF helper was replaced by the authenticated session API client |
 | Browser/a11y harness | `frontend/playwright.config.ts`, `frontend/e2e/` | Dedicated static preview and synthetic smoke test; authenticated role journeys remain later work |
 | Isolated PostgreSQL test pattern | `backend/db-test-support` | Fresh test-only helper with explicit guard and owned-schema cleanup; no MP3 migrations/accounts |
 | Threat-model structure | `docs/threat-model.md` | New TraceDesk assets, threats, controls and planned evidence |
 | Multi-stage container pattern | `Dockerfile`, `compose.yaml`, `docker/` | Frontend build/runtime and local PostgreSQL profiles; no MP3 deployment credentials or incident application image |
 
 [Engineering provenance](engineering-reuse.json) records ten adapted frontend
-tooling, browser and CSRF files with their original source hashes. Other new engineering files
-adapt patterns from MP3 rather than being verbatim copies.
+tooling, browser and CSRF files with their original source hashes. The original
+cookie-based CSRF helper is mapped to its current replacement, which obtains
+tokens from the backend JSON API. Other new engineering files adapt patterns
+from MP3 rather than being verbatim copies.
 
 Workflow inspiration: MP3 `workflow/README.md`, `workflow/agent-workflow.md`,
 `.agents/skills/specification-driven-development/SKILL.md` and

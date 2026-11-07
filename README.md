@@ -7,10 +7,9 @@ human-reviewed AI capability.
 ## Current status
 
 Architecture and reuse selections were confirmed by the repository user on
-2026-11-04. This checkout contains the engineering foundation, the approved login
-UI and development-only demo sign-in, an isolated database test helper, and the
-tested provider transport.
-Authentication, application persistence, the secured gateway, and role features
+2026-11-04. This checkout contains the engineering foundation, login UI connected
+to the bounded authentication API, an isolated database test helper, and the
+tested provider transport. Persistence, the secured gateway, and role workflows
 remain to be implemented in the order recorded in the integration plan.
 
 ## Start here
@@ -44,30 +43,30 @@ remain to be implemented in the order recorded in the integration plan.
 | `.github/workflows/` | Foundation, frontend and isolated database CI; deployment is not configured |
 | `compose.yaml`, `Dockerfile`, `docker/` | Local containers and built frontend image |
 
-Create backend domain and application modules when the first vertical slice is
-implemented. The frontend opens on the approved login screen. Demo sign-in opens the existing
-introduction page; role workspaces and real sign-in integration are pending.
+The frontend opens on the approved login screen and uses server-confirmed
+sessions. Role workspaces remain pending.
 
 ## Inspect the login UI locally
 
 Run from the repository root after installing Node and npm. The current jsdom
 dependency declares Node 24.15 or newer in the Node 24 release line.
 
-```powershell
+```sh
 cd frontend
 npm ci
-npm run dev -- --host 127.0.0.1 --port 4178 --strictPort
+npm run dev
 ```
 
-Open http://127.0.0.1:4178/. This serves the repository frontend with hot reload.
-Expand **Demo accounts**, choose Reporter, Developer or QA reviewer, then press
-**Sign in**. These are synthetic fixtures for a local visual preview. They open
-the starter content with a demo label and sign-out, and create no backend session.
-The login layout, theme, logo and mascot motion are ported from the approved
-mockup. A production build omits Demo accounts and reports that sign-in is not
-connected yet. Real authentication and role workspaces are separate integration
-steps. See [login criteria](workflow/specs/login-ui.md) and
-[verification evidence](workflow/reporter/evidence/login-ui.md).
+Open https://localhost:5173/. Vite serves HTTPS with a locally generated,
+self-signed certificate; the browser may ask you to trust it. Start the local
+database and authentication API as described in the [Docker guide](docs/docker.md).
+The login API requires an account already provisioned in that database. The
+development-only **Demo accounts** disclosure fills synthetic credentials and
+submits them to the same backend API; it does not create or authenticate users
+locally. Production builds omit those shortcuts. See the
+[login criteria](workflow/specs/login-ui.md),
+[authentication integration contract](workflow/specs/login-auth-integration.md),
+and [verification evidence](workflow/reporter/evidence/login-auth-integration.md).
 
 ## Verify the foundation
 

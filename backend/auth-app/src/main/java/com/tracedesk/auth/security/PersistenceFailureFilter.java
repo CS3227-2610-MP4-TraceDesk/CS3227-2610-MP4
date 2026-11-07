@@ -15,20 +15,27 @@ import java.sql.SQLException;
 public final class PersistenceFailureFilter extends OncePerRequestFilter {
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                               FilterChain chain) throws ServletException, IOException {
-        ContentCachingResponseWrapper buffered = new ContentCachingResponseWrapper(response);
+        // Spring Session persists newly-created sessions after the controller has
+        // written its response. Keep API responses uncommitted until that save
+        // completes so a persistence failure can still become a safe 503.
+        HttpServletResponse buffered = request.getRequestURI().startsWith("/api/")
+                ? new ContentCachingResponseWrapper(response) : response;
+        boolean copyResponse = false;
         try {
             chain.doFilter(request, buffered);
-            buffered.copyBodyToResponse();
+            copyResponse = true;
         } catch (RuntimeException failure) {
             if (!isPersistenceFailure(failure)) throw failure;
-            buffered.resetBuffer();
             unavailable(request, buffered);
-            buffered.copyBodyToResponse();
+            copyResponse = true;
         } catch (ServletException failure) {
             if (!isPersistenceFailure(failure)) throw failure;
-            buffered.resetBuffer();
             unavailable(request, buffered);
-            buffered.copyBodyToResponse();
+            copyResponse = true;
+        } finally {
+            if (copyResponse && buffered instanceof ContentCachingResponseWrapper cached) {
+                cached.copyBodyToResponse();
+            }
         }
     }
 

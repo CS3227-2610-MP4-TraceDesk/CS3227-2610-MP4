@@ -5,6 +5,7 @@ import { ChevronRight, Eye, EyeOff, Moon, Sun } from '@openai/apps-sdk-ui/compon
 import beetle from '../../public/brand/tracedesk-beetle.svg?raw'
 import { demoAccounts as previewAccounts, demoPassword as previewPassword } from './fixtures/demoAccounts'
 import { useMascotMotion } from './useMascotMotion'
+import { AuthApiError } from '../auth/sessionApi'
 
 const demoAccounts = import.meta.env.DEV ? previewAccounts : []
 const demoPassword = import.meta.env.DEV ? previewPassword : ''
@@ -15,26 +16,41 @@ type DemoAccount = typeof demoAccounts[number]
 type SignInProps = {
   theme: 'dark' | 'light'
   onToggleTheme: () => void
-  onSignIn: (role: DemoAccount['role']) => void
+  onSignIn: (login: string, password: string) => Promise<void>
+  serviceNotice: string | null
+  onRetryConnection: () => void
 }
 
-export function SignIn({ theme, onToggleTheme, onSignIn }: SignInProps) {
+function errorMessage(error: unknown): string {
+  if (error instanceof AuthApiError) {
+    if (error.code === 'INVALID_CREDENTIALS') return 'Email or password is incorrect.'
+    if (error.status === 403) return 'Your request could not be verified. Please try again.'
+    if (error.status === 503 || error.status >= 500) return 'TraceDesk is temporarily unavailable. Try again.'
+    if (error.code === 'UNAUTHENTICATED') return 'Sign-in could not be confirmed. Please try again.'
+  }
+  return 'Unable to sign in. Check your connection and try again.'
+}
+
+export function SignIn({ theme, onToggleTheme, onSignIn, serviceNotice, onRetryConnection }: SignInProps) {
   const { screen, mascot } = useMascotMotion()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [hasSignInError, setHasSignInError] = useState(false)
+  const [signInError, setSignInError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const submitButton = useRef<HTMLButtonElement>(null)
   const demoAccountDisclosure = useRef<HTMLDetailsElement>(null)
 
-  function signIn(event: FormEvent<HTMLFormElement>) {
+  async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const account = demoAccounts.find(item => item.email === email.trim().toLowerCase())
-
-    if (import.meta.env.DEV && account && password === demoPassword) {
-      onSignIn(account.role)
-    } else {
-      setHasSignInError(true)
+    setIsSubmitting(true)
+    setSignInError(null)
+    try {
+      await onSignIn(email, password)
+    } catch (error) {
+      setSignInError(errorMessage(error))
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -42,7 +58,7 @@ export function SignIn({ theme, onToggleTheme, onSignIn }: SignInProps) {
     setEmail(account.email)
     setPassword(demoPassword)
     setShowPassword(false)
-    setHasSignInError(false)
+    setSignInError(null)
     demoAccountDisclosure.current!.open = false
     submitButton.current?.focus()
   }
@@ -80,7 +96,15 @@ export function SignIn({ theme, onToggleTheme, onSignIn }: SignInProps) {
           <div className="sign-in-content">
             <h1 id="sign-in-title">Sign in</h1>
             <p className="sign-in-welcome">Welcome back.</p>
-            <form className="sign-in-form" onSubmit={signIn}>
+            {serviceNotice && (
+              <p className="sign-in-notice" role="status">
+                {serviceNotice}{' '}
+                <button type="button" className="sign-in-retry" onClick={onRetryConnection}>
+                  Retry connection
+                </button>
+              </p>
+            )}
+            <form className="sign-in-form" onSubmit={event => void signIn(event)} aria-busy={isSubmitting}>
               <div className="sign-in-field">
                 <label htmlFor="sign-in-email">Email</label>
                 <Input
@@ -88,11 +112,12 @@ export function SignIn({ theme, onToggleTheme, onSignIn }: SignInProps) {
                   type="email"
                   size="xl"
                   required
-                  autoComplete="off"
+                  autoComplete="username"
+                  disabled={isSubmitting}
                   value={email}
                   onChange={event => {
                     setEmail(event.target.value)
-                    setHasSignInError(false)
+                    setSignInError(null)
                   }}
                 />
               </div>
@@ -103,12 +128,13 @@ export function SignIn({ theme, onToggleTheme, onSignIn }: SignInProps) {
                   type={showPassword ? 'text' : 'password'}
                   size="xl"
                   required
-                  autoComplete="off"
+                  autoComplete="current-password"
                   allowAutofillExtensions={false}
+                  disabled={isSubmitting}
                   value={password}
                   onChange={event => {
                     setPassword(event.target.value)
-                    setHasSignInError(false)
+                    setSignInError(null)
                   }}
                   endAdornment={
                     <Button
@@ -125,13 +151,7 @@ export function SignIn({ theme, onToggleTheme, onSignIn }: SignInProps) {
                   }
                 />
               </div>
-              {hasSignInError && (
-                <p className="sign-in-error" role="alert">
-                  {import.meta.env.DEV
-                    ? 'That email and password didn’t match a demo account.'
-                    : 'Sign-in is not connected yet.'}
-                </p>
-              )}
+              {signInError && <p className="sign-in-error" role="alert">{signInError}</p>}
               <Button
                 ref={submitButton}
                 type="submit"
@@ -139,8 +159,9 @@ export function SignIn({ theme, onToggleTheme, onSignIn }: SignInProps) {
                 variant="solid"
                 size="xl"
                 block
+                disabled={isSubmitting}
               >
-                Sign in
+                {isSubmitting ? 'Signing in…' : 'Sign in'}
               </Button>
             </form>
             {import.meta.env.DEV && (

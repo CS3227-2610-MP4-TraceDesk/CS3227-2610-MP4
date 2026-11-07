@@ -50,7 +50,8 @@
     {
       "source_path": "frontend/src/shared/csrf.ts",
       "sha256": "84262817cb0623e99dbfeac76210207ec53b834588fffc3302618b4b99d95c42",
-      "destination": "frontend/src/shared/csrf.ts"
+      "destination": "frontend/src/auth/sessionApi.ts",
+      "adaptation_note": "The original cookie reader was replaced by the session API client, which obtains CSRF tokens from the backend JSON endpoint."
     }
   ]
 }
