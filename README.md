@@ -68,6 +68,11 @@ locally. Production builds omit those shortcuts. See the
 [authentication integration contract](workflow/specs/login-auth-integration.md),
 and [verification evidence](workflow/reporter/evidence/login-auth-integration.md).
 
+To inspect the shared shell with sample data, open
+`https://localhost:5173/?workspace-preview` in the Vite development server.
+Choose Reporter, Developer, or QA reviewer. This preview is separate from sign-in
+and does not need the local authentication API.
+
 ## Verify the foundation
 
 Use JDK 25 and Python 3. Run from the repository root:

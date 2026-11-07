@@ -111,7 +111,7 @@ All measurements are CSS pixels. Size includes padding and borders under
 | Outer frame gutter | Top/right/bottom 4px, left 0px before the icon rail |
 | Rail | 48px wide, 34px buttons with 10px radius; Settings anchored at bottom |
 | Main frame | 12px radius, subtle 1px border, flexible remaining width |
-| Contextual sidebar | 275px preferred; exact prototype expression `clamp(240px, 275px, min(520px, calc(100vw - 320px)))`; mobile overlay rule below |
+| Contextual sidebar | Desktop starts at 275px and resizes from 242px to 472px while reserving 240px for the workspace. Mobile overlay rule below |
 | Main and AI headers | 52px high; review header inline inset 8px |
 | Review toolbar | Minimum 46px high, 4px block and 16px inline padding, 8px gap |
 | Review pill group | 32px high, 2px inset and inter-tab gap, full rounding |
@@ -234,9 +234,10 @@ Do not add decorative toolbar actions whose behavior has not been specified.
   120ms background/transform transition and a 0.99 pressed scale.
 - Keep surfaces quiet. Use the specified rounded groups and faint borders;
   reserve strong contrast for the primary action and meaningful states.
-- Use motion to explain changes in place. Any future animated pane movement must
-  be interruptible and preserve scroll/focus. A spring or motion dependency is
-  not needed for this port; static native interaction is acceptable.
+- The desktop sidebar changes width and fades over 300ms using a CSS
+  approximation of Codex’s low-bounce spring. The workspace follows the moving
+  edge. Drag resizing follows the pointer directly. Arrow keys resize by 16px,
+  and Home and End select the available limits.
 - Honour `prefers-reduced-motion`. Omit nonessential movement and pressed scaling
   in reduced-motion mode; the existing prototype's pressed scale needs this check.
 - Provide visible keyboard focus and labelled icon buttons. Tabs work with arrow
