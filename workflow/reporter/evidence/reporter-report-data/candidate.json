@@ -1,0 +1,91 @@
+{
+  "base_revision": "b69f64f7691024f4e5d9e7437c5354082249fa4f",
+  "candidate_id": "b69f64f76910-plus-19b559c01a96e555",
+  "files": {
+    "backend/auth-app/src/main/java/com/tracedesk/auth/api/ApiFailureHandler.java": {
+      "sha256": "998f5b87a11ad729ac67b35adc51396578636b7a6bc7e3aec5596401eeeeb0a9",
+      "bytes": 3825
+    },
+    "backend/auth-app/src/main/java/com/tracedesk/auth/reports/api/ReportController.java": {
+      "sha256": "fe0d1eaf2d8257391008ca241be4c4466deae5dbe97ade230e2f43860ebb07c9",
+      "bytes": 9025
+    },
+    "backend/auth-app/src/main/java/com/tracedesk/auth/reports/application/ReportRepository.java": {
+      "sha256": "c66d3c009d4975491b2acc7a32614c453bcc92229fba1b8c38b95a06cae0e3d6",
+      "bytes": 1219
+    },
+    "backend/auth-app/src/main/java/com/tracedesk/auth/reports/application/ReportService.java": {
+      "sha256": "46ca87ee43462ae625c7edf8f29c5195fe4e452f227ad8460d1a03b7188269f4",
+      "bytes": 4381
+    },
+    "backend/auth-app/src/main/java/com/tracedesk/auth/reports/configuration/ReportConfiguration.java": {
+      "sha256": "aac375a5256e03fa5eeacf4a6e7b4a58e66b3d163900934c9e7256d7a8c607b1",
+      "bytes": 690
+    },
+    "backend/auth-app/src/main/java/com/tracedesk/auth/reports/domain/ReportAccessPolicy.java": {
+      "sha256": "d964fa3f49fc7c58db8ee8baa638a8b04c4583c3f666846b0528bb0d22d386c1",
+      "bytes": 1160
+    },
+    "backend/auth-app/src/main/java/com/tracedesk/auth/reports/domain/ReportCursorSigner.java": {
+      "sha256": "ad5719ac4d1d1f274237eeea1a6d4f58db5065bce8cb9b9348ad5019df7701d3",
+      "bytes": 2708
+    },
+    "backend/auth-app/src/main/java/com/tracedesk/auth/reports/domain/ReportData.java": {
+      "sha256": "b24181e1ff2dda0762ac6e6319e02e7faeb44398cd31bb9defd99828f73a1f51",
+      "bytes": 4339
+    },
+    "backend/auth-app/src/main/java/com/tracedesk/auth/reports/persistence/ReportStore.java": {
+      "sha256": "5c1a33dfcdf5d2aeb06f11f87c8fc12b47d1d1b8e2642b91d90562d395a32563",
+      "bytes": 8887
+    },
+    "backend/auth-app/src/main/java/com/tracedesk/auth/security/ReportBodyLimitFilter.java": {
+      "sha256": "12c0066631780ba6b4c985b354a84ac06aa8dde1c62c49b18d1821a1788a7ef4",
+      "bytes": 3082
+    },
+    "backend/auth-app/src/main/java/com/tracedesk/auth/security/SecurityConfig.java": {
+      "sha256": "7b0e82732513243d35dbf617cf5d1de9d73b519b7bd34959e34d2ce343c8fc3d",
+      "bytes": 2396
+    },
+    "backend/auth-app/src/main/java/com/tracedesk/auth/security/TrustedSessionActor.java": {
+      "sha256": "fe406d715815a776c6034493dffc29222d55850fcd5a9ac74c1af751e4cde041",
+      "bytes": 1459
+    },
+    "backend/auth-app/src/main/resources/db/migration/V4__reports.sql": {
+      "sha256": "01720a8870c7c620da1d2ac4e3860a051b71a9457d1a54703eb7214bd757d59d",
+      "bytes": 4967
+    },
+    "backend/auth-app/src/test/java/com/tracedesk/auth/reports/api/ReportHttpsIntegrationTest.java": {
+      "sha256": "f351ed151d88675f4ba270229d85d8850f9b68f830aefbc8cce461dd45a7a782",
+      "bytes": 38577
+    },
+    "backend/auth-app/src/test/java/com/tracedesk/auth/reports/domain/ReportAccessPolicyTest.java": {
+      "sha256": "5aec0b08b9a141995d0f6b21f2be9ceb15e5f57c0bb03ba2da86b56cfe7c2410",
+      "bytes": 1186
+    },
+    "backend/auth-app/src/test/java/com/tracedesk/auth/reports/domain/ReportCursorSignerTest.java": {
+      "sha256": "d61e7e1c8d71c8f00d5effeeed3d41ec4187e6fb2993eb8bb25a5c5d995507ab",
+      "bytes": 2108
+    },
+    "backend/auth-app/src/test/java/com/tracedesk/auth/reports/domain/ReportDataTest.java": {
+      "sha256": "39aa3a6af44fdd8e3574f271bf2956182836633ca60ae56b5729658e143f873f",
+      "bytes": 3018
+    },
+    "backend/auth-app/src/test/java/com/tracedesk/auth/reports/persistence/ReportPersistenceIntegrationTest.java": {
+      "sha256": "b794100ac1e8c3e4974c450bc52eaf1c7910e6fcaadf6825c6e9250c0c549c4d",
+      "bytes": 11449
+    },
+    "docs/threat-model.md": {
+      "sha256": "956679afd912f2113bee76e2f19964cc11331a06228441ccf7728f1469dbee30",
+      "bytes": 7469
+    },
+    "workflow/acceptance-criteria.md": {
+      "sha256": "7caab4c4caedde1d6474c3783ede1a81c01d5d95dff6c4a4a6b02ceea7f61e1d",
+      "bytes": 2441
+    },
+    "workflow/specs/reporter-reports.md": {
+      "sha256": "9071c4d365ea12de66217c1da8986516bb6b8ce1471ee1731c95568e97680b7a",
+      "bytes": 32153
+    }
+  },
+  "note": "Changed production, tests, canonical spec, index and threat-model pinned; evidence excluded to avoid self-reference."
+}

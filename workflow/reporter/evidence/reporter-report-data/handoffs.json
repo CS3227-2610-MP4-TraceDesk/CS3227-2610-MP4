@@ -1,0 +1,60 @@
+{
+  "model": "gpt-6-luna",
+  "specifier": "Existing independently reviewed sufficient contract reused; no new specifier run.",
+  "implementer": {
+    "agent": "report_data_implementer",
+    "started_at": null,
+    "ended_at": "2026-11-07T07:44:49Z",
+    "calls": 49,
+    "calls_scope": "self-reported direct shell/patch/coordination",
+    "retries": 0,
+    "budget_calls": 60,
+    "selected_owned_snapshot_bytes": {
+      "backend/auth-app/src/main/java/com/tracedesk/auth/api/ApiFailureHandler.java": 3825,
+      "backend/auth-app/src/main/java/com/tracedesk/auth/reports/api/ReportController.java": 9025,
+      "backend/auth-app/src/main/java/com/tracedesk/auth/reports/application/ReportRepository.java": 1219,
+      "backend/auth-app/src/main/java/com/tracedesk/auth/reports/application/ReportService.java": 4381,
+      "backend/auth-app/src/main/java/com/tracedesk/auth/reports/configuration/ReportConfiguration.java": 690,
+      "backend/auth-app/src/main/java/com/tracedesk/auth/reports/domain/ReportAccessPolicy.java": 1160,
+      "backend/auth-app/src/main/java/com/tracedesk/auth/reports/domain/ReportCursorSigner.java": 2708,
+      "backend/auth-app/src/main/java/com/tracedesk/auth/reports/domain/ReportData.java": 4339,
+      "backend/auth-app/src/main/java/com/tracedesk/auth/reports/persistence/ReportStore.java": 8887,
+      "backend/auth-app/src/main/java/com/tracedesk/auth/security/ReportBodyLimitFilter.java": 3082,
+      "backend/auth-app/src/main/java/com/tracedesk/auth/security/SecurityConfig.java": 2396,
+      "backend/auth-app/src/main/java/com/tracedesk/auth/security/TrustedSessionActor.java": 1459,
+      "backend/auth-app/src/main/resources/db/migration/V4__reports.sql": 4967,
+      "backend/auth-app/src/test/java/com/tracedesk/auth/reports/domain/ReportAccessPolicyTest.java": 1186,
+      "backend/auth-app/src/test/java/com/tracedesk/auth/reports/domain/ReportCursorSignerTest.java": 2108,
+      "backend/auth-app/src/test/java/com/tracedesk/auth/reports/domain/ReportDataTest.java": 3018,
+      "backend/auth-app/src/test/java/com/tracedesk/auth/reports/persistence/ReportPersistenceIntegrationTest.java": 11449
+    },
+    "total_owned_snapshot_bytes": 65899,
+    "full_input_context_bytes": null
+  },
+  "api_test_author": {
+    "agent": "report_data_api_tests",
+    "started_at": null,
+    "ended_at": "2026-11-07T07:38:13Z",
+    "calls": 39,
+    "budget_calls": 35,
+    "retry_note": "One sandbox-blocked Gradle attempt followed by canceled escalated retry; no test execution claimed.",
+    "original_output_bytes": 34694,
+    "full_input_context_bytes": null
+  },
+  "reviewer": {
+    "agent": "report_data_reviewer",
+    "started_at": null,
+    "ended_at": "2026-11-07T07:49:51Z",
+    "calls": null,
+    "calls_approximate": 33,
+    "budget_calls": 20,
+    "retries": 1,
+    "reported_inspected_snapshot_bytes": 180954,
+    "independently_rehashed_candidate_bytes": 146539,
+    "findings_remaining": 0,
+    "tests_run": false
+  },
+  "tokens": null,
+  "cost": null,
+  "note": "Agent start timestamps unavailable; cannot validate individual durations. Counts retain their reported scopes/precision; byte snapshots are not token/cumulative repeated-read measurements."
+}

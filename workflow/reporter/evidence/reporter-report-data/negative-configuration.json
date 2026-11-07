@@ -1,0 +1,10 @@
+{
+  "expected_failure": true,
+  "tests": 1,
+  "failures": 1,
+  "errors": 0,
+  "skipped": 0,
+  "exception": "IllegalArgumentException",
+  "reason": "Explicit isolated test database confirmation is required",
+  "candidate_id": "b69f64f76910-plus-19b559c01a96e555"
+}
