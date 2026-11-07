@@ -105,3 +105,39 @@ motion, hop/pat relaxation and password interruption. New screenshots compared
 against the same original mockup had zero differing pixels in all six previous
 viewport/theme combinations. Implementation and verification used one agent per
 the user's instruction; independent review remains outstanding.
+
+## Login entrance
+
+On 2026-11-07 the user approved TD-LOGIN-06: a restrained card entrance and
+beetle wake-up, preserving immediate input access and reduced-motion support.
+This extends the login reference with custom motion; it is not an Apps SDK preset
+or an official Apple timing specification. No dependency or SVG geometry changed.
+
+Verified working tree based on 85aac6550d53247279b7f0dc88ba109d631b014f.
+Git blob identities for the implementation and browser checks:
+
+- frontend/src/login/useMascotMotion.ts: caf74aab664249168263b0daa1efff849574f385
+- frontend/src/style.css: fce273aff1974f5de3598725694fdf155cff84f6
+- frontend/e2e/login-preview.e2e.ts: 1d5ec9d33d22c238993d4ba2fee74d007b039d0f
+
+The existing frame loop now settles the wake-up from its current pose; pointer or
+focus input accelerates settlement instead of snapping it. A pending approach hop
+hands over after wake-up. Reduced motion starts at rest and also settles a running
+entrance when enabled. CSS handles only the card's 300ms fade and 8px movement.
+Input is never disabled and the form has no separate reveal delay.
+
+The entrance test first failed because no wake-up existed. Regression checks
+caught a dropped approach hop during wake-up, fixed by retaining the pending
+approach. Mobile tests now measure both panels in one frame, avoiding comparisons
+of different positions during motion. The reduced-motion interruption test uses
+a controlled browser clock and verifies the eyes are still waking before changing
+the preference.
+
+Final npm run check passed (TypeScript, ESLint, two unit tests); npm run build
+passed; npm run test:e2e passed all ten tests in 19.5 seconds, including production
+axe/controls and demo rejection. Visual inspection used isolated Chromium at
+1440 by 900, scale 1, dark theme, with screenshots during wake-up and after
+settlement. The card remained 640 by 550. Screenshots are local temporary files
+tracedesk-entrance-awakening.png and tracedesk-entrance-resting.png. This run did
+not repeat the earlier six pixel-diff comparisons. Independent review remains
+outstanding; no delegated work was used, following the user's instruction.

@@ -16,6 +16,7 @@ TD-UI-07 and TD-UI-10 where applicable.
 | TD-LOGIN-03 | The same mascot hook supplies pointer gaze, approach hop, shadow/leg response, one-shot pat with auto relaxation, blink, antenna movement and password look-away; reduced motion uses still poses | Compare hook identity and exercise browser states |
 | TD-LOGIN-04 | Development Demo accounts fills the same synthetic credentials and matches the same local roles; successful preview opens the existing starter content with a visible demo label and sign-out | Browser form checks, without API calls |
 | TD-LOGIN-05 | Production builds omit demo accounts, synthetic credentials and local role selection; submission reports that sign-in is unavailable until integration; no fake session or protected calls | Built asset inspection and production browser check |
+| TD-LOGIN-06 | On login entry, the card fades and settles upward by 8px over 300ms without bounce or a separate form delay. The beetle opens its eyes, perks its antennae and settles 4px with a matching shadow over roughly 600ms. Input accelerates its settlement from the current pose; controls remain usable. Reduced motion skips the entrance, including when enabled during it. The resting layout is unchanged | Browser entrance, interruption and reduced-motion checks |
 
 Demo role state is component-local and cleared on reload/sign-out. It creates no
 cookie, session, membership, backend identity, authorization claim or persistence.
