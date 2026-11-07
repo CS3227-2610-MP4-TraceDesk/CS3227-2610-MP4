@@ -1,0 +1,16 @@
+{
+  "case_id": "AUTH-V02",
+  "candidate_base": "aabf8005f7c917d0120274b9a1f97901c94a9d8a",
+  "command": "env -u TRACEDESK_TEST_DATABASE_CONFIRM_ISOLATED -u TRACEDESK_TEST_JDBC_URL -u TRACEDESK_TEST_DATABASE_USER -u TRACEDESK_TEST_DATABASE_PASSWORD ./gradlew :backend:db-test-support:test --tests com.tracedesk.testing.IsolatedPostgresIntegrationTest --rerun-tasks --no-daemon",
+  "process_exit_code": 1,
+  "expected_process_exit_code": 1,
+  "outcome": "expected_failure_observed",
+  "test_timestamp_utc": "2026-11-07T06:31:56.704000Z",
+  "test_duration_seconds": 0.024,
+  "tests": 1,
+  "failures": 1,
+  "errors": 0,
+  "skipped": 0,
+  "safe_failure_reason": "ISOLATION_CONFIRMATION_REQUIRED",
+  "test_logs_retained": false
+}

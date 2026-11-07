@@ -1,0 +1,185 @@
+{
+  "base_revision": "aabf8005f7c917d0120274b9a1f97901c94a9d8a",
+  "branch": "codex/auth-verify-issue-4",
+  "captured_at_utc": "2026-11-07T06:42:13.133510Z",
+  "candidate_id": "aabf8005f7c9-plus-1cbed719f37b55b9",
+  "fingerprint_sha256": "1cbed719f37b55b9cb009f4106202dd4fd08cd5fb1d207f23fde8a61cdf58283",
+  "algorithm": "SHA-256 of sorted relative path UTF-8 + NUL + file bytes + NUL; evidence excluded",
+  "files": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 5586,
+      "sha256": "9a793d6e7170a95ccdb3309d082d59d3f5d23e9b160ec165b863c7b1e1be4022"
+    },
+    {
+      "path": "backend/auth-app/build.gradle",
+      "bytes": 1137,
+      "sha256": "7d01aff59c75f0b0acd088831c1e697dd068e126edf6eb48c9c7fec702fb7279"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/AuthApplication.java",
+      "bytes": 857,
+      "sha256": "32d474f2fb49fc3e085cbdc486eace4b3a18156f4455a376d4a4c966b5afe0c7"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/api/ApiFailureHandler.java",
+      "bytes": 1796,
+      "sha256": "43d1a1f4a3c5857299003f2909fa3f1e5fd686c4ef07ac1840d82c35a1d2d31d"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/api/AuthController.java",
+      "bytes": 8431,
+      "sha256": "19268b331003df189fbaf23091c9982b16821ed2517eb196b61d129af87354ce"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/application/ProjectAccessRepository.java",
+      "bytes": 443,
+      "sha256": "3c959832d0df94ff17a22ed1db6e8faa1f5bdc91e9216f04c4b1f672f4768473"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/application/ProjectAuthorization.java",
+      "bytes": 886,
+      "sha256": "fa27cdb6204762f19dc9e4adf13f3b785f9bf4c78b27c9758bc5b0c575e6cc6c"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/domain/LoginPolicy.java",
+      "bytes": 1157,
+      "sha256": "66a0cf414ea34574f2c2daac6950dae40d93e260a0248a4b3af7bfb22e2608f8"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/domain/ProjectAccessPolicy.java",
+      "bytes": 486,
+      "sha256": "ff393a0b6b1e4bea1a93ea2cf1a466cc12f7bffde50734c05ee28c535a0eff38"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/persistence/AuthStore.java",
+      "bytes": 4073,
+      "sha256": "e75f6efba4b39a3459ae717d39bf6a9080ffb04436e0c69582f9aa15ac6940aa"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/security/LoginBodyLimitFilter.java",
+      "bytes": 3423,
+      "sha256": "fd5ed4fc32106c0f6c1f07f94d3a71cd8326af8479dce65a0f81fb9bd8560b54"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/security/PersistenceFailureFilter.java",
+      "bytes": 3157,
+      "sha256": "72cbb106393e1e707339c986463f632de34e415441533a7bd279f068bc9a1465"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/security/ResponsePolicyFilter.java",
+      "bytes": 991,
+      "sha256": "3da0556528672e4275576af8943036bd3ef806df672504334c515fa827cd4549"
+    },
+    {
+      "path": "backend/auth-app/src/main/java/com/tracedesk/auth/security/SecurityConfig.java",
+      "bytes": 2099,
+      "sha256": "f7de3f87e707f07028ad005c37fd624488eb41c3e68beda6796acd20fea3cca5"
+    },
+    {
+      "path": "backend/auth-app/src/main/resources/application.properties",
+      "bytes": 662,
+      "sha256": "bb0eec7ae1069ed74ead854e4c931537964e37271e11a68d56c9fc96c22bd1c1"
+    },
+    {
+      "path": "backend/auth-app/src/main/resources/db/migration/V1__auth_schema.sql",
+      "bytes": 1446,
+      "sha256": "33728829d95b2f4ef4193570ff0d682ff8e3b6f87db7195354b27cfdd453c90f"
+    },
+    {
+      "path": "backend/auth-app/src/main/resources/db/migration/V2__spring_session.sql",
+      "bytes": 684,
+      "sha256": "99d0ab665f11939c5cee6d80b4619585058c88917cc51afbba2d18ab478e1fc3"
+    },
+    {
+      "path": "backend/auth-app/src/main/resources/db/migration/V3__project_name_nonblank.sql",
+      "bytes": 107,
+      "sha256": "199f4b0d0faa9bb716440772e4b00eb4f6debddc92b954829200483faae93b97"
+    },
+    {
+      "path": "backend/auth-app/src/test/java/com/tracedesk/auth/api/AuthControllerTest.java",
+      "bytes": 13358,
+      "sha256": "6a53f77db457da0e852cca7885c0c1d9672a9bf67b9f394861f045dbe3d23115"
+    },
+    {
+      "path": "backend/auth-app/src/test/java/com/tracedesk/auth/api/AuthHttpsIntegrationTest.java",
+      "bytes": 48306,
+      "sha256": "f3f0b942544c04726f199c04c1d65204856eb52a45d40755fe9a1de90bf398f1"
+    },
+    {
+      "path": "backend/auth-app/src/test/java/com/tracedesk/auth/api/AuthRevocationRaceIntegrationTest.java",
+      "bytes": 13513,
+      "sha256": "5d703c6c3180416f55996150f5d7e0476e248477e4d7b3986117a75c376baa1b"
+    },
+    {
+      "path": "backend/auth-app/src/test/java/com/tracedesk/auth/application/LoginPolicyTest.java",
+      "bytes": 724,
+      "sha256": "f0c16cfd0e98a010473f7a960a2fa655b88430ef6d7ea5c799dabe31ad8dd1fa"
+    },
+    {
+      "path": "backend/auth-app/src/test/java/com/tracedesk/auth/application/ProjectAuthorizationTest.java",
+      "bytes": 1823,
+      "sha256": "c71221241193c8cb0221f9961d20d3f6f5441f0c3feb80a5a5fe20342684a85b"
+    },
+    {
+      "path": "backend/auth-app/src/test/java/com/tracedesk/auth/persistence/AuthPersistenceIntegrationTest.java",
+      "bytes": 11723,
+      "sha256": "563c756b54db186417ffb224a8160d071fdd1068f5fc23fad2dc6aa696b382a8"
+    },
+    {
+      "path": "backend/auth-app/src/test/java/com/tracedesk/auth/security/PersistenceFailureFilterTest.java",
+      "bytes": 1932,
+      "sha256": "4eafa52facdeaebc7261f1cac88c360a15e4127b35f397e5a1198ca32d93afe4"
+    },
+    {
+      "path": "backend/db-test-support/build.gradle",
+      "bytes": 557,
+      "sha256": "5508d5e2bf783c9c824112a625c517fd8945b0f5f38eb91da15281f988ff1190"
+    },
+    {
+      "path": "backend/db-test-support/src/main/java/com/tracedesk/testing/IsolatedPostgres.java",
+      "bytes": 6879,
+      "sha256": "8c69badd4ab1de01b2262d1186949204a596cf76b140a871adc80f893be0b686"
+    },
+    {
+      "path": "backend/db-test-support/src/test/java/com/tracedesk/testing/IsolatedPostgresGuardTest.java",
+      "bytes": 1854,
+      "sha256": "6c1935b3946f4fab1b2adf17150b6b775e12c93540ba21f07d24b64b5f24cf98"
+    },
+    {
+      "path": "backend/db-test-support/src/test/java/com/tracedesk/testing/IsolatedPostgresIntegrationTest.java",
+      "bytes": 1636,
+      "sha256": "6c3bb43a5ccc72ae4d35facfe64e83d0bfe4dece28324ee50884438a6bbcd798"
+    },
+    {
+      "path": "docs/architecture.md",
+      "bytes": 3363,
+      "sha256": "6673a4b118c96012f4ace0f5f83cc0af7f38cf2fb2e1adf4609be2bb72a714c3"
+    },
+    {
+      "path": "docs/security.md",
+      "bytes": 2722,
+      "sha256": "088d0d3e3381bba420c5e78ce7956589635a6e44038eef08c41eb542cc44abed"
+    },
+    {
+      "path": "docs/threat-model.md",
+      "bytes": 5093,
+      "sha256": "8e84d6c6f91ee8c105b9981ce00c8b9a159381283389cbeb2724d9d098302195"
+    },
+    {
+      "path": "settings.gradle",
+      "bytes": 123,
+      "sha256": "e5fe1bd290f2b21b1fa9bf101aecfc9bcd0b42ca30e4841eab222489b74b8883"
+    },
+    {
+      "path": "workflow/decisions/002-shared-role-contracts.md",
+      "bytes": 3405,
+      "sha256": "c2818e97c15e87e2d5ca39c252ec8fa8d34dc1f80c970ee38c5dafc39ba63f83"
+    },
+    {
+      "path": "workflow/specs/auth-membership.md",
+      "bytes": 21777,
+      "sha256": "c0d894887e6a51aa4ea7405da7db155af202a1c7dcb14932870ce6b9cd3efc23"
+    }
+  ]
+}

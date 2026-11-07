@@ -1,0 +1,42 @@
+[
+  {
+    "case_id": "AUTH-V02",
+    "outcome": "expected_failure",
+    "detail": "Required isolation confirmation absent; suite failed before database fixture creation. See negative-configuration.json."
+  },
+  {
+    "case_id": "AUTH-V03",
+    "outcome": "regression_reproduced",
+    "detail": "Numeric JSON login returned401 instead of400. Corrected Object-valued setters preserve JSON input types. Probe used base aabf800 plus test additions; pre-fix tree was not fingerprinted."
+  },
+  {
+    "case_id": "AUTH-V01",
+    "outcome": "fixture_failure",
+    "attempts": 2,
+    "detail": "New logout-outage test assumed browser credential retention after503. Corrected success follow-up to establish a separate fresh authenticated session;503 assertion and persisted-row assertion retained."
+  },
+  {
+    "case_id": "AUTH-V01",
+    "outcome": "passed",
+    "candidate_id": "aabf8005f7c9-plus-927ea212e03319d4",
+    "tests": 24,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "case_id": "AUTH-V01",
+    "outcome": "passed",
+    "candidate_id": "aabf8005f7c9-plus-1cbed719f37b55b9",
+    "detail": "Final additional absent-project equality and oversized-project request assertions. All pinned files unchanged after suite.",
+    "tests": 24,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "case_id": "AUTH-V06",
+    "outcome": "artifact_collection_corrected",
+    "detail": "Two one-off metadata collection attempts failed due duplicated UTC suffixes; normalized existing JUnit timestamps before validation. One final evidence patch had a context mismatch and was reapplied. No production/test files changed in these corrections."
+  }
+]
