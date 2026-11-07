@@ -28,7 +28,8 @@ test('login supports production appearance, controls and keyboard access', async
 
 test('production sends credentials to the backend and never fakes a signed-in state', async ({ page }) => {
   const requests = await mockAuthApi(page, { loginStatus: 401 })
-  await page.goto('/')
+  await page.goto('/?workspace-preview=qa')
+  await expect(page.getByLabel('Development preview')).toHaveCount(0)
   await page.getByLabel('Email', { exact: true }).fill('qa@tracedesk.test')
   await page.getByLabel('Password', { exact: true }).fill('tracedesk-demo')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()

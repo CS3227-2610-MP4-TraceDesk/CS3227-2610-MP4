@@ -26,7 +26,7 @@ export default defineConfig({
     { name: 'production', testMatch: '**/foundation.e2e.ts' },
     {
       name: 'development',
-      testMatch: '**/login-preview.e2e.ts',
+      testMatch: ['**/login-preview.e2e.ts', '**/workspace-preview.e2e.ts'],
       use: { baseURL: 'https://localhost:4178', ignoreHTTPSErrors: true },
     },
   ],
