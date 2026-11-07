@@ -50,7 +50,7 @@ model, AI policy and the V4 report migration. It did not read the issue on GitHu
 | 7 | Minor | 64 KiB cap appeared to override TD-RPT clarification limit | Cap limited to routes this contract introduces |
 | 8 | Minor | V4 audit table cannot hold the new events; note project consistency | Audit extension columns and per-event checks specified; composite `(report_id, project_id)` FK |
 | 9 | Minor | Issue's "investigation activity" undefined | Defined as clarification + resolution history, never from audit |
-| 10 | Minor | Former assignee's notes undeletable and count toward cap | Documented as an accepted bounded-slice limitation |
+| 10 | Minor | Former assignee's notes undeletable and count toward cap | First documented as an accepted limitation; superseded on 2026-11-08 by the Developer contributor's decision that the current assignee has full note permissions |
 
 The corrected contract was not sent back to the reviewer for a second pass.
 
@@ -69,6 +69,20 @@ The corrected contract was not sent back to the reviewer for a second pass.
 | TD-DEV-01–04 | Contract text present and corrected after one independent review; runtime evidence belongs to #27–31 |
 | TD-DEV-05 | Mapping to future tests present; this file records the actual review. A second review of the corrected text is still outstanding |
 
-Remaining open decisions (not resolved by this task): owner of the shared
-clarification migration (#16 vs #29), the QA verification specification including
-the rejection-reason representation, and an owner for QA-ASSIGN #32.
+## Developer contributor decisions (2026-11-08)
+
+The Developer contributor reviewed the contract's design choices in this session
+and decided:
+
+- #29 (Developer side) lands the shared clarification migration, API and question
+  UI. The QA contributor writes the QA verification spec and owns #32.
+- Kept as drafted: predecessor notes visible to the new assignee, no QA access to
+  notes, staff-only resolutions, the four resolution fields, no report-version or
+  `updated_at` change on note mutation, no re-proposal while `READY_FOR_QA`.
+- Staff-only resolutions depend on Reporters being external users (current
+  leaning); revisit if they are internal employees.
+- Changed: the current assignee can add, edit and delete any note on the report.
+  Notes keep their creator and record a last editor ("Created by X · edited by Y").
+
+These coordinator edits followed the review and have not been independently
+reviewed.

@@ -63,7 +63,7 @@ Definitions used below (all evaluated freshly per request):
 | Lifecycle `OPEN → IN_PROGRESS` | — | Assigned Developer |
 | Lifecycle `IN_PROGRESS → READY_FOR_QA` with a proposed resolution | — | Assigned Developer |
 | Clarification history | Reporter owner; all staff (TD-RPT) | Request: assigned Developer in `IN_PROGRESS`/`READY_FOR_QA`; reply: Reporter owner (TD-RPT) |
-| Investigation notes | **Assigned Developer only** | Assigned Developer, own notes only, report in `IN_PROGRESS` or `READY_FOR_QA` |
+| Investigation notes | **Assigned Developer only** | Assigned Developer, any note on the report (including predecessors' notes), report in `IN_PROGRESS` or `READY_FOR_QA` |
 | Proposed resolutions | All staff | Assigned Developer, via the transition above |
 
 Design choices:
@@ -75,9 +75,17 @@ Design choices:
   Notes are never readable by the Reporter, QA reviewers, unassigned Developers or
   other projects, and are never selected into report, list, progress,
   clarification, resolution or audit representations.
+- The current assignee has full note permissions: add, edit and delete any note
+  on the report, including notes left by previous assignees. Edit rights follow
+  the assignment, not authorship. Each note keeps its original creator and
+  records who last edited it, so the UI can show "Created by X · edited by Y".
+  Deleting a predecessor's note is permanent; the business audit keeps only who
+  deleted it and when, not the text.
 - Proposed resolutions are a QA-visible handoff readable by all staff in the
   project. They are not shown to the Reporter in this slice; the Reporter sees
-  only status through TD-RPT progress.
+  only status through TD-RPT progress. This assumes Reporters may be external
+  users (current leaning). If the team decides Reporters are internal
+  employees, Reporter read access to resolutions should be revisited.
 - A Developer can never self-assign, reassign or clear an assignment (TD-RPT,
   TD-ASG). Synthetic pre-assigned fixtures may support DEV-DATA tests, but they do
   not prove the production assignment journey, which requires QA-ASSIGN #32.
@@ -87,7 +95,7 @@ Design choices:
 | Command | Actor | Required status | Result | Report version |
 | --- | --- | --- | --- | --- |
 | Start investigation | Assigned Developer | `OPEN` | `IN_PROGRESS` | +1 |
-| Create/edit/delete own note | Assigned Developer who authored the note (create: any assigned Developer) | `IN_PROGRESS` or `READY_FOR_QA` | note row changes | **unchanged** |
+| Create/edit/delete any note on the report | Assigned Developer | `IN_PROGRESS` or `READY_FOR_QA` | note row changes | **unchanged** |
 | Request clarification | Assigned Developer | `IN_PROGRESS` or `READY_FOR_QA` | TD-RPT clarification request | +1 (TD-RPT) |
 | Propose resolution | Assigned Developer | `IN_PROGRESS` | resolution revision appended; `READY_FOR_QA` | +1 |
 
@@ -101,7 +109,8 @@ Notes on the table:
 - Reassignment or clear (QA) does not change status. A report left `IN_PROGRESS`
   with no valid assignee accepts no Developer mutation until QA assigns a current
   Developer. A Developer newly assigned to a `READY_FOR_QA` report can add notes
-  and request clarification but cannot propose until QA rejects.
+  and request clarification but cannot propose until QA rejects. This keeps the
+  proposal QA is verifying fixed while QA reviews it.
 - Note mutations deliberately do not increment the report version or touch
   `updated_at`. Incrementing them would expose private note activity to the
   Reporter and QA through the shared version, progress and list ordering, and
@@ -120,20 +129,20 @@ mutation of that row.
 
 ### Investigation note
 
-Persist `id UUID`, `project_id UUID`, `report_id UUID`, `author_user_id UUID`,
-`body`, `created_at`, `updated_at`, `version`.
+Persist `id UUID`, `project_id UUID`, `report_id UUID`, `author_user_id UUID`
+(the creator; never changes), nullable `last_edited_by_user_id UUID` (set on
+each edit to the editing assignee), `body`, `created_at`, `updated_at`,
+`version`.
 
 | Field | Required | Maximum code points | Maximum UTF-8 bytes |
 | --- | --- | ---: | ---: |
 | `body` | yes, nonblank | 8,000 | 32,000 |
 
 At most 200 notes may exist per report; creating the 201st returns
-`409 NOTE_LIMIT`. Notes are retained with the report. Delete is an explicit
-author-only hard delete of the note row; the business audit keeps only metadata.
-Note list order is fixed by `created_at ASC, id ASC`. Notes left by a former
-assignee count toward the cap and cannot be edited or deleted by anyone while
-that author is not the assignee; this is an accepted limitation of the bounded
-slice (200 is far above expected per-report use), not a recovery path.
+`409 NOTE_LIMIT`. Notes are retained with the report. Delete is an explicit hard
+delete of the note row by the current assignee; the business audit keeps only
+metadata. Note list order is fixed by `created_at ASC, id ASC`. Because the
+current assignee can delete any note, a predecessor's notes never block the cap.
 
 Notes and resolution revisions reference `(report_id, project_id)` through a
 composite foreign key to the report, so a row's project always equals its
@@ -198,8 +207,8 @@ own user UUID comes from the existing session read, not from this response.
 
 Representations (allowlists; nothing else is returned):
 
-- **Note**: `id`, `reportId`, `authorUserId`, `body`, `createdAt`, `updatedAt`,
-  `version`.
+- **Note**: `id`, `reportId`, `authorUserId`, nullable `lastEditedByUserId`,
+  `body`, `createdAt`, `updatedAt`, `version`.
 - **Resolution**: `id`, `reportId`, `authorUserId`, `revision`, `rootCause`,
   `changeSummary`, `verificationSteps`, `fixReference`, `createdAt`.
 - **Report**: the TD-RPT detail representation, unchanged. Notes and resolutions
@@ -251,8 +260,7 @@ follow: **user/project/membership → report → note**.
    `FOR SHARE` for note edit and delete. Assignment changes and QA transitions
    update the report row, so they serialize against all three.
 3. For note edit/delete, locks the note row `FOR UPDATE` within that report.
-4. Rechecks current assignment, lifecycle status, note authorship where
-   applicable, caps and expected version.
+4. Rechecks current assignment, lifecycle status, caps and expected version.
 5. Writes the mutation, increments the applicable version(s) and updates
    `updated_at` only on rows it changes.
 6. Inserts exactly one business audit event.
@@ -305,7 +313,6 @@ by precedence step:
 | 6 | Report absent or in another project | `404 NOT_FOUND` (opaque) |
 | 6 | Report visible, actor is a Developer but not its current assignee (start, propose, any note route) | `403 FORBIDDEN`, decided **before any note lookup**, so a real and a random `noteId` give the same response |
 | 6 | Assignee: note ID absent or belonging to another report | `404 NOT_FOUND` |
-| 6 | Assignee edits/deletes a note authored by someone else | `403 FORBIDDEN` |
 | 6 | Wrong lifecycle status for the command | `409 INVALID_STATE` |
 | 7 | Field validation, caps, idempotency, versions | TD-RPT codes plus `409 NOTE_LIMIT` and `409 RESOLUTION_LIMIT` |
 | 8 | Persistence, audit or security-event sink failure; unresolved deadlock | `503 SERVICE_UNAVAILABLE` |
@@ -328,6 +335,8 @@ or authorization; DEV-UI replaces the Developer preview path with real API calls
   unavailable and expired-cursor states.
 - **Report detail**: shared fields, status/assignee/version, an investigation
   activity view and, only when the session user is the assignee, the notes panel.
+  Each note shows its creator and, when edited, its last editor ("Created by X ·
+  edited by Y").
   The activity view is exactly the clarification history plus the resolution
   history, read from their own endpoints; it is never derived from business
   audit, which would expose note events. Action availability (start, note, clarify, propose) is a UI
@@ -375,7 +384,7 @@ databases and no `.env*` files or live data.
 
 | Criterion | Observable requirement | Required future tests/evidence |
 | --- | --- | --- |
-| **TD-DEV-01** | Developer context, the visibility table, assigned/unassigned/former-assignee access, lifecycle preconditions and the boundary between shared report, private notes, clarification and QA-visible resolution data match this contract. | Two-project, three-role, two-Developer API matrix for every route; reassignment and revocation remove note read and mutation at the authorization point; notes absent from every non-note response. |
+| **TD-DEV-01** | Developer context, the visibility table, assigned/unassigned/former-assignee access, lifecycle preconditions and the boundary between shared report, private notes, clarification and QA-visible resolution data match this contract. | Two-project, three-role, two-Developer API matrix for every route; reassignment and revocation remove note read and mutation at the authorization point; a new assignee can edit and delete a predecessor's note, keeping `authorUserId` and setting `lastEditedByUserId`; notes absent from every non-note response. |
 | **TD-DEV-02** | Note and resolution fields, Unicode/byte/body limits, caps, ordering, retention, UUID/UTC/version rules and plain-text handling match this contract. | Validator tests at each limit and one over; multibyte and supplementary code points, controls, surrogates, blank required fields; 200/201 notes and 50/51 revisions with no partial mutation; synchronized concurrent creates at 199 notes leave exactly 200; composite project/report FK rejects mismatched rows; schema round trip. |
 | **TD-DEV-03** | Start, note create/edit/delete and propose follow the precondition, locking, version, idempotency, atomic audit and denied/stale/failed/reassigned/concurrent outcomes above; note mutations do not change report version or `updated_at`. | Isolated PostgreSQL tests: one audit per success with exact per-event columns; rollback on audit failure; duplicate start (`INVALID_STATE`), duplicate propose before and after QA rejection (`INVALID_STATE`/`STALE_VERSION`); Developer note create versus QA reassignment under the global lock order without deadlock, and injected serialization failure yielding `503` with nothing committed; synchronized reassignment/revocation versus start, note and propose; QA reject versus Developer clarification; note replay and changed-body conflict. |
 | **TD-DEV-04** | Routes, request/response allowlists, error mapping, `developer-context`, and the My work/All bugs/detail/notes/clarification/handoff UI behavior match this contract with server-side trusted identity. | Per-route direct API tests for allowed/denied/stale/unavailable; step-4 role `403` with nonexistent report IDs; non-assignee `403` identical for real and random note IDs; forged actor/role/status/assignee fields; cursor binding; browser-to-real-backend journeys including stale/reassigned/session-expired states and input preservation. |
@@ -387,10 +396,10 @@ databases and no `.env*` files or live data.
 | --- | --- | --- | --- |
 | #27 DEV-DATA | TD-DEV-06–10 | `developer-context`, start investigation, notes, migrations and audit | #26; #32 for the production journey |
 | #28 DEV-UI | TD-DEV-11–15 | My work, All bugs, detail, start and notes UI | #27 |
-| #29 DEV-CLARIFY | TD-DEV-16–20 | Developer clarification request UI and interoperability with Reporter replies | #27; single owner for the TD-RPT clarification migration/API shared with #16 |
+| #29 DEV-CLARIFY | TD-DEV-16–20 | Shared TD-RPT clarification migration and API (single owner), Developer question UI, interoperability with Reporter replies | #27; #16 depends on this for Reporter replies |
 | #30 DEV-RESOLUTION | TD-DEV-21–25 | Resolution schema, propose endpoint and handoff UI | #27; QA verification specification for the rejection loop |
 | #31 DEV-AI | TD-DEV-26–30 | Advisory hypotheses and next steps | #27, #28, secured gateway specification and verification |
-| #32 QA-ASSIGN | TD-ASG-01–05 | QA assignment, reassignment and clear | QA owner; prerequisite for the production Developer journey |
+| #32 QA-ASSIGN | TD-ASG-01–05 | QA assignment, reassignment and clear (QA contributor) | Prerequisite for the production Developer journey |
 
 Applicable threat-model rows: forged role/project/bug ID, report object-ID
 substitution, stale assignment or verification decision, CSRF or stolen session,
@@ -399,16 +408,21 @@ context selection and raw provider leak.
 
 ## Open decisions and implementation status
 
-Owner decisions still needed outside this contract:
+Ownership decided by the Developer contributor on 2026-11-08:
 
-1. Which issue (#16 or #29) lands the shared clarification migration and API.
-2. The QA verification specification, including the rejection-reason
-   representation the Developer sees after `READY_FOR_QA → IN_PROGRESS`.
-3. An owner for QA-ASSIGN #32.
+1. DEV-CLARIFY #29 (Developer side) lands the shared clarification migration,
+   API and question UI; REPORT-PROGRESS #16 builds on it for Reporter replies.
+2. The QA contributor writes the QA verification specification, including the
+   rejection-reason representation the Developer sees after
+   `READY_FOR_QA → IN_PROGRESS`.
+3. The QA contributor owns QA-ASSIGN #32.
 
-The note visibility and retention rules, resolution fields and limits, staff-only
-resolution visibility, no report-version change on note mutation, and the 64 KiB
-request cap are bounded design choices within the approved product and
+The Developer contributor reviewed and kept: notes visible to the current
+assignee including predecessors' notes, no QA access to notes, staff-only
+resolutions, the four resolution fields, no report-version or `updated_at`
+change on note mutation, and no re-proposal while `READY_FOR_QA`. They changed
+note permissions to the current-assignee model above. The 64 KiB request cap and
+numeric limits remain bounded design choices within the approved product and
 architecture. They are not claims of human approval, implementation, verification
 or release. Specified: behavior and future test mapping only. One independent
 contract review and its corrections are recorded in
