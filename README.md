@@ -7,8 +7,9 @@ human-reviewed AI capability.
 ## Current status
 
 Architecture and reuse selections were confirmed by the repository user on
-2026-11-04. This checkout contains the engineering foundation, a static frontend
-starter, an isolated database test helper, and the tested provider transport.
+2026-11-04. This checkout contains the engineering foundation, the approved login
+UI and development-only demo sign-in, an isolated database test helper, and the
+tested provider transport.
 Authentication, application persistence, the secured gateway, and role features
 remain to be implemented in the order recorded in the integration plan.
 
@@ -38,13 +39,35 @@ remain to be implemented in the order recorded in the integration plan.
 | `harness/` | Development-agent roles and coordination protocol; execution uses the host's agent tools |
 | `workflow/` | Specifications, acceptance index, handoff/evidence templates, decisions and progress |
 | `backend/` | Internal provider transport and PostgreSQL test support |
-| `frontend/` | React starter, static browser smoke tests, build and lint setup |
+| `frontend/` | React login UI, local demo preview, browser tests, build and lint setup |
 | `tools/` | Portable repository checks |
 | `.github/workflows/` | Foundation, frontend and isolated database CI; deployment is not configured |
 | `compose.yaml`, `Dockerfile`, `docker/` | Local containers and built frontend image |
 
 Create backend domain and application modules when the first vertical slice is
-implemented. The frontend currently shows only a static introduction page.
+implemented. The frontend opens on the approved login screen. Demo sign-in opens the existing
+introduction page; role workspaces and real sign-in integration are pending.
+
+## Inspect the login UI locally
+
+Run from the repository root after installing Node and npm. The current jsdom
+dependency declares Node 24.15 or newer in the Node 24 release line.
+
+```powershell
+cd frontend
+npm ci
+npm run dev -- --host 127.0.0.1 --port 4178 --strictPort
+```
+
+Open http://127.0.0.1:4178/. This serves the repository frontend with hot reload.
+Expand **Demo accounts**, choose Reporter, Developer or QA reviewer, then press
+**Sign in**. These are synthetic fixtures for a local visual preview. They open
+the starter content with a demo label and sign-out, and create no backend session.
+The login layout, theme, logo and mascot motion are ported from the approved
+mockup. A production build omits Demo accounts and reports that sign-in is not
+connected yet. Real authentication and role workspaces are separate integration
+steps. See [login criteria](workflow/specs/login-ui.md) and
+[verification evidence](workflow/reporter/evidence/login-ui.md).
 
 ## Verify the foundation
 
