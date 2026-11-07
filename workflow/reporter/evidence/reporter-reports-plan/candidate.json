@@ -1,0 +1,19 @@
+{
+  "base_revision": "3f40a6e9b15b3b818317bab57ac67d8e44fda19b",
+  "candidate_id": "3f40a6e9b15b-plus-4b02c4a43baf4244",
+  "files": {
+    "workflow/specs/reporter-reports.md": {
+      "sha256": "087a7e70f8bf85651d1e11c287fd63dbfb8d69b8e11ff2493233f9e4eb2a77a1",
+      "bytes": 29336
+    },
+    "workflow/acceptance-criteria.md": {
+      "sha256": "596e860a2b0090f0e81b9371d1da41ace27dd6dd89d3a1e9f52c27e7e6b8b0cf",
+      "bytes": 2118
+    },
+    "docs/threat-model.md": {
+      "sha256": "96e022af19e440fc7de38c4dd3651acf2c0162c1255faf8e3ff6a8b15b1cb466",
+      "bytes": 6470
+    }
+  },
+  "scope": "Docs-only contract/index/threat-model; evidence files excluded to avoid self-referential hashes."
+}
