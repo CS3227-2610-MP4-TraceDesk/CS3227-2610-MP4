@@ -1,7 +1,8 @@
 # TD-DEV — Developer investigation and QA handoff contract
 
 Status: canonical behavior contract for the Developer role (DEV-PLAN #26); not an
-implementation or completion record. Human owner: not supplied. The approved
+implementation or completion record. Human owner: the Developer contributor
+(GitHub `Izn432`), who reviewed and approved this contract on 2026-11-08. The approved
 architecture, [product scope](../../docs/product.md), [shared role contracts](../decisions/002-shared-role-contracts.md),
 [authentication and project membership contract](auth-membership.md) and
 [Reporter reports and shared lifecycle contract](reporter-reports.md) (TD-RPT)
@@ -408,7 +409,7 @@ context selection and raw provider leak.
 
 ## Open decisions and implementation status
 
-Ownership decided by the Developer contributor on 2026-11-08:
+Ownership decided by the Developer contributor (`Izn432`) on 2026-11-08:
 
 1. DEV-CLARIFY #29 (Developer side) lands the shared clarification migration,
    API and question UI; REPORT-PROGRESS #16 builds on it for Reporter replies.
@@ -417,14 +418,15 @@ Ownership decided by the Developer contributor on 2026-11-08:
    `READY_FOR_QA → IN_PROGRESS`.
 3. The QA contributor owns QA-ASSIGN #32.
 
-The Developer contributor reviewed and kept: notes visible to the current
-assignee including predecessors' notes, no QA access to notes, staff-only
-resolutions, the four resolution fields, no report-version or `updated_at`
-change on note mutation, and no re-proposal while `READY_FOR_QA`. They changed
-note permissions to the current-assignee model above. The 64 KiB request cap and
-numeric limits remain bounded design choices within the approved product and
-architecture. They are not claims of human approval, implementation, verification
-or release. Specified: behavior and future test mapping only. One independent
+On 2026-11-08 the Developer contributor reviewed the whole contract and approved
+its design choices. They kept: notes visible to the current assignee including
+predecessors' notes, no QA access to notes, staff-only resolutions, the four
+resolution fields, no report-version or `updated_at` change on note mutation, and
+no re-proposal while `READY_FOR_QA`. They changed note permissions to the
+current-assignee model above, and then approved merging the contract (PR #33).
+The 64 KiB request cap and numeric limits are bounded design choices within the
+approved product and architecture and were part of that review. This approval
+covers the contract only, not implementation, verification or release. Specified: behavior and future test mapping only. One independent
 contract review and its corrections are recorded in
 [DEV-PLAN evidence](../developer/evidence/developer-investigation-plan.md).
 TD-DEV-06–30 are worded in their GitHub delivery issues and are planned, not
