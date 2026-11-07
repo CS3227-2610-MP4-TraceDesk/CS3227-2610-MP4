@@ -1,0 +1,23 @@
+{
+  "snapshot_bytes": {
+    ".agents/skills/tracedesk-spec-development/SKILL.md": 1365,
+    "workflow/acceptance-criteria.md": 2118,
+    "docs/product.md": 2387,
+    "workflow/decisions/002-shared-role-contracts.md": 3405,
+    "docs/architecture.md": 3363,
+    "docs/security.md": 2722,
+    "docs/ai-policy.md": 3102,
+    "workflow/specs/auth-membership.md": 21777,
+    "workflow/reporter/templates/feature-spec.md": 1077,
+    "workflow/reporter/agentic-se.md": 6059,
+    "workflow/specs/shared-ui.md": 8038,
+    "workflow/reporter/README.md": 3151,
+    "workflow/reporter/evidence/reporter-reports-plan.md": 4643
+  },
+  "total_reference_bytes": 63207,
+  "authored_output_bytes": 28813,
+  "call_budget": 15,
+  "call_budget_exceeded": true,
+  "calls": null,
+  "retries": null
+}
