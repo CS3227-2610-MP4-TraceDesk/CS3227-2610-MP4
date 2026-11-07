@@ -232,3 +232,108 @@ Implementation/test fingerprint for this uncommitted candidate (SHA-256):
   `TDSESSION` cookie. The final `:backend:auth-app:test --no-daemon` run passed
   all 18 tests with 0 failures, 0 errors and 0 skips after this assertion.
 - `git diff --check` passed. CI and deployment checks were not run.
+
+## AUTH-API issue #3 follow-up
+
+Date: 2026-11-07. Branch: `codex/auth-api-issue-3`. Base revision:
+`04ceaa086cfc2e62a610ff28a528532393216775` (merged AUTH-DATA PR #9). The
+implementation and regression-test diff is identified by SHA-256
+`fc1352dc1971764928435468f6ea97366fc466f3ad5bd534cd28f7fe470583fd`, computed
+over the four changed backend source/config/test files with `git diff --binary`.
+Reporter evidence and run records are excluded from that fingerprint. The issue's
+broader AUTH-API criteria remain partial; this follow-up verifies two previously
+missing cases rather than declaring the whole authentication slice complete.
+
+### Changes and criterion mapping
+
+- **TD-AUTH-07 / TD-AUTH-10:** The actual Spring Boot 4 application accepted
+  duplicate `login` and `password` JSON keys even though the old
+  `spring.jackson.parser.strict-duplicate-detection` property was present. The
+  app uses Jackson 3; changing this to
+  `spring.jackson.read.strict-duplicate-detection=true` makes duplicate-key
+  requests return the fixed `400 INVALID_REQUEST`. A real HTTPS regression sends
+  duplicate fields whose final values would otherwise authenticate, checks no
+  authenticated session or cookie upgrade, verifies one bounded
+  `LOGIN_INVALID_REQUEST` per request and no `LOGIN_DENIED`, and checks safe
+  response headers. This closes the identified parser-contract gap; captured
+  application-log canary coverage remains outstanding.
+- **TD-AUTH-08:** Logout now checks the session-backed CSRF token before
+  authenticated-actor and absolute-expiry handling. Unit coverage confirms that
+  anonymous missing-CSRF and expired-session stale-CSRF requests return 403
+  without invalidating server state; a valid token without an authenticated
+  actor remains a 401. Existing authenticated invalid-CSRF coverage confirms
+  event attribution is preserved.
+
+No API scope, persistence schema, authorization rule, provider access or
+business mutation was added. The independent reviewer found no issues in the
+changed behavior and checked the actual diff, relevant spec, event/error paths,
+and assertions. Reviewer scope was the changed portions of TD-AUTH-07/08/10;
+the reviewer did not rerun the suite.
+
+### Verification and observed corrections
+
+Environment: OpenJDK 25.0.4.1, Gradle 9.6.1, repository disposable PostgreSQL
+18.6 test service with a temporary owned schema and synthetic fixtures. No
+`.env*`, live application database, production identity or production data was
+read or used. The test database settings were supplied for this run; their
+values are not retained here.
+
+Exact test command:
+
+```sh
+./gradlew :backend:auth-app:test :backend:db-test-support:test --rerun-tasks --no-daemon
+```
+
+- Initial full run: failed with two regression-test failures. It demonstrated
+  duplicate-key authentication returned 200 under the old property and caught
+  an overly strict logout-event call-count assertion.
+- After correcting the Jackson 3 property and logout assertion, the next run
+  demonstrated duplicate keys returned 400, but failed because the test compared
+  JSON object member order. The assertion was changed to inspect the fixed code
+  and message fields.
+- Final rerun: **passed**, 23 tests total (19 `auth-app`, 4 `db-test-support`),
+  0 failures, 0 errors, 0 skips. The HTTPS test executed both duplicate-key
+  requests against the live Spring application and isolated PostgreSQL schema.
+- `git diff --check`: **passed**.
+- CI, deployment, and browser-to-live-backend checks: **not run**.
+
+The first delegated test attempt did not reach API execution because isolated
+database configuration was absent. A subsequent coordinator run used the
+documented disposable Compose database. One sandbox attempt could not access the
+Gradle user cache; the approved rerun used JDK 25 and completed. These attempts
+are not counted as passing tests.
+
+### Actual handoffs and resource limits
+
+- `/root/auth_api_gap_review` (GPT-6 Luna, independent reviewer) first inspected
+  the existing implementation read-only and identified duplicate-key behavior
+  as a gap. The coordinator verified the reported property already existed,
+  reproduced the 200 response over HTTPS, and corrected the Jackson 3 property.
+  On final review, the agent inspected the actual changed diff and tests and
+  reported no findings. Selected source references totaled 108,226 UTF-8 bytes;
+  3 orchestrated calls and 7 shell reads were observable; no retries; exact time
+  and tokens unavailable. Review did not independently execute tests.
+- `/root/auth_api_logout_csrf` (GPT-6 Luna, implementer) changed
+  `AuthController.java` and `AuthControllerTest.java`. Its selected context files
+  totaled 46,271 UTF-8 bytes; six tool calls were observed. Its initial local
+  test attempt could not start due to Gradle runtime loading; no test pass was
+  claimed. Coordinator tests later verified the change.
+- `/root/auth_api_duplicate_json_test` (GPT-6 Luna, implementer) added the HTTPS
+  duplicate-key regression in `AuthHttpsIntegrationTest.java`. Selected context
+  totaled 65,738 UTF-8 bytes; the first test attempt took about five seconds but
+  stopped before HTTP execution because the required isolated database settings
+  were absent. Coordinator reproduced and corrected the runtime configuration
+  gap, then ran the passing full suite.
+- Coordinator selected references measured 166,397 UTF-8 bytes across the
+  project instructions, contracts, tests, security docs, test-database guidance
+  and handoff templates. Hidden/inherited context and token/cost telemetry are
+  unknown. Exact coordinator call count and total elapsed time were not
+  instrumented. Elapsed times for the two failing full runs and final passing
+  run were approximately 16, 15 and 16 seconds respectively.
+
+The local run handoff is stored under the ignored
+`workflow/reporter/runs/2026-11-07-auth-api-issue-3.md` path per the contributor's
+local-run-log preference; the checked-in evidence is this section. No human
+owner or student ownership was supplied. The focused-versus-broader development
+context comparison remains deferred to final MP4 acceptance; this single run
+does not establish comparative cost or quality.
