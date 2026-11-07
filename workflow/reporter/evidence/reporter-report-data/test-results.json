@@ -1,0 +1,198 @@
+{
+  "candidate_id": "b69f64f76910-plus-19b559c01a96e555",
+  "totals": {
+    "tests": 32,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.api.AuthControllerTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 1.678,
+      "cases": [
+        "projectReadUsesSessionActorAndHidesCrossProjectMembership()",
+        "absoluteLifetimeExpiresAtEightHourBoundaryWithoutWaiting()",
+        "logoutChecksCsrfBeforeAuthenticationAndExpiry()",
+        "denialEventFailureStillRevokesExistingSession()",
+        "projectDenialFailsClosedWhenSecurityEventStoreIsUnavailable()",
+        "logoutRequiresCsrfAndInvalidatesSessionReplay()",
+        "successfulLoginRotatesSessionAndReplacesCsrfToken()",
+        "oversizedValidJsonIsRejectedBeforeDeserialization()",
+        "csrfRequiredBeforeCredentialsAndBadCredentialShapeIsUniform()",
+        "unknownFieldsAreRequestErrors()"
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.api.AuthHttpsIntegrationTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 5.539,
+      "cases": [
+        "realHttpsSessionCsrfAndRoleMembershipBoundaries(CapturedOutput)"
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.api.AuthRevocationRaceIntegrationTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 1.48,
+      "cases": [
+        "authorizedInFlightReadMayFinishButCommittedRevocationBlocksReplay()"
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.application.LoginPolicyTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 0.002,
+      "cases": [
+        "passwordBoundsCountCodePointsAndBytes()",
+        "normalizesNfkcTrimAndLocaleRootCase()",
+        "rejectsMalformedIdentifiers()"
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.application.ProjectAuthorizationTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 0.037,
+      "cases": [
+        "onlyEnabledUserProjectAndActiveMembershipCanRead()",
+        "policyDoesNotDependOnFrameworkTypes()"
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.persistence.AuthPersistenceIntegrationTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 0.784,
+      "cases": [
+        "migrationConstraintsMembershipFreshnessSessionRevocationAndEvents()"
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.reports.api.ReportHttpsIntegrationTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 2.493,
+      "cases": [
+        "reportHttpsBoundaryEnforcesIdentityVisibilityIdempotencyAndSafeErrors(CapturedOutput)"
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.reports.domain.ReportAccessPolicyTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 0.001,
+      "cases": [
+        "memberAndObjectVisibilityAreRoleAndOwnerBound()"
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.reports.domain.ReportCursorSignerTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 0.002,
+      "cases": [
+        "bindsActorProjectPurposeFilterAndFifteenMinuteLifetime()"
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.reports.domain.ReportDataTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 0.019,
+      "cases": [
+        "enforcesTheExactCodePointAndUtf8LimitForEveryField()",
+        "canonicalDigestPreservesSupplementaryCharactersAndContractFieldOrder()",
+        "acceptsContractWhitespaceAndSupplementaryCharactersAtBounds()",
+        "rejectsCodePointByteBlankControlAndUnpairedSurrogateViolations()"
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.reports.persistence.ReportPersistenceIntegrationTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 1.303,
+      "cases": [
+        "reportConstraintsIdempotencyConcurrencyAndAuditRollback()"
+      ]
+    },
+    {
+      "module": "auth-app",
+      "suite": "com.tracedesk.auth.security.PersistenceFailureFilterTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 0.002,
+      "cases": [
+        "unhandledApiFailureDoesNotCopyPartialResponseBody()",
+        "persistenceFailureReplacesBufferedApiBodyWithGenericUnavailableResponse()"
+      ]
+    },
+    {
+      "module": "db-test-support",
+      "suite": "com.tracedesk.testing.IsolatedPostgresGuardTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 0.027,
+      "cases": [
+        "rejectsMissingConfirmationBeforeConnecting()",
+        "rejectsProductionTargetEvenWithDifferentJdbcPrefix()",
+        "rejectsNonTestNamesAndConnectionParameters()"
+      ]
+    },
+    {
+      "module": "db-test-support",
+      "suite": "com.tracedesk.testing.IsolatedPostgresIntegrationTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 0.25,
+      "cases": [
+        "ownsSelectsAndDropsOnlyItsSchema()"
+      ]
+    }
+  ],
+  "note": "Final auth-app task executed; unchanged db-test-support task reused successful suite-2 output. Raw logs, requests and fixture content excluded."
+}

@@ -367,6 +367,29 @@ test data. No MP3 migrations, live database, or `.env*` files are permitted.
 
 ## Delivery dependencies
 
+### REPORT-DATA (#13) executable acceptance criteria
+
+The #13 implementation is limited to report creation, report list/detail and
+the minimal Reporter context read. Drafts, edits, transitions, clarification,
+frontend and AI remain excluded. `textLogs` is present as a string in a create
+body (empty is valid); the other six strings must be nonblank. All roles follow
+the visibility rules above. Create uses a required canonical UUID key, 24-hour
+replay and an atomic business audit. No report update API is added in this slice.
+
+| Criterion | Observable requirement and verification |
+| --- | --- |
+| **TD-RPT-06** | Fresh isolated migrations enforce project/user references, seven text fields and bounds, lifecycle allowlist, positive version and UTC/audit persistence. DB tests reject invalid references, missing/blank required text, exceeded bounds, status and version; no fixtures use a live DB. |
+| **TD-RPT-07** | Trusted session actor plus locked fresh membership/role authorize create; one version-1 OPEN report, idempotency record and bounded metadata-only audit commit together. Tests cover exact text/UUID/time round trip, same-key replay, changed-body conflict, expired key, concurrent replay and rollback on audit failure. |
+| **TD-RPT-08** | List summaries and detail enforce own-Reporter/all-project-staff visibility; bounded keyset pages, status/assignment filters, purpose/actor/project/filter-bound expiring cursors and safe response allowlists. The minimal Reporter context read derives project/name/role server-side. Tests exercise pagination, tamper/expiry/rebinding, object opacity and context role denial. |
+| **TD-RPT-09** | Anonymous, forged body identity, wrong role, cross-project/owner, disabled membership/user/project, malformed/oversized input and required persistence/event failure return the specified safe errors/no-store headers without forbidden mutation or provider invocation. Direct session/CSRF API tests exercise precedence, strict JSON types/duplicate/unknown keys, body caps and secret-safe diagnostics. |
+| **TD-RPT-10** | Pure policy/validation, direct API and isolated PostgreSQL tests cover allowed/denied roles, create/audit rollback, positive initial version and synchronized membership/replay concurrency. Missing isolation settings fail required integration tests. Evidence pins the candidate, actual commands/results, independent review/corrections and measurement limitations. |
+
+Versioned edit conflicts are #15; #13 proves the initial version invariant and
+concurrent create/replay constraints, and does not claim an unimplemented edit
+conflict test. Cursor signing is an internal server responsibility; key material
+never appears in responses or logs. Implementation records its key lifecycle
+and resulting restart behavior without adding a provisioning API.
+
 This contract defines the bounded data and shared domain boundaries for the
 Reporter report slice. The planned implementation issues are sequenced as:
 
