@@ -246,3 +246,27 @@ Do not add decorative toolbar actions whose behavior has not been specified.
   providing usable touch targets where needed and documenting deliberate changes.
   No claim of accessibility conformance follows from visual resemblance alone.
 
+### Shared opening and closing motion
+
+Every role must use the same shared implementation for each type of opening
+and closing interaction. Put motion styles and timing values in the shared
+component or stylesheet. Role pages must not override them or create their
+own variants. When adding a new interaction type, define its shared behavior
+here before using it in a role page.
+
+| Interaction | Required motion | Open / close |
+| --- | --- | --- |
+| Inline disclosure, such as Activity, Original report, or a template case | Expand or collapse in place and rotate the chevron 90°. Use a smooth curve with no bounce. | 180ms / 150ms |
+| Dropdown or popover, such as Sort bugs or Display options | Fade with a small movement from the trigger. Reuse SDK motion where it supports the shared behavior. | 140ms / 100ms |
+
+Respond immediately to input and reverse from the current visual state if
+the user toggles again mid-transition. Preserve keyboard operation and focus
+return. With reduced motion enabled, skip the transition. The desktop sidebar
+uses its separate 300ms rule above.
+
+Use `Disclosure` and `AnimatedPopover` from `frontend/src/shared`. The shared
+popover uses the Radix primitive and Apps SDK surface tokens because the
+installed Apps SDK Popover disables its visibility transitions. Native
+disclosures retain their keyboard behavior on browsers without support for
+animating the content size.
+
