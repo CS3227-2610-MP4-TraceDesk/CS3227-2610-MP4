@@ -90,3 +90,15 @@ tokens or imagined approvals.
 - Final checks on 2026-11-07: `npm run test:e2e` PASS (13/13), `npm run check`
   PASS (13 Vitest tests), `npm run build` PASS, and `git diff --check` PASS.
 - This test timing correction is an uncommitted follow-up on the feature branch.
+
+## PR foundation check correction
+
+- Both failing PR checks were the portable foundation job and reported that the
+  engineering reuse manifest pointed to deleted `frontend/src/shared/csrf.ts`.
+- Updated the provenance destination to its current replacement,
+  `frontend/src/auth/sessionApi.ts`, and documented the adaptation: JSON CSRF
+  tokens are fetched from the backend instead of read from a cookie.
+- `python3 tools/check_foundation.py`: PASS (62 documents, 4 skills, 21
+  provenance entries, 9 transport Java sources).
+- The PR branch will be updated with this fix so CI reruns on the corrected
+  head.

@@ -33,6 +33,9 @@ Status: frontend implementation complete; end-to-end acceptance is partial.
 - PASS — `./gradlew :backend:auth-app:test`: Gradle reports successful; tasks
   were up-to-date.
 - PASS — `git diff --check`.
+- PASS — `python3 tools/check_foundation.py`: the old manifest destination for
+  the cookie-based CSRF helper now maps to its JSON-token session API
+  replacement.
 - PASS — independent code review by `/root/login_auth_review` (GPT-6 Luna,
   2026-11-07). It found that logout accepted arbitrary 2xx status codes; the
   client now accepts only 204, and a regression test covers a 202 response.
