@@ -1,0 +1,87 @@
+.shared-disclosure {
+  --disclosure-duration: 150ms;
+  --disclosure-easing: ease-in;
+}
+
+.shared-disclosure[open] {
+  --disclosure-duration: 180ms;
+  --disclosure-easing: ease-out;
+}
+
+.shared-disclosure-chevron {
+  transition: transform var(--disclosure-duration) var(--disclosure-easing);
+}
+
+.shared-disclosure[open] > summary > .shared-disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+@supports (interpolate-size: allow-keywords) and selector(::details-content) {
+  .shared-disclosure::details-content {
+    interpolate-size: allow-keywords;
+    block-size: 0;
+    overflow: clip;
+    transition:
+      block-size var(--disclosure-duration) var(--disclosure-easing),
+      content-visibility var(--disclosure-duration) allow-discrete;
+  }
+
+  .shared-disclosure[open]::details-content {
+    block-size: auto;
+  }
+}
+
+.shared-popover {
+  --popover-open-duration: 140ms;
+  --popover-close-duration: 100ms;
+  --popover-offset: 0 -4px;
+  max-width: min(700px, var(--radix-popover-content-available-width));
+  max-height: var(--radix-popover-content-available-height);
+  overflow: auto;
+  border-radius: var(--popover-radius);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow), var(--shadow-hairline);
+  transform-origin: var(--radix-popover-content-transform-origin);
+  opacity: 1;
+  translate: 0 0;
+  transition: opacity var(--popover-open-duration) ease-out, translate var(--popover-open-duration) ease-out;
+}
+
+.shared-popover[data-side="top"] { --popover-offset: 0 4px; }
+.shared-popover[data-side="left"] { --popover-offset: 4px 0; }
+.shared-popover[data-side="right"] { --popover-offset: -4px 0; }
+
+@starting-style {
+  .shared-popover[data-state="open"] {
+    opacity: 0;
+    translate: var(--popover-offset);
+  }
+}
+
+.shared-popover[data-state="closed"] {
+  opacity: 0;
+  translate: var(--popover-offset);
+  pointer-events: none;
+  transition-duration: var(--popover-close-duration);
+  transition-timing-function: ease-in;
+  /* Radix keeps the DOM mounted while this exit animation runs. */
+  animation: shared-popover-exit var(--popover-close-duration);
+}
+
+@keyframes shared-popover-exit {
+  from { --shared-popover-exiting: 0; }
+  to { --shared-popover-exiting: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shared-disclosure-chevron,
+  .shared-popover,
+  .shared-popover[data-state="closed"] {
+    transition: none;
+    animation: none;
+  }
+
+  .shared-disclosure::details-content {
+    transition: none;
+  }
+}
