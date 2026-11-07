@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { mockAuthApi } from './helpers/authApi'
+
+test.beforeEach(async ({ page }) => {
+  await mockAuthApi(page)
+})
 
 test('login entrance wakes the beetle and keeps the form immediately usable', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' })
@@ -27,11 +32,8 @@ test('login entrance wakes the beetle and keeps the form immediately usable', as
   await expect(page.locator('.sign-in-card')).toHaveCSS('opacity', '1')
 })
 
-test('development preview retains the three demo accounts and local sign-out', async ({ page }) => {
-  const mutations: string[] = []
-  page.on('request', request => {
-    if (request.method() !== 'GET') mutations.push(request.url())
-  })
+test('development demo accounts use the real session flow and sign out on the server', async ({ page }) => {
+  const requests = await mockAuthApi(page)
   for (const [role, email] of [
     ['Reporter', 'reporter@tracedesk.test'],
     ['Developer', 'developer@tracedesk.test'],
@@ -43,26 +45,83 @@ test('development preview retains the three demo accounts and local sign-out', a
     await expect(page.getByLabel('Email', { exact: true })).toHaveValue(email)
     await expect(page.getByLabel('Password', { exact: true })).toHaveValue('tracedesk-demo')
     await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-    await expect(page.getByLabel('Development preview')).toContainText(role)
+    await expect(page.getByRole('heading', { name: 'You’re signed in' })).toBeVisible()
+    expect(requests.filter(request => request.path === '/api/session/login').at(-1)).toMatchObject({
+      method: 'POST',
+      headers: expect.objectContaining({ 'x-csrf-token': 'synthetic-csrf-token' }),
+      body: JSON.stringify({ login: email, password: 'tracedesk-demo' }),
+    })
+    const sessionCookie = (await page.context().cookies()).find(cookie => cookie.name === 'TDSESSION')
+    expect(sessionCookie).toMatchObject({ secure: true, httpOnly: true, sameSite: 'Lax' })
+    expect(requests.filter(request => request.path === '/api/session').at(-1)?.headers.cookie)
+      .toContain('TDSESSION=synthetic-session')
     await page.getByRole('button', { name: 'Sign out' }).click()
     await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
+    expect(requests.filter(request => request.path === '/api/session/logout').at(-1)).toMatchObject({
+      method: 'POST',
+      headers: expect.objectContaining({ 'x-csrf-token': 'synthetic-csrf-token' }),
+    })
+    expect((await page.context().cookies()).some(cookie => cookie.name === 'TDSESSION')).toBe(false)
   }
-  expect(mutations).toEqual([])
-  expect(await page.context().cookies()).toEqual([])
+  expect(requests.filter(request => request.path === '/api/session/login')).toHaveLength(3)
 })
 
-test('invalid demo credentials stay on the form', async ({ page }) => {
+test('invalid credentials stay on the form with a generic message', async ({ page }) => {
+  await mockAuthApi(page, { loginStatus: 401 })
   await page.goto('/')
   await page.getByLabel('Email', { exact: true }).fill('qa@tracedesk.test')
   await page.getByLabel('Password', { exact: true }).fill('incorrect')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('didn’t match a demo account')
+  await expect(page.getByRole('alert')).toContainText('Email or password is incorrect.')
+})
+
+test('session restored after a reload remains server-confirmed', async ({ page }) => {
+  const requests = await mockAuthApi(page)
+  await page.goto('/')
+  await page.getByText('Demo accounts', { exact: true }).click()
+  await page.getByRole('button', { name: 'Reporter', exact: true }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'You’re signed in' })).toBeVisible()
+
+  await page.reload()
+
+  await expect(page.getByRole('heading', { name: 'You’re signed in' })).toBeVisible()
+  expect(requests.filter(request => request.path === '/api/session').at(-1)?.headers.cookie)
+    .toContain('TDSESSION=synthetic-session')
+})
+
+test('unavailable startup stays signed out and offers a retry', async ({ page }) => {
+  // React StrictMode may perform the initial read twice in development.
+  const requests = await mockAuthApi(page, { sessionStatuses: [503, 503, 401] })
+  await page.goto('/')
+
+  await expect(page.getByRole('status')).toContainText('temporarily unavailable')
+  await expect.poll(() => requests.filter(request =>
+    request.method === 'GET' && request.path === '/api/session',
+  ).length).toBeGreaterThanOrEqual(2)
+  await page.getByRole('button', { name: 'Retry connection' }).click()
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  await expect(page.getByRole('status')).toHaveCount(0)
+})
+
+test('logout outage keeps the signed-in state and reports failure', async ({ page }) => {
+  await mockAuthApi(page, { logoutStatus: 503 })
+  await page.goto('/')
+  await page.getByText('Demo accounts', { exact: true }).click()
+  await page.getByRole('button', { name: 'Reporter', exact: true }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await page.getByRole('heading', { name: 'You’re signed in' }).waitFor()
+  await page.getByRole('button', { name: 'Sign out' }).click()
+
+  await expect(page.getByRole('heading', { name: 'You’re signed in' })).toBeVisible()
+  await expect(page.getByRole('alert')).toContainText('could not confirm sign out')
 })
 
 for (const width of [320, 390]) {
   test(`login stacks without overflow at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 })
     await page.goto('/')
+    await page.getByRole('heading', { name: 'Sign in', exact: true }).waitFor()
     // Read both rectangles in one frame while the card may still be entering.
     const { stageBottom, formTop } = await page.evaluate(() => ({
       stageBottom: document.querySelector('.sign-in-stage')!.getBoundingClientRect().bottom,
