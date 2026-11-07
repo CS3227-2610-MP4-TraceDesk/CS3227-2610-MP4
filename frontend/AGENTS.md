@@ -8,6 +8,8 @@ references from the [capture manifest](../workflow/ui/reference/README.md).
 
 - Reuse the shared UI/layout components as they become available. Extend an
   existing component before adding an overlapping variant.
+- Follow the [shared shell integration rules](../workflow/specs/shared-ui.md#shared-shell-integration)
+  when adding a role page or navigation destination.
 - Use the agreed Apps SDK UI components and per-purpose sizes. Keep tokens,
   typography, spacing, radius and semantic colours centralized.
 - Treat exact numeric contracts as authoritative over sampled screenshot pixels.

@@ -136,6 +136,24 @@ and selecting an item close it. Keyboard focus returns to the toggle after those
 actions. The demo previews use synthetic navigation items and headings. Role
 workflows, including the report editor opened by New report, have separate ports.
 
+## Shared shell integration
+
+- Mount `AppShell` once per workspace. It renders `IconTray` and the optional
+  `Sidebar`. Role pages supply tray destinations, the active destination,
+  sidebar content and workspace content. Use `SidebarGroup` and `SidebarItem`
+  for standard groups and rows. Pass no sidebar for a full-frame destination.
+- Keep collapse, resize, transition timing and mobile overlay focus in
+  `AppShell`. Keep role-specific search, selection and actions in the owning
+  feature. Settings stays at the bottom of the shared tray. Actions such as
+  **New report** belong inside their area.
+- Preserve the selected item, sidebar search and in-progress drafts when the
+  sidebar collapses or resizes. When a sidebar row opens an item, call the
+  supplied overlay dismissal callback so mobile focus returns to the toggle.
+- Check new destinations for the correct sidebar, active item and keyboard
+  operation. For changes to the shell, extend the existing
+  [workspace browser suite](../../frontend/e2e/workspace-preview.e2e.ts) as
+  needed to cover desktop resize, mobile dismissal and reduced motion.
+
 ## Decisions still owned elsewhere
 
 Final logo artwork, extra product destinations, production diff ingestion,
