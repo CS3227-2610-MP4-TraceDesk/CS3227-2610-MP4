@@ -1,10 +1,19 @@
 type FileChange = { path: string; additions: number; deletions: number }
 type ReviewEntry = { role: string; title: string; text: string }
 
+export type VerificationCheck = {
+  title: string
+  result: 'Pass' | 'Fail' | 'Pending'
+  notes?: string
+  preconditions?: string
+  steps?: string
+  expectedResult?: string
+}
+
 export type QaBug = {
   id: string
   title: string
-  status: 'Ready for QA' | 'Closed' | 'Investigating' | 'Needs clarification'
+  status: 'Ready for QA' | 'Closed' | 'Investigating' | 'Needs clarification' | 'Reopened'
   project: string
   lastActivity: string
   expected: string
@@ -13,7 +22,8 @@ export type QaBug = {
   logs?: string
   build?: string
   reviewedByMe?: boolean
-  checks?: readonly ('Pass' | 'Fail' | 'Pending')[]
+  checks: VerificationCheck[]
+  verificationNotes?: string
   entries: readonly ReviewEntry[]
   fileChanges?: readonly FileChange[]
 }
@@ -29,7 +39,13 @@ export const qaBugs: readonly QaBug[] = [
     actual: 'The same refund appears twice after a refresh.',
     steps: 'Open a refunded payment, then refresh.',
     build: '1.4.2',
-    checks: ['Pass', 'Pass', 'Fail', 'Pending', 'Pending'],
+    checks: [
+      { title: 'Refresh refund page', result: 'Pass' },
+      { title: 'Verify totals', result: 'Pass' },
+      { title: 'Repeat refresh', result: 'Fail' },
+      { title: 'Multiple refunds', result: 'Pending' },
+      { title: 'Normal payment flow', result: 'Pending' },
+    ],
     entries: [{
       role: 'Developer',
       title: 'Proposed fix',
@@ -50,12 +66,14 @@ export const qaBugs: readonly QaBug[] = [
     actual: 'Export returns “Invalid date range”.',
     steps: 'Open Payments, clear the date filter, then export as CSV.',
     logs: 'GET /api/payments/export → 400 INVALID_DATE_RANGE',
+    checks: [],
     entries: [],
   },
   {
     id: 'TD-019',
     title: 'Search resets on page change',
     status: 'Needs clarification',
+    checks: [],
     project: 'Payments',
     lastActivity: '2026-11-04',
     expected: 'Keep the active query when paging.',

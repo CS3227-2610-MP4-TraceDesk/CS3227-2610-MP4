@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@openai/apps-sdk-ui/components/Button'
-import { ArrowLeft, ChevronDown, Folder, Plus, Search } from '@openai/apps-sdk-ui/components/Icon'
+import { ArrowLeft, Bug, Chat, ChevronDown, FileDocument, Folder, Plus, Search } from '@openai/apps-sdk-ui/components/Icon'
 import { Input } from '@openai/apps-sdk-ui/components/Input'
 import { Popover } from '@openai/apps-sdk-ui/components/Popover'
 import { AppShell } from '../shell/AppShell'
 import { SidebarGroup, SidebarItem } from '../shell/Sidebar'
 import { QaQueue } from './qa/QaQueue'
-import { QaReviewSummary } from './qa/QaReviewSummary'
-import { qaBugs } from './qa/qaFixtures'
+import { QaBugOverview } from './qa/QaBugOverview'
+import { QaBugReview } from './qa/QaBugReview'
+import { QaTestTemplates } from './qa/QaTestTemplates'
+import { qaQueues } from './qa/qaFixtures'
+import { useQaPreview } from './qa/useQaPreview'
 import { previewAreas, settingsArea, type PreviewGroup, type PreviewRole } from './workspaceFixtures'
 import './workspace-preview.css'
 import './qa/qa-preview.css'
+import './qa/qa-review-workspace.css'
 
 type WorkspacePreviewProps = {
   role: PreviewRole
@@ -76,13 +80,28 @@ function WorkspacePreview({ role, theme, onToggleTheme, onExit }: WorkspacePrevi
   const [selections, setSelections] = useState<Partial<Record<string, string>>>({})
   const [qaSearch, setQaSearch] = useState('')
   const area = areas.find(item => item.id === activeId) ?? settingsArea
-  const { groups } = area
+  const qa = useQaPreview()
+  const inQaQueue = area.id === 'verification'
+  const inQaTemplates = area.id === 'templates'
+  let groups = area.groups
+  if (inQaQueue) {
+    groups = qaQueues.slice(0, 2).map((queue, index) => ({
+      label: queue.label,
+      rows: qa.bugs.filter(queue.matches).map(bug => ({ id: bug.id, label: bug.title, icon: <Bug /> })),
+      emptyMessage: index === 0 ? 'Nothing awaiting verification' : 'No completed reviews yet',
+    }))
+  }
+  if (inQaTemplates) {
+    groups = [{
+      label: 'Saved templates',
+      rows: qa.templates.map(template => ({ id: template.id, label: template.name, icon: <FileDocument /> })),
+    }]
+  }
   const selectedId = selections[activeId] ?? (activeId === 'settings' ? 'appearance' : undefined)
   const selectedRow = groups?.flatMap(group => group.rows).find(row => row.id === selectedId)
   const isNewReport = activeId === 'reports' && selectedId === 'new-report'
   const title = isNewReport ? 'New report' : selectedRow?.label ?? area.label
-  const inQaQueue = area.id === 'verification'
-  const reviewBug = inQaQueue ? qaBugs.find(bug => bug.id === selectedId) : undefined
+  const reviewBug = inQaQueue ? qa.bugs.find(bug => bug.id === selectedId) : undefined
 
   function selectItem(id?: string) {
     setSelections(current => ({ ...current, [activeId]: id }))
@@ -100,6 +119,14 @@ function WorkspacePreview({ role, theme, onToggleTheme, onExit }: WorkspacePrevi
           </Button>
           <Folder aria-hidden="true" />
           <span title={reviewBug.title}>{reviewBug.title}</span>
+          <QaBugOverview key={reviewBug.id} bug={reviewBug}
+            onTabChange={tab => qa.updateReview(reviewBug.id, current => ({ ...current, tab }))} />
+          <Button color="secondary" variant="ghost" size="sm" uniform
+            aria-label={qa.reviews[reviewBug.id]?.chatOpen ? 'Hide review chat' : 'Ask about this bug'}
+            aria-expanded={qa.reviews[reviewBug.id]?.chatOpen ?? false}
+            onClick={() => qa.updateReview(reviewBug.id, current => ({ ...current, chatOpen: !current.chatOpen }))}>
+            <Chat />
+          </Button>
         </div>
       )}
       sidebar={groups && {
@@ -134,9 +161,11 @@ function WorkspacePreview({ role, theme, onToggleTheme, onExit }: WorkspacePrevi
     >
       {inQaQueue ? (
         <>
-          <QaQueue search={qaSearch} onSearch={setQaSearch} onOpenBug={selectItem} hidden={Boolean(reviewBug)} />
-          {reviewBug && <QaReviewSummary key={reviewBug.id} bug={reviewBug} />}
+          <QaQueue items={qa.bugs} search={qaSearch} onSearch={setQaSearch} onOpenBug={selectItem} hidden={Boolean(reviewBug)} />
+          {reviewBug && <QaBugReview key={reviewBug.id} bug={reviewBug} qa={qa} />}
         </>
+      ) : inQaTemplates ? (
+        <QaTestTemplates items={qa.templates} onChange={qa.setTemplates} selectedId={selectedId ?? ''} onSelect={selectItem} />
       ) : <section className="workspace-preview" aria-label="Development preview">
         <div className="preview-heading">
           <h1>{title}</h1>

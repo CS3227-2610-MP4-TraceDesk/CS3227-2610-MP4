@@ -5,7 +5,7 @@ import { Checkbox } from '@openai/apps-sdk-ui/components/Checkbox'
 import { Bug, Filter, Grid, Search, SettingsSlider } from '@openai/apps-sdk-ui/components/Icon'
 import { Input } from '@openai/apps-sdk-ui/components/Input'
 import { AnimatedPopover } from '../../shared/AnimatedPopover'
-import { matchesBugSearch, qaBugs, qaQueues } from './qaFixtures'
+import { matchesBugSearch, qaQueues, type QaBug } from './qaFixtures'
 
 const activityDate = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 
@@ -19,18 +19,19 @@ function ListIcon() {
 }
 
 type QaQueueProps = {
+  items: readonly QaBug[]
   search: string
   onSearch: (value: string) => void
   onOpenBug: (id: string) => void
   hidden: boolean
 }
 
-export function QaQueue({ search, onSearch, onOpenBug, hidden }: QaQueueProps) {
+export function QaQueue({ items, search, onSearch, onOpenBug, hidden }: QaQueueProps) {
   const [queue, setQueue] = useState<(typeof qaQueues)[number]>(qaQueues[0])
   const [layout, setLayout] = useState<'list' | 'grid'>('list')
   const [sort, setSort] = useState<'recent' | 'name'>('recent')
   const [showStatus, setShowStatus] = useState(true)
-  const bugs = qaBugs.filter(bug => queue.matches(bug) && matchesBugSearch(bug, search))
+  const bugs = items.filter(bug => queue.matches(bug) && matchesBugSearch(bug, search))
     .sort((left, right) => sort === 'name'
       ? left.title.localeCompare(right.title)
       : right.lastActivity.localeCompare(left.lastActivity))

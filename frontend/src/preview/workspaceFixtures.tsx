@@ -1,7 +1,6 @@
 import { Bug, Check, FileDocument, Folder, Home, Settings, Sun } from '@openai/apps-sdk-ui/components/Icon'
 import type { TrayItem } from '../shell/IconTray'
 import type { demoAccounts } from '../login/fixtures/demoAccounts'
-import { qaBugs, qaQueues } from './qa/qaFixtures'
 
 export type PreviewRole = typeof demoAccounts[number]['role']
 
@@ -61,20 +60,8 @@ export const previewAreas: Record<PreviewRole, readonly [PreviewArea, ...Preview
     { id: 'all-bugs', label: 'All bugs', icon: <Bug /> },
   ],
   'QA reviewer': [
-    {
-      id: 'verification', label: 'Verification', icon: <Check />,
-      groups: [
-        { label: qaQueues[0].label, rows: qaBugs.filter(qaQueues[0].matches).map(bug => ({ id: bug.id, label: bug.title, icon: <Bug /> })), emptyMessage: 'Nothing awaiting verification' },
-        { label: qaQueues[1].label, rows: qaBugs.filter(qaQueues[1].matches).map(bug => ({ id: bug.id, label: bug.title, icon: <Bug /> })), emptyMessage: 'No completed reviews yet' },
-      ],
-    },
-    {
-      id: 'templates', label: 'Test templates', icon: <FileDocument />,
-      groups: [{ label: 'Saved templates', rows: [
-        { id: 'export', label: 'Export checks', icon: <FileDocument /> },
-        { id: 'search', label: 'Search checks', icon: <FileDocument /> },
-      ] }],
-    },
+    { id: 'verification', label: 'Verification', icon: <Check /> },
+    { id: 'templates', label: 'Test templates', icon: <FileDocument /> },
   ],
 }
 
