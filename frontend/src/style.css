@@ -13,7 +13,6 @@
   --td-line: #e8e8e6;
   --td-float: #ffffff;
   --td-ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --td-sidebar-width: clamp(240px, 275px, min(520px, calc(100vw - 320px)));
   --td-thread-width: 48rem;
   --td-header-height: 52px;
   font-family: var(--td-ui-font);
