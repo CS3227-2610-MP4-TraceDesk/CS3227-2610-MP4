@@ -1,6 +1,7 @@
 import { Bug, Check, FileDocument, Folder, Home, Settings, Sun } from '@openai/apps-sdk-ui/components/Icon'
 import type { TrayItem } from '../shell/IconTray'
 import type { demoAccounts } from '../login/fixtures/demoAccounts'
+import { qaBugs, qaQueues } from './qa/qaFixtures'
 
 export type PreviewRole = typeof demoAccounts[number]['role']
 
@@ -63,8 +64,8 @@ export const previewAreas: Record<PreviewRole, readonly [PreviewArea, ...Preview
     {
       id: 'verification', label: 'Verification', icon: <Check />,
       groups: [
-        { label: 'Awaiting verification', rows: [refundReport] },
-        { label: 'Reviewed by me', rows: [], emptyMessage: 'No completed reviews yet' },
+        { label: qaQueues[0].label, rows: qaBugs.filter(qaQueues[0].matches).map(bug => ({ id: bug.id, label: bug.title, icon: <Bug /> })), emptyMessage: 'Nothing awaiting verification' },
+        { label: qaQueues[1].label, rows: qaBugs.filter(qaQueues[1].matches).map(bug => ({ id: bug.id, label: bug.title, icon: <Bug /> })), emptyMessage: 'No completed reviews yet' },
       ],
     },
     {

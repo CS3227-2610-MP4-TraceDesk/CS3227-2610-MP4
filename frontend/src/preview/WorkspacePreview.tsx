@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@openai/apps-sdk-ui/components/Button'
-import { ChevronDown, Plus, Search } from '@openai/apps-sdk-ui/components/Icon'
+import { ArrowLeft, ChevronDown, Folder, Plus, Search } from '@openai/apps-sdk-ui/components/Icon'
 import { Input } from '@openai/apps-sdk-ui/components/Input'
 import { Popover } from '@openai/apps-sdk-ui/components/Popover'
 import { AppShell } from '../shell/AppShell'
 import { SidebarGroup, SidebarItem } from '../shell/Sidebar'
+import { QaQueue } from './qa/QaQueue'
+import { QaReviewSummary } from './qa/QaReviewSummary'
+import { qaBugs } from './qa/qaFixtures'
 import { previewAreas, settingsArea, type PreviewGroup, type PreviewRole } from './workspaceFixtures'
 import './workspace-preview.css'
+import './qa/qa-preview.css'
 
 type WorkspacePreviewProps = {
   role: PreviewRole
@@ -19,16 +23,15 @@ type PreviewSidebarItemsProps = {
   groups: readonly PreviewGroup[]
   selectedId?: string
   onSelect: (id: string) => void
-  searchable: boolean
+  search?: { value: string; onChange: (value: string) => void }
 }
 
-function PreviewSidebarItems({ groups, selectedId, onSelect, searchable }: PreviewSidebarItemsProps) {
-  const [search, setSearch] = useState('')
-  const query = search.trim().toLowerCase()
+function PreviewSidebarItems({ groups, selectedId, onSelect, search }: PreviewSidebarItemsProps) {
+  const query = search?.value.trim().toLowerCase() ?? ''
 
   return (
     <>
-      {searchable && (
+      {search && (
         <div className="preview-sidebar-search">
           <Input
             variant="soft"
@@ -38,8 +41,8 @@ function PreviewSidebarItems({ groups, selectedId, onSelect, searchable }: Previ
             startAdornment={<Search />}
             aria-label="Search review queue"
             placeholder="Search bugs"
-            value={search}
-            onChange={event => setSearch(event.target.value)}
+            value={search.value}
+            onChange={event => search.onChange(event.target.value)}
           />
         </div>
       )}
@@ -71,12 +74,15 @@ function WorkspacePreview({ role, theme, onToggleTheme, onExit }: WorkspacePrevi
   const areas = previewAreas[role]
   const [activeId, setActiveId] = useState(areas[0].id)
   const [selections, setSelections] = useState<Partial<Record<string, string>>>({})
+  const [qaSearch, setQaSearch] = useState('')
   const area = areas.find(item => item.id === activeId) ?? settingsArea
   const { groups } = area
   const selectedId = selections[activeId] ?? (activeId === 'settings' ? 'appearance' : undefined)
   const selectedRow = groups?.flatMap(group => group.rows).find(row => row.id === selectedId)
   const isNewReport = activeId === 'reports' && selectedId === 'new-report'
   const title = isNewReport ? 'New report' : selectedRow?.label ?? area.label
+  const inQaQueue = area.id === 'verification'
+  const reviewBug = inQaQueue ? qaBugs.find(bug => bug.id === selectedId) : undefined
 
   function selectItem(id?: string) {
     setSelections(current => ({ ...current, [activeId]: id }))
@@ -87,6 +93,15 @@ function WorkspacePreview({ role, theme, onToggleTheme, onExit }: WorkspacePrevi
       items={areas}
       activeId={activeId}
       onSelect={setActiveId}
+      headerContent={reviewBug && (
+        <div className="qa-bug-header">
+          <Button color="secondary" variant="ghost" uniform pill={false} aria-label="Back to verification queue" title="Back to verification queue" onClick={() => selectItem()}>
+            <ArrowLeft />
+          </Button>
+          <Folder aria-hidden="true" />
+          <span title={reviewBug.title}>{reviewBug.title}</span>
+        </div>
+      )}
       sidebar={groups && {
         title: area.label,
         renderItems: dismissOverlay => (
@@ -94,7 +109,7 @@ function WorkspacePreview({ role, theme, onToggleTheme, onExit }: WorkspacePrevi
             key={area.id}
             groups={groups}
             selectedId={selectedId}
-            searchable={area.id === 'verification'}
+            search={inQaQueue ? { value: qaSearch, onChange: setQaSearch } : undefined}
             onSelect={id => {
               selectItem(id)
               dismissOverlay()
@@ -117,7 +132,12 @@ function WorkspacePreview({ role, theme, onToggleTheme, onExit }: WorkspacePrevi
         ),
       }}
     >
-      <section className="workspace-preview" aria-label="Development preview">
+      {inQaQueue ? (
+        <>
+          <QaQueue search={qaSearch} onSearch={setQaSearch} onOpenBug={selectItem} hidden={Boolean(reviewBug)} />
+          {reviewBug && <QaReviewSummary key={reviewBug.id} bug={reviewBug} />}
+        </>
+      ) : <section className="workspace-preview" aria-label="Development preview">
         <div className="preview-heading">
           <h1>{title}</h1>
           {activeId === 'reports' && !isNewReport && (
@@ -139,7 +159,7 @@ function WorkspacePreview({ role, theme, onToggleTheme, onExit }: WorkspacePrevi
                 {theme === 'dark' ? 'Light appearance' : 'Dark appearance'}
               </Button>
         )}
-      </section>
+      </section>}
     </AppShell>
   )
 }
