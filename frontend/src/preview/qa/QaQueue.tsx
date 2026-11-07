@@ -4,7 +4,7 @@ import { Button } from '@openai/apps-sdk-ui/components/Button'
 import { Checkbox } from '@openai/apps-sdk-ui/components/Checkbox'
 import { Bug, Filter, Grid, Search, SettingsSlider } from '@openai/apps-sdk-ui/components/Icon'
 import { Input } from '@openai/apps-sdk-ui/components/Input'
-import { Popover } from '@openai/apps-sdk-ui/components/Popover'
+import { AnimatedPopover } from '../../shared/AnimatedPopover'
 import { matchesBugSearch, qaBugs, qaQueues } from './qaFixtures'
 
 const activityDate = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })
@@ -40,34 +40,28 @@ export function QaQueue({ search, onSearch, onOpenBug, hidden }: QaQueueProps) {
       <header className="qa-queue-heading">
         <h1 id="qa-queue-title">Verification</h1>
         <div className="qa-queue-controls">
-          <Popover>
-            <Popover.Trigger>
-              <Button color="secondary" variant="ghost" size="md" uniform aria-label="Sort bugs" title="Sort bugs"><Filter /></Button>
-            </Popover.Trigger>
-            <Popover.Content className="qa-library-options" minWidth={180} align="end">
-              <section aria-label="Sort bugs">
-                <h2>Sort by</h2>
-                <Button color="secondary" variant="ghost" block selected={sort === 'recent'} aria-pressed={sort === 'recent'} onClick={() => setSort('recent')}>Last activity</Button>
-                <Button color="secondary" variant="ghost" block selected={sort === 'name'} aria-pressed={sort === 'name'} onClick={() => setSort('name')}>Name</Button>
-              </section>
-            </Popover.Content>
-          </Popover>
+          <AnimatedPopover label="Sort bugs" className="qa-library-options" trigger={
+            <Button color="secondary" variant="ghost" size="md" uniform aria-label="Sort bugs" title="Sort bugs"><Filter /></Button>
+          }>
+            <section>
+              <h2>Sort by</h2>
+              <Button color="secondary" variant="ghost" block selected={sort === 'recent'} aria-pressed={sort === 'recent'} onClick={() => setSort('recent')}>Last activity</Button>
+              <Button color="secondary" variant="ghost" block selected={sort === 'name'} aria-pressed={sort === 'name'} onClick={() => setSort('name')}>Name</Button>
+            </section>
+          </AnimatedPopover>
           <div className="qa-view-switch" role="group" aria-label="Bug layout">
             <Button color="secondary" variant="ghost" size="md" uniform selected={layout === 'grid'} aria-pressed={layout === 'grid'} aria-label="Grid view" title="Grid view" onClick={() => setLayout('grid')}><Grid /></Button>
             <Button color="secondary" variant="ghost" size="md" uniform selected={layout === 'list'} aria-pressed={layout === 'list'} aria-label="List view" title="List view" onClick={() => setLayout('list')}><ListIcon /></Button>
           </div>
           <Input className="qa-library-search" type="search" size="md" pill startAdornment={<Search />} aria-label="Find bug" placeholder="Search bugs" value={search} onChange={event => onSearch(event.target.value)} />
-          <Popover>
-            <Popover.Trigger>
-              <Button color="secondary" variant="ghost" size="md" uniform aria-label="Display options" title="Display options"><SettingsSlider /></Button>
-            </Popover.Trigger>
-            <Popover.Content className="qa-library-options" minWidth={200} align="end">
-              <section aria-label="Display options">
-                <h2>Display</h2>
-                <Checkbox label="Show ticket status" checked={showStatus} onCheckedChange={value => setShowStatus(value === true)} />
-              </section>
-            </Popover.Content>
-          </Popover>
+          <AnimatedPopover label="Display options" className="qa-library-options" minWidth={200} trigger={
+            <Button color="secondary" variant="ghost" size="md" uniform aria-label="Display options" title="Display options"><SettingsSlider /></Button>
+          }>
+            <section>
+              <h2>Display</h2>
+              <Checkbox label="Show ticket status" checked={showStatus} onCheckedChange={value => setShowStatus(value === true)} />
+            </section>
+          </AnimatedPopover>
         </div>
       </header>
       <div className="qa-queue-tabs" role="group" aria-label="Bug queues">
