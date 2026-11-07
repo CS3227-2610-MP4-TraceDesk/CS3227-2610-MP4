@@ -220,6 +220,15 @@ class AuthHttpsIntegrationTest {
                     if (i == 2) {
                         sql.execute("alter table spring_session rename to spring_session_unavailable");
                         try {
+                            HttpClient freshClient = HttpClient.newBuilder().sslContext(clientTls).build();
+                            HttpResponse<String> sessionCreationOutage = send(freshClient, base, "GET", "/api/csrf", null, null);
+                            assertEquals(503, sessionCreationOutage.statusCode(), "session creation must fail with a safe unavailable response");
+                            assertEquals("SERVICE_UNAVAILABLE", jsonField(sessionCreationOutage.body(), "code"));
+                            assertTrue(sessionCreationOutage.headers().allValues("set-cookie").stream()
+                                    .noneMatch(cookie -> cookie.startsWith("TDSESSION=")),
+                                    "failed session creation must not issue a session cookie");
+                            assertSecureResponse(sessionCreationOutage);
+
                             HttpResponse<String> sessionOutage = send(client, base, "GET", "/api/session", null, null);
                             assertEquals(503, sessionOutage.statusCode());
                             assertEquals("SERVICE_UNAVAILABLE", jsonField(sessionOutage.body(), "code"));
