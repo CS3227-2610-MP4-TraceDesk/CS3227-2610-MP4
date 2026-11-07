@@ -26,3 +26,17 @@ The Summary adds a return action for queue navigation. It omits the
 reference's comment composer, AI and checklist actions until their slices
 are ported. Test templates still uses the shared preview placeholder.
 Authenticated role and API wiring and independent review remain pending.
+
+## Opening and closing motion
+
+QA uses shared `Disclosure` and `AnimatedPopover` components for report and
+activity rows and the queue's Sort bugs and Display options menus. The
+installed Apps SDK Popover disables visibility animations. The shared
+popover uses its underlying Radix primitive at the version already in the
+lockfile, together with the existing SDK surface tokens and buttons.
+
+Typecheck, lint, 13 unit tests, build, the foundation check and all 22 browser
+tests passed. The browser checks cover keyboard activation, Escape and
+focus return, timings, the popover exit transition, and reduced motion.
+A separate Chromium sample confirmed intermediate disclosure heights on
+open and close and successful reversal before closing finished.
