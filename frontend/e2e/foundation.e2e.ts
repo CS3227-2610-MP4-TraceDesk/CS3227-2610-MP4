@@ -21,6 +21,7 @@ test('login supports production appearance, controls and keyboard access', async
   expect(results.violations).toEqual([])
   await page.getByRole('button', { name: 'Toggle theme' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(page.locator('.sign-in-field > div').first()).toHaveCSS('background-color', 'rgb(249, 249, 249)')
   const lightResults = await new AxeBuilder({ page }).analyze()
   expect(lightResults.violations).toEqual([])
 })

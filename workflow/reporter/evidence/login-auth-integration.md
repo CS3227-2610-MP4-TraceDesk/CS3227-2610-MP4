@@ -8,7 +8,9 @@ Status: frontend implementation complete; end-to-end acceptance is partial.
 - Branch: `codex/login-auth-integration`.
 - Feature: connect the existing sign-in UI to the authentication API in
   `workflow/specs/auth-membership.md`.
-- Working tree contains implementation changes; no commit was created.
+- Feature commit: `64f3d80` (`Connect login UI to backend authentication`).
+- The accessibility-test stabilization described below is a follow-up change
+  on the same branch and is not yet committed.
 - The UI now restores sessions from `GET /api/session`, obtains JSON CSRF tokens
   from `GET /api/csrf`, submits credentials to `POST /api/session/login`,
   confirms login with a session read, and logs out through the API. It never
@@ -24,10 +26,10 @@ Status: frontend implementation complete; end-to-end acceptance is partial.
 - PASS — `cd frontend && npm run check`: typecheck, lint, and Vitest; 13 tests
   passed.
 - PASS — `cd frontend && npm run build`.
-- PARTIAL — `cd frontend && npm run test:e2e`: 12 of 13 passed after correcting
-  the dev HTTPS URL and retry fixture. The remaining existing light-theme axe
-  check reports input text contrast of 2.42:1 (foreground `#ababab`, background
-  `#686868`). Dark-theme axe passed. The contrast finding remains unresolved.
+- PASS — `cd frontend && npm run test:e2e`: all 13 browser tests pass. The
+  light-theme axe scan now waits for the theme transition to settle before
+  checking contrast. The prior 2.42:1 reading measured intermediate blended
+  colors during the transition; settled input colors pass axe.
 - PASS — `./gradlew :backend:auth-app:test`: Gradle reports successful; tasks
   were up-to-date.
 - PASS — `git diff --check`.
@@ -59,7 +61,7 @@ Status: frontend implementation complete; end-to-end acceptance is partial.
 
 The specifier `/root/login_auth_specifier` reviewed scope and handed off
 criteria before implementation. The independent reviewer inspected the actual
-diff and tests and their correction is recorded above. AI prompt injection tests
+diff and tests and its correction is recorded above. AI prompt injection tests
 do not apply because this feature has no AI context path. The full UI-to-live-API
-test and the light-theme contrast failure are explicit remaining work; no
-completion or release claim is made for those criteria.
+test remains outstanding; no completion or release claim is made for that
+criterion.

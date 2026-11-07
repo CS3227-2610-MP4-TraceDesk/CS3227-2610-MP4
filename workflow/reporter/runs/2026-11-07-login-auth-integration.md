@@ -63,16 +63,30 @@ tokens or imagined approvals.
   browser/unit checks; updated local docs and acceptance/evidence records.
 - `cd frontend && npm run check`: PASS; typecheck/lint and 12 Vitest tests.
 - `cd frontend && npm run build`: PASS.
-- `cd frontend && npm run test:e2e`: PARTIAL; 12/13 passed. The remaining
-  light-theme axe check reports input contrast 2.42:1. The dark-theme check
-  passes. Auth flow, secure-cookie mock, reload/logout, unavailable-service and
-  responsive viewport cases pass.
+- Initial `cd frontend && npm run test:e2e`: PARTIAL; 12/13 passed. The
+  light-theme axe scan ran during the theme transition and measured blended
+  colors. Follow-up correction: the test waits for the input background to
+  reach its settled light value before axe scans. Final run: PASS, all 13/13.
 - `./gradlew :backend:auth-app:test`: PASS (Gradle reports tasks up-to-date).
 - `git diff --check`: PASS.
 - Live browser-to-backend authentication remains unverified: API calls in
   Playwright are mocked, and account provisioning is out of scope. Backend
   auth tests run separately with their isolated synthetic database. See
   `workflow/reporter/evidence/login-auth-integration.md`.
-- No commit created. Human owner not supplied. Repository base remains
-  `1d3df86413383f23627bf5c7d2cecc5cd2ab033b`; working changes are on
+- At the time of the original implementation run, no commit had yet been
+  created. The feature was later committed as `64f3d80`. Human owner not
+  supplied. Repository base remains
+  `1d3df86413383f23627bf5c7d2cecc5cd2ab033b`; work is on
   `codex/login-auth-integration`.
+
+## Follow-up accessibility test correction
+
+- After feature commit `64f3d80`, the user asked to fix the reported contrast
+  failure. Investigation showed axe ran while the theme transition blended
+  light/dark colors; the settled light input colors passed axe.
+- Updated the browser test to wait until the input wrapper reaches the expected
+  light-theme background before the accessibility scan. No product color change
+  was needed.
+- Final checks on 2026-11-07: `npm run test:e2e` PASS (13/13), `npm run check`
+  PASS (13 Vitest tests), `npm run build` PASS, and `git diff --check` PASS.
+- This test timing correction is an uncommitted follow-up on the feature branch.
