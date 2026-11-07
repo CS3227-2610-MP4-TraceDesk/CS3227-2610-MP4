@@ -88,3 +88,20 @@ The work used one implementer and sequential checks with no delegated work.
 Token/cost telemetry and comparative resource savings were unavailable. The run
 had a failed relative-path build, a CSS import-order correction and a browser
 installation retry, all resolved as recorded above.
+
+## Readability refinement
+
+On 2026-11-07, after commit e75ef53, the user authorized a behavior-preserving
+readability pass. Renamed pupil coordinates, reaction state and event callbacks,
+named the existing timing and eye-geometry constants, and expanded the sign-in
+JSX formatting. Values, SVG assets, animation keyframes and event flow are
+preserved. The earlier byte-identical hook statement describes the initial port;
+the current hook now uses descriptive names.
+
+After this refinement, npm run check and npm run build passed. All eight existing
+browser tests passed, including both-theme axe checks, production demo rejection,
+all three development accounts, invalid credentials, mobile layout, reduced
+motion, hop/pat relaxation and password interruption. New screenshots compared
+against the same original mockup had zero differing pixels in all six previous
+viewport/theme combinations. Implementation and verification used one agent per
+the user's instruction; independent review remains outstanding.
