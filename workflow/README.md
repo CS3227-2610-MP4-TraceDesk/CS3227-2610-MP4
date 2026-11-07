@@ -10,8 +10,10 @@ Specifications own criteria; the index only links to them.
 This directory retains shared decisions, acceptance criteria and baseline templates.
 Personal process choices and evidence live in contributor subdirectories:
 
-- [Reporter workflow](reporter/README.md): this user's Agentic SE process, templates,
-  experiments, tools and evidence. It does not prescribe teammates' workflows.
+- [Reporter workflow](reporter/README.md): the Reporter contributor's retained
+  Agentic SE process, experiments, tools and historical evidence.
+- [Developer workflow](developer/README.md): the Developer contributor's
+  process, templates, experiments, presentation evidence and future run records.
 
 Teammates may maintain their own directories. Shared architecture/security contracts
 and course requirements continue to apply across contributors.

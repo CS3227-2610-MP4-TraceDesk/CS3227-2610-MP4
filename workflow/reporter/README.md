@@ -1,7 +1,8 @@
 # Reporter personal workflow
 
-This directory holds the current user's personal Agentic SE process and presentation
-evidence. The user requested contributor separation on 2026-11-06. The directory
+This directory holds the Reporter contributor's retained Agentic SE process and
+historical presentation evidence. Contributor separation was requested on
+2026-11-06. The directory
 name is a contributor workflow label, not authorization to restrict or expand
 application roles, and not an assertion of student ownership of all features.
 
@@ -9,9 +10,9 @@ Teammates can use different personal workflows. Shared [project workflow](../REA
 [role contracts](../decisions/002-shared-role-contracts.md), architecture, security
 invariants and course requirements still apply to everyone.
 
-## Apply to this user's implementation work
+## Apply to Reporter-contributor implementation work
 
-For this user's future specialized development agents (specifier, implementer and
+For that contributor's future specialized development agents (specifier, implementer and
 independent reviewer), select `gpt-6-luna` explicitly when spawning them. Pass
 the bounded task context and applicable references to each agent. If that model
 is unavailable, report the limitation instead of silently substituting another
