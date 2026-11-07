@@ -1,7 +1,48 @@
 import { useEffect, useRef } from 'react'
 
-const neutralPose = { x: 0, y: 0, tilt: 0, head: 0, lx: 0, ly: 0, rx: 0, ry: 0 }
-const settle = 'cubic-bezier(.2, .65, .25, 1)'
+const neutralPose = {
+  x: 0,
+  y: 0,
+  tilt: 0,
+  head: 0,
+  leftPupilX: 0,
+  leftPupilY: 0,
+  rightPupilX: 0,
+  rightPupilY: 0,
+}
+const settleEasing = 'cubic-bezier(.2, .65, .25, 1)'
+
+const headBaseY = 273
+const minimumGazeDistance = 78
+const leftEyeGeometry = {
+  centerX: 299,
+  centerY: 204,
+  rangeX: 26,
+  rangeY: 28,
+  pupilOffsetX: 28.2,
+  pupilOffsetY: 6,
+}
+const rightEyeGeometry = {
+  centerX: 390,
+  centerY: 185,
+  rangeX: 20,
+  rangeY: 27,
+  pupilOffsetX: 23.1,
+  pupilOffsetY: 6.8,
+}
+const maximumFrameIntervalMs = 40
+const initialFrameIntervalMs = 16
+const poseSettleThreshold = 0.05
+const bodyResponseMs = 95
+const pupilResponseMs = 45
+const patDurationMs = 850
+const approachDurationMs = 410
+const headTurnDelayMs = 100
+const blinkIdleDelayMs = 750
+const blinkDurationMs = 180
+const blinkIntervalMs = 4600
+const antennaTwitchDurationMs = 440
+const antennaTwitchIntervalMs = 1900
 
 export function useMascotMotion() {
   const screen = useRef<HTMLElement>(null)
@@ -19,8 +60,8 @@ export function useMascotMotion() {
     const head = svg.querySelector<SVGGElement>('#beetle-head')!
     const eyes = svg.querySelector('#beetle-eyes')!
     const legs = svg.querySelector('#beetle-legs')!
-    const left = svg.querySelector('#beetle-pupil-left')!
-    const right = svg.querySelector('#beetle-pupil-right')!
+    const leftPupil = svg.querySelector('#beetle-pupil-left')!
+    const rightPupil = svg.querySelector('#beetle-pupil-right')!
     const antennae = svg.querySelector('#beetle-antennae')!
     const happyEyes = document.createElementNS('http://www.w3.org/2000/svg', 'path')
     happyEyes.setAttribute('data-mascot-happy-eyes', '')
@@ -36,80 +77,84 @@ export function useMascotMotion() {
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
     const pose = { ...neutralPose }
     const target = { ...pose }
-    let frame = 0
-    let previousTime = 0
-    let close = false
-    let overBeetle = false
-    let pendingPat = false
-    let lookingAway = false
-    let turnAt = 0
-    let lastMove = -Infinity
+    let animationFrameId = 0
+    let previousFrameTime = 0
+    let pointerIsClose = false
+    let pointerIsOverBeetle = false
+    let hasPendingPat = false
+    let isLookingAway = false
+    let headTurnStartsAt = 0
+    let lastPointerMoveTime = -Infinity
     let pointer: { x: number; y: number } | undefined
-    let reaction: Animation[] = []
-    let blink: Animation | undefined
-    let twitch: Animation | undefined
+    let reactionAnimations: Animation[] = []
+    let blinkAnimation: Animation | undefined
+    let antennaTwitchAnimation: Animation | undefined
 
-    function draw() {
+    function renderPose() {
       figure.style.transform = `translate(${pose.x}px, ${pose.y}px) rotate(${pose.tilt}deg)`
       // Lean above the shell seam while keeping the head's base attached.
       const lean = Math.tan(-pose.head * Math.PI / 180)
-      head.setAttribute('transform', `matrix(1 0 ${lean} 1 ${-273 * lean} 0)`)
-      left.setAttribute('transform', `translate(${pose.lx} ${pose.ly})`)
-      right.setAttribute('transform', `translate(${pose.rx} ${pose.ry})`)
+      head.setAttribute('transform', `matrix(1 0 ${lean} 1 ${-headBaseY * lean} 0)`)
+      leftPupil.setAttribute('transform', `translate(${pose.leftPupilX} ${pose.leftPupilY})`)
+      rightPupil.setAttribute('transform', `translate(${pose.rightPupilX} ${pose.rightPupilY})`)
     }
 
-    function tick(time: number) {
-      frame = 0
-      const elapsed = previousTime ? Math.min(time - previousTime, 40) : 16
-      previousTime = time
+    function animatePose(time: number) {
+      animationFrameId = 0
+      const elapsed = previousFrameTime
+        ? Math.min(time - previousFrameTime, maximumFrameIntervalMs)
+        : initialFrameIntervalMs
+      previousFrameTime = time
       let moving = false
       for (const key of Object.keys(pose) as (keyof typeof pose)[]) {
         const difference = target[key] - pose[key]
-        if (Math.abs(difference) < 0.05) {
+        if (Math.abs(difference) < poseSettleThreshold) {
           pose[key] = target[key]
         } else {
           moving = true
-          if (key === 'head' && time < turnAt) continue
-          const response = key === 'x' || key === 'y' || key === 'tilt' || key === 'head' ? 95 : 45
+          if (key === 'head' && time < headTurnStartsAt) continue
+          const response = key === 'x' || key === 'y' || key === 'tilt' || key === 'head'
+            ? bodyResponseMs
+            : pupilResponseMs
           pose[key] += difference * (1 - Math.exp(-elapsed / response))
         }
       }
-      draw()
-      if (moving) frame = requestAnimationFrame(tick)
-      else previousTime = 0
+      renderPose()
+      if (moving) animationFrameId = requestAnimationFrame(animatePose)
+      else previousFrameTime = 0
     }
 
     function cancelReaction() {
-      reaction.forEach(animation => animation.cancel())
-      reaction = []
-      blink?.cancel()
-      twitch?.cancel()
+      reactionAnimations.forEach(animation => animation.cancel())
+      reactionAnimations = []
+      blinkAnimation?.cancel()
+      antennaTwitchAnimation?.cancel()
     }
 
-    function canReact() {
-      return !lookingAway && !reducedMotion.matches && !document.hidden
+    function canPlayReaction() {
+      return !isLookingAway && !reducedMotion.matches && !document.hidden
     }
 
-    function reacting() {
-      return reaction.some(animation => animation.playState === 'running')
+    function isReactionPlaying() {
+      return reactionAnimations.some(animation => animation.playState === 'running')
     }
 
-    function wiggle(duration: number, degrees: number) {
+    function animateAntennae(duration: number, degrees: number) {
       return antennae.animate([
         { transform: 'rotate(0deg)' },
         { transform: `rotate(${-degrees}deg)` },
         { transform: `rotate(${degrees * .65}deg)` },
         { transform: 'rotate(0deg)' },
-      ], { duration, easing: settle })
+      ], { duration, easing: settleEasing })
     }
 
-    function pat() {
-      if (!pendingPat || !canReact() || reacting()) return
-      pendingPat = false
+    function playPatReaction() {
+      if (!hasPendingPat || !canPlayReaction() || isReactionPlaying()) return
+      hasPendingPat = false
       cancelReaction()
-      const duration = 850
-      const timing = { duration, easing: settle }
-      reaction = [
+      const duration = patDurationMs
+      const timing = { duration, easing: settleEasing }
+      reactionAnimations = [
         body.animate([
           { transform: 'scale(1)' },
           { transform: 'scale(1.04, .94)', offset: .25 },
@@ -133,15 +178,15 @@ export function useMascotMotion() {
           { transform: 'scale(1.10, 1.04)', offset: .28 },
           { transform: 'scale(1)' },
         ], timing),
-        wiggle(duration, 12),
+        animateAntennae(duration, 12),
       ]
-      reaction[0].onfinish = pat
+      reactionAnimations[0].onfinish = playPatReaction
     }
 
-    function approach() {
-      if (reacting()) return
+    function playApproachHop() {
+      if (isReactionPlaying()) return
       cancelReaction()
-      const duration = 410
+      const duration = approachDurationMs
       const timing = { duration }
       const hop = hopLayer.animate([
         { transform: 'translateY(0)', easing: 'ease-out' },
@@ -149,7 +194,7 @@ export function useMascotMotion() {
         { transform: 'translateY(0)', offset: .77 },
         { transform: 'translateY(0)' },
       ], timing)
-      reaction = [
+      reactionAnimations = [
         hop,
         legs.animate([
           { transform: 'scale(1)' },
@@ -162,121 +207,145 @@ export function useMascotMotion() {
           { transform: 'scale(1.17, 1.08)', opacity: 1, offset: .79 },
           { transform: 'scale(1)', opacity: 1 },
         ], timing),
-        wiggle(duration, 6),
+        animateAntennae(duration, 6),
       ]
-      hop.onfinish = pat
+      hop.onfinish = playPatReaction
     }
 
-    function update(allowHop = false) {
+    function updateTargetPose(allowHop = false) {
       const passwordFocused = passwordField.contains(document.activeElement)
       const still = reducedMotion.matches
-      if (passwordFocused !== lookingAway) {
-        lookingAway = passwordFocused
-        turnAt = lookingAway ? performance.now() + 100 : 0
+      if (passwordFocused !== isLookingAway) {
+        isLookingAway = passwordFocused
+        headTurnStartsAt = isLookingAway ? performance.now() + headTurnDelayMs : 0
       }
       Object.assign(target, neutralPose)
 
-      if (lookingAway) {
-        Object.assign(target, { head: still ? 0 : -5, lx: -46, ly: 6, rx: -37, ry: 7 })
+      if (isLookingAway) {
+        Object.assign(target, {
+          head: still ? 0 : -5,
+          leftPupilX: -46,
+          leftPupilY: 6,
+          rightPupilX: -37,
+          rightPupilY: 7,
+        })
       } else if (pointer && !still) {
         const bounds = stage.getBoundingClientRect()
         const width = figure.offsetWidth
-        const dx = pointer.x - (bounds.left + bounds.width / 2)
-        const dy = pointer.y - (bounds.top + bounds.height / 2)
-        target.x = Math.max(-24, Math.min(24, dx * 0.14))
-        target.y = Math.max(-12, Math.min(12, dy * 0.09))
+        const horizontalDistance = pointer.x - (bounds.left + bounds.width / 2)
+        const verticalDistance = pointer.y - (bounds.top + bounds.height / 2)
+        target.x = Math.max(-24, Math.min(24, horizontalDistance * 0.14))
+        target.y = Math.max(-12, Math.min(12, verticalDistance * 0.09))
         target.tilt = target.x / 5
 
         const matrix = svg.getScreenCTM()
         if (matrix) {
           const point = new DOMPoint(pointer.x, pointer.y).matrixTransform(matrix.inverse())
-          function gaze(cx: number, cy: number, rx: number, ry: number) {
-            const x = point.x - cx
-            const y = point.y - cy
-            const distance = Math.max(78, Math.hypot(x, y))
-            return { x: x / distance * rx, y: y / distance * ry }
+          function calculateGaze(centerX: number, centerY: number, rangeX: number, rangeY: number) {
+            const horizontalOffset = point.x - centerX
+            const verticalOffset = point.y - centerY
+            const distance = Math.max(minimumGazeDistance, Math.hypot(horizontalOffset, verticalOffset))
+            return {
+              x: horizontalOffset / distance * rangeX,
+              y: verticalOffset / distance * rangeY,
+            }
           }
-          const l = gaze(299, 204, 26, 28)
-          const r = gaze(390, 185, 20, 27)
-          Object.assign(target, { lx: l.x - 28.2, ly: l.y + 6, rx: r.x - 23.1, ry: r.y + 6.8 })
+          const leftGaze = calculateGaze(
+            leftEyeGeometry.centerX,
+            leftEyeGeometry.centerY,
+            leftEyeGeometry.rangeX,
+            leftEyeGeometry.rangeY,
+          )
+          const rightGaze = calculateGaze(
+            rightEyeGeometry.centerX,
+            rightEyeGeometry.centerY,
+            rightEyeGeometry.rangeX,
+            rightEyeGeometry.rangeY,
+          )
+          Object.assign(target, {
+            leftPupilX: leftGaze.x - leftEyeGeometry.pupilOffsetX,
+            leftPupilY: leftGaze.y + leftEyeGeometry.pupilOffsetY,
+            rightPupilX: rightGaze.x - rightEyeGeometry.pupilOffsetX,
+            rightPupilY: rightGaze.y + rightEyeGeometry.pupilOffsetY,
+          })
         }
 
-        const distance = Math.hypot(dx, dy)
-        if (!close && distance < width * 0.54 && allowHop) {
-          close = true
-          approach()
+        const distance = Math.hypot(horizontalDistance, verticalDistance)
+        if (!pointerIsClose && distance < width * 0.54 && allowHop) {
+          pointerIsClose = true
+          playApproachHop()
         } else if (distance > width * 0.68) {
-          close = false
+          pointerIsClose = false
         }
       }
 
-      if (lookingAway || still) {
-        pendingPat = false
+      if (isLookingAway || still) {
+        hasPendingPat = false
         cancelReaction()
       }
       if (still) {
-        cancelAnimationFrame(frame)
-        frame = 0
-        previousTime = 0
+        cancelAnimationFrame(animationFrameId)
+        animationFrameId = 0
+        previousFrameTime = 0
         Object.assign(pose, target)
-        draw()
-      } else if (!frame) {
-        frame = requestAnimationFrame(tick)
+        renderPose()
+      } else if (!animationFrameId) {
+        animationFrameId = requestAnimationFrame(animatePose)
       }
     }
 
-    function move(event: PointerEvent) {
+    function handlePointerMove(event: PointerEvent) {
       if (event.pointerType === 'touch') return
-      lastMove = performance.now()
+      lastPointerMoveTime = performance.now()
       pointer = { x: event.clientX, y: event.clientY }
       const onPaint = event.target instanceof SVGGeometryElement && svg.contains(event.target)
-      if (onPaint && !overBeetle) pendingPat = true
-      if (!onPaint) pendingPat = false
-      overBeetle = onPaint
-      update(true)
-      pat()
+      if (onPaint && !pointerIsOverBeetle) hasPendingPat = true
+      if (!onPaint) hasPendingPat = false
+      pointerIsOverBeetle = onPaint
+      updateTargetPose(true)
+      playPatReaction()
     }
 
-    function leave() {
+    function handlePointerLeave() {
       pointer = undefined
-      close = false
-      overBeetle = false
-      pendingPat = false
-      update()
+      pointerIsClose = false
+      pointerIsOverBeetle = false
+      hasPendingPat = false
+      updateTargetPose()
     }
 
-    function focusChanged() {
+    function handleFocusChange() {
       queueMicrotask(() => {
-        if (surface.isConnected) update()
+        if (surface.isConnected) updateTargetPose()
       })
     }
 
     const blinkTimer = window.setInterval(() => {
-      if (!canReact() || reacting() || performance.now() - lastMove < 750) return
-      blink = eyes.animate([
+      if (!canPlayReaction() || isReactionPlaying() || performance.now() - lastPointerMoveTime < blinkIdleDelayMs) return
+      blinkAnimation = eyes.animate([
         { transform: 'scaleY(1)' },
         { transform: 'scaleY(.08)', offset: .43 },
         { transform: 'scaleY(1)' },
-      ], { duration: 180, easing: 'ease-in-out' })
-    }, 4600)
+      ], { duration: blinkDurationMs, easing: 'ease-in-out' })
+    }, blinkIntervalMs)
     const twitchTimer = window.setInterval(() => {
-      if (canReact() && !reacting()) twitch = wiggle(440, 3.5)
-    }, 1900)
+      if (canPlayReaction() && !isReactionPlaying()) antennaTwitchAnimation = animateAntennae(antennaTwitchDurationMs, 3.5)
+    }, antennaTwitchIntervalMs)
 
-    surface.addEventListener('pointermove', move)
-    surface.addEventListener('pointerleave', leave)
-    surface.addEventListener('focusin', focusChanged)
-    surface.addEventListener('focusout', focusChanged)
-    reducedMotion.addEventListener('change', focusChanged)
+    surface.addEventListener('pointermove', handlePointerMove)
+    surface.addEventListener('pointerleave', handlePointerLeave)
+    surface.addEventListener('focusin', handleFocusChange)
+    surface.addEventListener('focusout', handleFocusChange)
+    reducedMotion.addEventListener('change', handleFocusChange)
     return () => {
-      surface.removeEventListener('pointermove', move)
-      surface.removeEventListener('pointerleave', leave)
-      surface.removeEventListener('focusin', focusChanged)
-      surface.removeEventListener('focusout', focusChanged)
-      reducedMotion.removeEventListener('change', focusChanged)
+      surface.removeEventListener('pointermove', handlePointerMove)
+      surface.removeEventListener('pointerleave', handlePointerLeave)
+      surface.removeEventListener('focusin', handleFocusChange)
+      surface.removeEventListener('focusout', handleFocusChange)
+      reducedMotion.removeEventListener('change', handleFocusChange)
       clearInterval(blinkTimer)
       clearInterval(twitchTimer)
-      cancelAnimationFrame(frame)
+      cancelAnimationFrame(animationFrameId)
       cancelReaction()
       happyEyes.remove()
     }
