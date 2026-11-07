@@ -116,6 +116,44 @@ specification before integration.
 All criteria remain pending for the production frontend. Screenshots of the
 prototype and a passing documentation check do not mark them implemented.
 
+The shared shell preview covers the shell portions of TD-UI-01, TD-UI-02,
+TD-UI-07, TD-UI-08 and TD-UI-10. One shell renders role-supplied tray destinations
+and optional sidebar content. In the development preview, Developer uses My work
+and All bugs from the mockup. All bugs uses the full frame. Settings offers
+Appearance and Account for all three roles.
+
+Use the development-only `?workspace-preview` chooser to inspect the sample
+layouts. The regular entry point continues to use server-confirmed sessions.
+The preview uses sample items and does not call the authentication or report APIs.
+
+On desktop, collapsing the sidebar preserves selection and keeps the tray visible.
+The sidebar starts at 275px and restores its last width on reopen. A keyboard
+and pointer resizer clamps it to 242–472px and keeps at least 240px for the
+workspace. Opening and closing use a reversible 300ms width and opacity
+transition. Reduced motion skips that transition.
+At 700px and below, the sidebar opens over the workspace. Escape, the backdrop
+and selecting an item close it. Keyboard focus returns to the toggle after those
+actions. The demo previews use synthetic navigation items and headings. Role
+workflows, including the report editor opened by New report, have separate ports.
+
+## Shared shell integration
+
+- Mount `AppShell` once per workspace. It renders `IconTray` and the optional
+  `Sidebar`. Role pages supply tray destinations, the active destination,
+  sidebar content and workspace content. Use `SidebarGroup` and `SidebarItem`
+  for standard groups and rows. Pass no sidebar for a full-frame destination.
+- Keep collapse, resize, transition timing and mobile overlay focus in
+  `AppShell`. Keep role-specific search, selection and actions in the owning
+  feature. Settings stays at the bottom of the shared tray. Actions such as
+  **New report** belong inside their area.
+- Preserve the selected item, sidebar search and in-progress drafts when the
+  sidebar collapses or resizes. When a sidebar row opens an item, call the
+  supplied overlay dismissal callback so mobile focus returns to the toggle.
+- Check new destinations for the correct sidebar, active item and keyboard
+  operation. For changes to the shell, extend the existing
+  [workspace browser suite](../../frontend/e2e/workspace-preview.e2e.ts) as
+  needed to cover desktop resize, mobile dismissal and reduced motion.
+
 ## Decisions still owned elsewhere
 
 Final logo artwork, extra product destinations, production diff ingestion,

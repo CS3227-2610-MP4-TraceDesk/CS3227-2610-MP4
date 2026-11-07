@@ -1,0 +1,257 @@
+.app-shell {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  height: 100dvh;
+  padding: 4px 4px 4px 0;
+  background: var(--td-rail);
+}
+
+.icon-tray {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 4px;
+}
+
+.icon-tray button {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+.icon-tray-settings {
+  margin-top: auto;
+}
+
+@property --shell-sidebar-progress {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+.app-frame {
+  display: grid;
+  grid-template-columns:
+    calc(var(--shell-sidebar-width) * clamp(0, var(--shell-sidebar-progress), 1))
+    minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--td-line);
+  border-radius: 12px;
+  background: var(--td-page);
+  /* Sampled spring timing. Clamp progress so the track never exceeds its width. */
+  transition: --shell-sidebar-progress 300ms linear(0, .27 10%, .64 22%, .87 36%, .98 53%, 1.006 74%, 1);
+}
+
+.app-frame[data-sidebar-expanded="true"] {
+  --shell-sidebar-progress: 1;
+}
+
+.shell-sidebar-track {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.shell-sidebar-clip {
+  height: 100%;
+  overflow: clip;
+  opacity: clamp(0, var(--shell-sidebar-progress), 1);
+}
+
+.shell-sidebar-resizer {
+  position: absolute;
+  z-index: 1;
+  inset: 0 -5px 0 auto;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.shell-sidebar-resizer::after {
+  position: absolute;
+  inset: 0 4px;
+  background: var(--td-muted);
+  opacity: 0;
+  content: "";
+}
+
+.shell-sidebar-resizer:hover::after,
+.shell-sidebar-resizer:focus-visible::after,
+.shell-sidebar-resizer[data-dragging="true"]::after {
+  opacity: 0.65;
+}
+
+.app-frame:has(.shell-sidebar-resizer[data-dragging="true"]) {
+  transition: none;
+  cursor: col-resize;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-frame {
+    transition: none;
+  }
+}
+
+.shell-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: var(--shell-sidebar-width);
+  height: 100%;
+  min-height: 0;
+  padding: 0 8px 8px;
+  border-right: 1px solid var(--td-line);
+  background: var(--td-sidebar);
+}
+
+.shell-sidebar-track[hidden] {
+  display: none;
+}
+
+.shell-sidebar-title {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: var(--td-header-height);
+  padding: 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.shell-sidebar-items {
+  overflow: auto;
+  padding: 3px;
+  margin: -3px;
+}
+
+.shell-sidebar-footer {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.shell-sidebar-group {
+  margin: 12px 0 24px;
+}
+
+.shell-sidebar-group h2 {
+  padding: 0 8px 8px;
+  color: var(--td-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.shell-sidebar-group p {
+  padding: 0 8px;
+  color: var(--td-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.shell-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: var(--td-muted);
+  text-align: left;
+}
+
+.shell-sidebar-item:hover,
+.shell-sidebar-item[aria-current] {
+  background: var(--td-pressed);
+  color: var(--td-ink);
+}
+
+.shell-sidebar-item svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.shell-sidebar-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-workspace {
+  display: flex;
+  grid-column: 2;
+  grid-row: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.shell-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--td-header-height);
+  padding: 0 8px 0 12px;
+  color: var(--td-muted);
+}
+
+.shell-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.shell-scrim {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .app-shell {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .app-frame {
+    grid-template-columns: minmax(0, 1fr);
+    transition: none;
+  }
+
+  .shell-sidebar-clip {
+    display: contents;
+  }
+
+  .shell-workspace {
+    grid-column: 1;
+  }
+
+  .shell-sidebar-track {
+    position: fixed;
+    z-index: 3;
+    inset: 4px auto 4px 40px;
+    width: min(275px, calc(100vw - 54px));
+    height: auto;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .shell-sidebar {
+    width: 100%;
+  }
+
+  .shell-scrim {
+    position: fixed;
+    z-index: 2;
+    inset: 0 0 0 40px;
+    display: block;
+    background: rgb(0 0 0 / 40%);
+  }
+
+  .shell-header {
+    padding-inline: 8px;
+  }
+}
