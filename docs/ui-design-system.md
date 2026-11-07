@@ -8,7 +8,16 @@ frontend implementation and its acceptance checks are pending.
 
 Use the product name **TraceDesk**. Use sentence case for interface text. Describe
 actions with verbs and state what a user can do next in empty and error states.
-The existing T favicon is a prototype mark, not an approved new logo commission.
+The rounded beetle direction was approved in chat on 2026-11-07. Its
+[editable SVG](../frontend/public/brand/tracedesk-beetle.svg) uses separate shell,
+head, eyes, pupils, antennae and leg groups for future interaction. The SVG is a
+vector trace of the approved reference. The compact
+[logo](../frontend/public/brand/tracedesk-logo.svg) uses a compact filled beetle
+with short thick antennae, six legs and a lower-shell split. The
+[favicon](../frontend/public/brand/tracedesk-favicon.svg) places that mark on an
+off-white rounded square. The sign-in header uses the compact logo inside a
+32 px off-white circle, with an 8 px gap before an 18 px semibold TraceDesk
+wordmark. The full mascot supplies the expressive sign-in animation.
 Role icons come from the Apps SDK UI icon set. Keep decorative branding restrained.
 
 Resolve implementation questions in this order:
@@ -133,6 +142,61 @@ viewport width of 700px or less, use a 40px rail and an overlay sidebar; forms
 become one column. Library mobile padding is 24px 12px 20px. Summary content
 keeps its 24px inset and toolbar keeps its 16px inset. Allow toolbar pills to
 wrap at very narrow widths; the 15px gap describes the single-row toolbar only.
+
+## Corner radii and nested surfaces
+
+Use the same radius for the same component purpose and size across roles, themes
+and pages. Reuse the shared component or existing SDK radius token. All values
+below are CSS pixels; pills and circles use the geometric values shown.
+
+| Radius | Current use in the reference mockup |
+| --- | --- |
+| 2px | Thin change-map tracks; the fill inherits the track radius |
+| 6px | Compact rows inside the summary popover |
+| 7px | Legacy compact check-row select |
+| 8px | Sidebar selections, account trigger/menu rows, detail tabs and compact QA selects |
+| 9px | Legacy 28px brand and thread-entry icon containers |
+| 10px | Rail/header buttons, library icon containers, QA board cards, activity rows, proposed-fix groups and report text areas |
+| 12px | Main frame, mobile sidebar overlay, grid cards, QA board columns/inspectors, code panels and inline review comments |
+| 16px | Grouped forms, template case groups, settings groups, summary popover and review chat bubbles |
+| 24px | Sign-in card and thread composer |
+| Full rounding | Primary pill actions, filter/view capsules and review tab groups; current CSS uses 999px or 9999px |
+| 50% | Circular logo badge, avatars and elliptical mascot shadow |
+
+The 7px and 9px values record existing prototype components. Use them only when
+porting those components; new variants should reuse the closest applicable shared
+component instead of introducing another radius value.
+
+SDK inputs retain their per-size geometry. In the pinned SDK, radius tokens
+--control-radius-sm, --control-radius-md, --control-radius-lg and
+--control-radius-xl resolve to 6px, 8px, 10px and 12px at the default 16px root
+font size. The sign-in Input with size xl is 40px tall with a 10px radius. Select
+the component size for its purpose before choosing a radius override.
+
+### Nested corner alignment
+
+For an inset surface that follows a parent's rounded corner, start with
+**inner radius = max(0px, outer radius - inset)**. Measure the inset from the
+parent's outer border edge to the child's outer border edge. With border-box
+sizing, include the parent's border, padding and any child margin in that
+distance. A 16px outer radius and an 8px total inset give an 8px inner radius.
+
+A container's own inner border edge follows the same geometry. A uniform 2px
+border on the 24px sign-in card leaves a 22px inner corner. Let the browser's
+border and overflow clipping produce that curve. The two full-bleed sign-in
+panels share the card's clipping boundary and have a straight central divider.
+
+Apply the inset rule to concentric surfaces that visually follow one another.
+A form input placed well inside a card retains its control radius. Its corners
+do not need to track the distant card corners. Likewise, QA board cards use
+their documented 10px radius inside 12px board columns because they are separate
+content items. Pills, circular badges and avatars retain their geometric shape.
+
+Compare nested corners at the rendered size in both themes. Verify an even gap
+around the shared corner, include border thickness in the measurement, and avoid
+adding a second independent rounded outline at a clipped full-bleed edge. These
+rules document the intended relationship; the prototype has not received a
+complete audit of every nested surface.
 
 ## Approved component roles
 
