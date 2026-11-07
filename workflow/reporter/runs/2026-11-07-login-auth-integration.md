@@ -102,3 +102,11 @@ tokens or imagined approvals.
   provenance entries, 9 transport Java sources).
 - The PR branch will be updated with this fix so CI reruns on the corrected
   head.
+- After pushing commit `0e54933`, both foundation runs passed. One of the two
+  concurrent frontend runs exposed a timing race in the unavailable-service
+  test: Retry could start before both StrictMode startup reads had settled.
+  The test now waits for the two initial reads. The focused test passed five
+  consecutive runs, then the full browser suite passed 13/13; `npm run check`,
+  `npm run build`, the foundation check and `git diff --check` also passed.
+- Follow-up test stabilization is to be committed and pushed to the PR branch
+  so its latest frontend workflow reruns with the race correction.

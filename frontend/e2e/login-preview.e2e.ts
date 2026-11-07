@@ -92,10 +92,13 @@ test('session restored after a reload remains server-confirmed', async ({ page }
 
 test('unavailable startup stays signed out and offers a retry', async ({ page }) => {
   // React StrictMode may perform the initial read twice in development.
-  await mockAuthApi(page, { sessionStatuses: [503, 503, 401] })
+  const requests = await mockAuthApi(page, { sessionStatuses: [503, 503, 401] })
   await page.goto('/')
 
   await expect(page.getByRole('status')).toContainText('temporarily unavailable')
+  await expect.poll(() => requests.filter(request =>
+    request.method === 'GET' && request.path === '/api/session',
+  ).length).toBeGreaterThanOrEqual(2)
   await page.getByRole('button', { name: 'Retry connection' }).click()
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
   await expect(page.getByRole('status')).toHaveCount(0)
