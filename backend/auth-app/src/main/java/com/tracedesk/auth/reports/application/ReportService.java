@@ -10,9 +10,10 @@ import java.util.UUID;
 
 public final class ReportService {
     public static final class Failure extends RuntimeException {
-        private final String code; private final int status;
-        public Failure(String code, int status) { super(code); this.code=code; this.status=status; }
-        public String code() { return code; } public int status() { return status; }
+        private final String code; private final int status; private final Integer currentVersion;
+        public Failure(String code, int status) { this(code,status,null); }
+        public Failure(String code, int status, Integer currentVersion) { super(code); this.code=code; this.status=status; this.currentVersion=currentVersion; }
+        public String code() { return code; } public int status() { return status; } public Integer currentVersion() { return currentVersion; }
     }
     public record ListResult(java.util.List<ReportRepository.Summary> items, String nextCursor) { }
     private final ReportRepository repository; private final ReportCursorSigner cursors; private final Clock clock;
@@ -56,6 +57,57 @@ public final class ReportService {
         var membership = requireMembership(actor, project);
         if (!ReportAccessPolicy.mayCreate(facts(membership, null))) throw new Failure("FORBIDDEN", 403);
         return membership;
+    }
+    public ReportRepository.Draft createDraft(UUID actor, UUID project, UUID key, ReportData fields, UUID requestId) {
+        var m = requireMembership(actor, project);
+        if (!ReportAccessPolicy.mayCreate(facts(m, null))) throw new Failure("FORBIDDEN",403);
+        if (ReportData.validateDraft(fields) != null) throw new Failure("VALIDATION_ERROR",400);
+        return repository.createDraft(actor, project, key, fields, requestId, clock.instant());
+    }
+    public ListResultDraft listDrafts(UUID actor, UUID project, Integer requestedLimit, String cursor) {
+        var m = requireMembership(actor, project);
+        if (!ReportAccessPolicy.mayCreate(facts(m, null))) throw new Failure("FORBIDDEN",403);
+        if (requestedLimit != null && (requestedLimit < 1 || requestedLimit > 100)) throw new Failure("INVALID_REQUEST",400);
+        int limit = requestedLimit == null ? 25 : requestedLimit;
+        Instant before = null; UUID beforeId = null;
+        if (cursor != null) {
+            var decoded = cursors.verify(cursor, actor, project, "DRAFT_LIST", "-", clock.instant());
+            if (decoded == null) throw new Failure("INVALID_CURSOR",400);
+            before = decoded.updatedAt(); beforeId = decoded.lastId();
+        }
+        var page = repository.listDrafts(actor, project, limit, before, beforeId, clock.instant());
+        String next = null;
+        if (page.hasMore() && !page.items().isEmpty()) {
+            var last = page.items().get(page.items().size()-1);
+            next = cursors.issue(new ReportCursorSigner.Cursor(actor, project, "DRAFT_LIST", "-", last.updatedAt(), last.id(), clock.millis()));
+        }
+        return new ListResultDraft(page.items(), next);
+    }
+    public record ListResultDraft(java.util.List<ReportRepository.DraftSummary> items, String nextCursor) { }
+    public ReportRepository.Draft draft(UUID actor, UUID project, UUID draft) {
+        var m = requireMembership(actor, project);
+        if (!ReportAccessPolicy.mayCreate(facts(m, null))) throw new Failure("FORBIDDEN",403);
+        return repository.draft(actor, project, draft, clock.instant()).orElseThrow(() -> new Failure("NOT_FOUND",404));
+    }
+    public ReportRepository.Draft updateDraft(UUID actor, UUID project, UUID draft, int version, ReportData fields, UUID requestId) {
+        var m = requireMembership(actor, project);
+        if (!ReportAccessPolicy.mayCreate(facts(m, null))) throw new Failure("FORBIDDEN",403);
+        return repository.updateDraft(actor, project, draft, version, fields, requestId, clock.instant());
+    }
+    public void deleteDraft(UUID actor, UUID project, UUID draft, int version, UUID requestId) {
+        var m = requireMembership(actor, project);
+        if (!ReportAccessPolicy.mayCreate(facts(m, null))) throw new Failure("FORBIDDEN",403);
+        repository.deleteDraft(actor, project, draft, version, requestId, clock.instant());
+    }
+    public ReportRepository.Report updateReport(UUID actor, UUID project, UUID report, int version, ReportData fields, UUID requestId) {
+        var m = requireMembership(actor, project);
+        if (!ReportAccessPolicy.mayCreate(facts(m, null))) throw new Failure("FORBIDDEN",403);
+        return repository.updateReport(actor, project, report, version, fields, requestId, clock.instant());
+    }
+    public ReportRepository.Report submitDraft(UUID actor, UUID project, UUID draft, int version, UUID key, UUID requestId) {
+        var m = requireMembership(actor, project);
+        if (!ReportAccessPolicy.mayCreate(facts(m, null))) throw new Failure("FORBIDDEN",403);
+        return repository.submitDraft(actor, project, draft, version, key, requestId, clock.instant());
     }
     private ReportRepository.Membership requireMembership(UUID actor, UUID project) {
         return repository.membership(actor, project).filter(m -> m.userEnabled() && m.projectEnabled() && m.active())
