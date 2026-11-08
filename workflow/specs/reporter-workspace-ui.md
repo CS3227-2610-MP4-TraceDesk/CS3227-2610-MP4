@@ -1,6 +1,6 @@
 # REPORT-UI — Reporter workspace, reports, and new report
 
-Status: implementation contract for issue [#14](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/issues/14); implementation and runtime acceptance are pending. Human owner: not supplied. This contract refines the approved architecture, [product scope](../../docs/product.md), [shared role contracts](../decisions/002-shared-role-contracts.md), [authentication contract](auth-membership.md), and the canonical [Reporter report contract](reporter-reports.md). Follow [shared UI](shared-ui.md), the [design system](../../docs/ui-design-system.md), the [security contract](../../docs/security.md), and the [Reporter completion gates](../reporter/agentic-se.md). It does not authorize deployment, account/project provisioning, or AI/provider integration.
+Status: implemented and locally verified; see [runtime evidence](../reporter/evidence/reporter-workspace-ui.md) for results and limitations. Contract for issue [#14](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/issues/14). Human owner: not supplied. This contract refines the approved architecture, [product scope](../../docs/product.md), [shared role contracts](../decisions/002-shared-role-contracts.md), [authentication contract](auth-membership.md), and the canonical [Reporter report contract](reporter-reports.md). Follow [shared UI](shared-ui.md), the [design system](../../docs/ui-design-system.md), the [security contract](../../docs/security.md), and the [Reporter completion gates](../reporter/agentic-se.md). It does not authorize deployment, account/project provisioning, or AI/provider integration.
 
 ## Goal and boundary
 
@@ -51,7 +51,7 @@ Display the canonical status vocabulary (`OPEN`, `IN_PROGRESS`, `READY_FOR_QA`, 
 ## Submission, retry, and privacy behavior
 
 - While editing, the primary action validates the form and prevents the network request on invalid fields; keep focus on the first invalid field and announce the validation summary. Disable duplicate submission while pending. Do not clear any field on local or server rejection.
-- Create one idempotency key per immutable canonical body. Disable duplicate clicks while one request is in flight. For timeout, connection loss, or `5xx` with unknown commit outcome, retain the exact body and key, label the outcome as unconfirmed, and allow only retry of that same pair or leaving the composer through its discard confirmation. Freeze fields until the outcome resolves; do not create a new key/body while the prior commit could have succeeded.
+- Create one idempotency key per immutable canonical body. Disable duplicate clicks and destructive composer navigation while one request is in flight; Settings, theme and sidebar changes remain available. Bound the complete create attempt, including CSRF retrieval/retry, to 20 seconds so a stalled connection becomes an unconfirmed outcome. For timeout, connection loss, or `5xx` with unknown commit outcome, retain the exact body and key, label the outcome as unconfirmed, and allow only retry of that same pair or leaving the composer through its explicit discard confirmation and warning. Freeze fields until the outcome resolves; do not create a new key/body automatically while the prior commit could have succeeded.
 - `400 VALIDATION_ERROR` is a known rejection: show safe field-level errors where the response identifies fields without echoing their values, allow editing, and use a new key for the revised body. `409 IDEMPOTENCY_CONFLICT` is a conflict, never a success; preserve the entered body, freeze automatic retries, explain that the submission key conflicts, and require a safe user-led resolution path. Never claim the report was saved based on a `409`.
 - A confirmed `201` must contain a well-formed report ID and all representation values needed to open the actual saved detail. If the response is malformed, show an unconfirmed/unavailable outcome and retry with the same key/body; do not fabricate a detail route from form values.
 - Do not persist report text, session identifiers, CSRF tokens, or credentials in browser storage, URL, console, analytics, or client logs. The canonical project UUID in the shared project URL is the sole allowed project context in the URL; names, role claims and report field values stay out of it. All seven fields render as escaped text; `textLogs` may use a monospace text surface but is not syntax-highlighted as executable code and is never inserted as HTML.
@@ -66,7 +66,7 @@ The shared QA captures define shell and component geometry only. Reporter screen
 
 ## Observable acceptance criteria
 
-The issue acceptance IDs are retained verbatim; all remain pending until code and evidence exist.
+The issue acceptance IDs are retained verbatim. Local verification is recorded per criterion in the linked evidence; hosted CI and deployment are separate gates.
 
 | ID | Observable requirement | Required verification/evidence |
 | --- | --- | --- |
