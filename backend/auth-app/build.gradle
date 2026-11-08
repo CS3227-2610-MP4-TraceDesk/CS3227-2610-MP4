@@ -24,7 +24,11 @@ dependencies {
     testImplementation project(':backend:db-test-support')
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
-tasks.withType(Test).configureEach { useJUnitPlatform() }
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    // Ordinary tests must never opt into a provider because the parent shell enables AI.
+    environment 'AI_ENABLED', 'false'
+}
 
 tasks.register('reporterBrowserFixture', JavaExec) {
     group = 'verification'
@@ -32,5 +36,15 @@ tasks.register('reporterBrowserFixture', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.tracedesk.auth.api.ReporterBrowserFixture'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+    environment 'AI_ENABLED', 'false'
+}
+
+tasks.register('reporterAiLiveEvaluation', JavaExec) {
+    group = 'verification'
+    description = 'Explicit opt-in synthetic-only live Reporter evaluation; never a CI test dependency.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.tracedesk.auth.reports.ai.ReporterAiLiveEvaluation'
     javaLauncher = javaToolchains.launcherFor(java.toolchain)
 }
