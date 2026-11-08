@@ -20,8 +20,15 @@ public final class GatewayTypes {
     public record Suggestion(String text, Capability capability, String promptVersion, long sourceVersion) {
         @Override public String toString() { return "Suggestion[redacted]"; }
     }
-    /** Revisions are server-owned; funding is a validated resource-unit policy, not currency. */
-    public record Metadata(String model, long revision, Instant validUntil, long fundingRevision) { }
+    /** Revisions are server-owned; sponsorship is a bounded resource-unit authorization, not currency. */
+    public record Metadata(String model, long revision, Instant validUntil, long fundingRevision,
+                           String approvalFingerprint, Instant approvalValidUntil) {
+        /** Compatibility constructor for deterministic gateway tests that predate sponsorship binding. */
+        public Metadata(String model, long revision, Instant validUntil, long fundingRevision) {
+            this(model, revision, validUntil, fundingRevision,
+                    "0".repeat(64), validUntil);
+        }
+    }
     public record Policy(boolean enabled, long revision, long globalDailyUnits, long actorDailyUnits,
                          int globalConcurrency, int actorConcurrency, Duration reservationTtl) {
         public static Policy disabled() { return new Policy(false, 1, 0, 0, 4, 1, Duration.ofSeconds(60)); }
@@ -44,7 +51,10 @@ public final class GatewayTypes {
     public static void validateMetadata(Metadata m, Instant now) {
         if (m == null || m.model() == null || !m.model().matches("[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}")
                 || m.revision() < 1 || m.fundingRevision() < 1 || m.validUntil() == null
-                || !m.validUntil().isAfter(now) || m.validUntil().isAfter(now.plusSeconds(900)))
+                || !m.validUntil().isAfter(now) || m.validUntil().isAfter(now.plusSeconds(900))
+                || m.approvalFingerprint() == null || !m.approvalFingerprint().matches("[A-Fa-f0-9]{64}")
+                || m.approvalValidUntil() == null || !m.approvalValidUntil().isAfter(now)
+                || m.validUntil().isAfter(m.approvalValidUntil()))
             throw new GatewayFailure(GatewayFailure.Code.AI_UNAVAILABLE);
     }
 }

@@ -80,7 +80,7 @@ public final class SecuredAiGateway implements AutoCloseable {
             }
             Completion completion;
             try {
-                completion = bounded(() -> provider.complete(context));
+                completion = bounded(() -> provider.complete(context, metadata));
                 validateCompletion(completion, inputUnits);
             } catch (RuntimeException failure) {
                 Outcome outcome = Thread.currentThread().isInterrupted() ? Outcome.CANCELLED
@@ -91,6 +91,7 @@ public final class SecuredAiGateway implements AutoCloseable {
             Long units = actualUnits(completion.usage(), inputUnits);
             ledger.settle(dispatched, Outcome.SUCCESS, units, clock.instant());
             validateMetadata(metadata, clock.instant());
+            ledger.assertCurrent(policy, metadata, clock.instant());
             // This port must re-read the live session/membership/object/source version, not a cached decision.
             authorizer.authorize(actor, request);
             if (Thread.currentThread().isInterrupted()) throw new GatewayFailure(AI_UNAVAILABLE);

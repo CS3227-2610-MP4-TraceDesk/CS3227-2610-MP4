@@ -19,10 +19,25 @@ class SoclaasSettingsTest {
     @Test
     void enabledConfigurationRequiresKeyAndModelWithoutEchoingValues() {
         var environment = new TestEnvironment().withProperty("AI_ENABLED", "true")
-                .withProperty("SOCLAAS_API_KEY", "synthetic-secret");
+                .withProperty("SOCLAAS_API_KEY", "synthetic-secret")
+                .withProperty("AI_SPONSORED_ACCESS_ACKNOWLEDGED", "true")
+                .withProperty("AI_SPONSORED_APPROVAL_REFERENCE", "synthetic-approval")
+                .withProperty("AI_GLOBAL_DAILY_UNITS", "100000")
+                .withProperty("AI_ACTOR_DAILY_UNITS", "20000")
+                .withProperty("AI_SPONSORED_APPROVAL_EXPIRES_AT", "2099-01-01T00:00:00Z");
         var error = assertThrows(IllegalArgumentException.class, () -> SoclaasSettings.from(environment));
         assertTrue(error.getMessage().contains("SOCLAAS_MODEL"));
         assertFalse(error.toString().contains("synthetic-secret"));
+    }
+
+    @Test
+    void enabledConfigurationRequiresExplicitFiniteResourceQuotasAndSponsorship() {
+        var complete = valid();
+        assertThrows(IllegalArgumentException.class, () -> SoclaasSettings.from(complete.withoutProperty("AI_GLOBAL_DAILY_UNITS")));
+        assertThrows(IllegalArgumentException.class, () -> SoclaasSettings.from(complete.withoutProperty("AI_ACTOR_DAILY_UNITS")));
+        assertThrows(IllegalArgumentException.class, () -> SoclaasSettings.from(complete.withProperty("AI_GLOBAL_DAILY_UNITS", "1000000000001")));
+        assertThrows(IllegalArgumentException.class, () -> SoclaasSettings.from(complete.withProperty("AI_ACTOR_DAILY_UNITS", "100001")));
+        assertThrows(IllegalArgumentException.class, () -> SoclaasSettings.from(complete.withoutProperty("AI_SPONSORED_ACCESS_ACKNOWLEDGED")));
     }
 
     @Test
@@ -73,6 +88,11 @@ class SoclaasSettingsTest {
 
     private static TestEnvironment valid() {
         return new TestEnvironment().withProperty("AI_ENABLED", "true")
-                .withProperty("SOCLAAS_API_KEY", "synthetic-secret").withProperty("SOCLAAS_MODEL", "test-model");
+                .withProperty("SOCLAAS_API_KEY", "synthetic-secret").withProperty("SOCLAAS_MODEL", "test-model")
+                .withProperty("AI_SPONSORED_ACCESS_ACKNOWLEDGED", "true")
+                .withProperty("AI_SPONSORED_APPROVAL_REFERENCE", "synthetic-approval")
+                .withProperty("AI_GLOBAL_DAILY_UNITS", "100000")
+                .withProperty("AI_ACTOR_DAILY_UNITS", "20000")
+                .withProperty("AI_SPONSORED_APPROVAL_EXPIRES_AT", "2099-01-01T00:00:00Z");
     }
 }

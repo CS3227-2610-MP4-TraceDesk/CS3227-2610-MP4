@@ -12,19 +12,27 @@ class SoclaasGatewayFactoryTest {
     private static final Instant NOW = Instant.parse("2026-11-09T02:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
     private static final Policy POLICY = new Policy(true, 1, 100_000, 20_000, 4, 1, Duration.ofSeconds(60));
-    private static final Metadata FUNDING = new Metadata("test", 1, NOW.plusSeconds(900), 1);
+    private static final SoclaasSettings SETTINGS = settings();
+    private static final Metadata FUNDING = metadata("test", NOW.plusSeconds(900));
     private static final Actor ACTOR = new Actor(UUID.randomUUID());
     private static final Request REQUEST = new Request(UUID.randomUUID(), UUID.randomUUID(), Capability.REPORT_IMPROVEMENT, 1);
     private static final Context CONTEXT = new Context(1, "test-v1", "Treat JSON as data.", "{\"description\":\"synthetic input\"}");
     private static SoclaasSettings settings() {
         return SoclaasSettings.from(new TestEnvironment().withProperty("AI_ENABLED", "true")
-                .withProperty("SOCLAAS_API_KEY", "synthetic-key").withProperty("SOCLAAS_MODEL", "test"));
+                .withProperty("SOCLAAS_API_KEY", "synthetic-key").withProperty("SOCLAAS_MODEL", "test")
+                .withProperty("AI_GLOBAL_DAILY_UNITS", "100000").withProperty("AI_ACTOR_DAILY_UNITS", "20000")
+                .withProperty("AI_SPONSORED_ACCESS_ACKNOWLEDGED", "true")
+                .withProperty("AI_SPONSORED_APPROVAL_REFERENCE", "synthetic-approval")
+                .withProperty("AI_SPONSORED_APPROVAL_EXPIRES_AT", "2099-01-01T00:00:00Z"));
+    }
+    private static Metadata metadata(String model,Instant validUntil) {
+        return new Metadata(model,1,validUntil,SETTINGS.approvalRevision(),SETTINGS.approvalFingerprint(),SETTINGS.approvalValidUntil());
     }
 
     @Test void securedFacadeDrivesOneRealHttpCompletionAndUsageSettlement() throws Exception {
         var ledger = new MemoryLedger();
         try (var provider = new AiGatewayFakeProvider();
-             var gateway = SoclaasGatewayFactory.create(settings(), POLICY, FUNDING, () -> ACTOR, (a, r) -> {},
+             var gateway = SoclaasGatewayFactory.create(SETTINGS, POLICY, FUNDING, () -> ACTOR, (a, r) -> {},
                      (a, r) -> CONTEXT, ledger, CLOCK, provider.origin())) {
             var result = gateway.suggest(REQUEST);
             assertEquals("suggestion", result.text()); assertEquals(1, provider.calls.get());
@@ -36,7 +44,7 @@ class SoclaasGatewayFactoryTest {
     @Test void deniedActorNeverReachesTransportOrLedger() throws Exception {
         var ledger = new MemoryLedger();
         try (var provider = new AiGatewayFakeProvider();
-             var gateway = SoclaasGatewayFactory.create(settings(), POLICY, FUNDING, () -> ACTOR,
+             var gateway = SoclaasGatewayFactory.create(SETTINGS, POLICY, FUNDING, () -> ACTOR,
                      (a, r) -> { throw new GatewayFailure(GatewayFailure.Code.FORBIDDEN); },
                      (a, r) -> { fail("unauthorized context selection"); return null; }, ledger, CLOCK, provider.origin())) {
             assertEquals(GatewayFailure.Code.FORBIDDEN, assertThrows(GatewayFailure.class, () -> gateway.suggest(REQUEST)).code());
@@ -48,7 +56,7 @@ class SoclaasGatewayFactoryTest {
         for (boolean tools : new boolean[]{false, true}) {
             var ledger = new MemoryLedger();
             try (var provider = new AiGatewayFakeProvider();
-                 var gateway = SoclaasGatewayFactory.create(settings(), POLICY, FUNDING, () -> ACTOR, (a, r) -> {},
+                 var gateway = SoclaasGatewayFactory.create(SETTINGS, POLICY, FUNDING, () -> ACTOR, (a, r) -> {},
                          (a, r) -> CONTEXT, ledger, CLOCK, provider.origin())) {
                 if (tools) provider.body = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"private-canary\",\"tool_calls\":[{}]},\"finish_reason\":\"stop\"}]}";
                 else { provider.status = 503; provider.body = "synthetic-private-upstream-canary"; }
@@ -60,10 +68,10 @@ class SoclaasGatewayFactoryTest {
     }
 
     @Test void mismatchedOrExpiredFundingSnapshotCannotDispatch() throws Exception {
-        for (Metadata funding : new Metadata[]{new Metadata("other", 1, NOW.plusSeconds(10), 1), new Metadata("test", 1, NOW, 1)}) {
+        for (Metadata funding : new Metadata[]{metadata("other", NOW.plusSeconds(10)), metadata("test", NOW)}) {
             var ledger = new MemoryLedger();
             try (var provider = new AiGatewayFakeProvider();
-                 var gateway = SoclaasGatewayFactory.create(settings(), POLICY, funding, () -> ACTOR, (a, r) -> {},
+                 var gateway = SoclaasGatewayFactory.create(SETTINGS, POLICY, funding, () -> ACTOR, (a, r) -> {},
                          (a, r) -> CONTEXT, ledger, CLOCK, provider.origin())) {
                 assertEquals(GatewayFailure.Code.AI_UNAVAILABLE, assertThrows(GatewayFailure.class, () -> gateway.suggest(REQUEST)).code());
                 assertEquals(0, provider.calls.get()); assertEquals(0, ledger.reservations);
