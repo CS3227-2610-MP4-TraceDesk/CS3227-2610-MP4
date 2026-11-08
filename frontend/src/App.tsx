@@ -1,34 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button } from '@openai/apps-sdk-ui/components/Button'
 import { SignIn } from './login/SignIn'
 import { AuthApiError, getSession, login, logout } from './auth/sessionApi'
+import { ReporterWorkspace } from './reports/ReporterWorkspace'
 
 type AuthState = 'checking' | 'signed-out' | 'signed-in'
-
-function SignedInWorkspace({
-  busy,
-  error,
-  onSignOut,
-}: {
-  busy: boolean
-  error: string | null
-  onSignOut: () => void
-}) {
-  return (
-    <main className="demo-workspace" aria-label="Signed-in state">
-      <p className="eyebrow">TraceDesk</p>
-      <h1>You’re signed in</h1>
-      <p>
-        Your session is active. Your role workspace will appear here when it is
-        available.
-      </p>
-      {error && <p className="sign-in-error" role="alert">{error}</p>}
-      <Button color="secondary" variant="outline" disabled={busy} onClick={onSignOut}>
-        {busy ? 'Signing out…' : 'Sign out'}
-      </Button>
-    </main>
-  )
-}
 
 export function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
@@ -36,6 +11,7 @@ export function App() {
   const [serviceNotice, setServiceNotice] = useState<string | null>(null)
   const [logoutError, setLogoutError] = useState<string | null>(null)
   const [logoutBusy, setLogoutBusy] = useState(false)
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -44,8 +20,9 @@ export function App() {
 
   const restoreSession = useCallback(async (signal?: AbortSignal) => {
     try {
-      await getSession(signal)
+      const session = await getSession(signal)
       if (signal?.aborted) return
+      setSessionUserId(session.userId)
       setServiceNotice(null)
       setAuthState('signed-in')
     } catch (error) {
@@ -61,8 +38,9 @@ export function App() {
 
   useEffect(() => {
     const controller = new AbortController()
-    void getSession(controller.signal).then(() => {
+    void getSession(controller.signal).then(session => {
       if (controller.signal.aborted) return
+      setSessionUserId(session.userId)
       setServiceNotice(null)
       setAuthState('signed-in')
     }, error => {
@@ -77,7 +55,8 @@ export function App() {
 
   async function handleSignIn(email: string, password: string) {
     await login(email, password)
-    await getSession()
+    const session = await getSession()
+    setSessionUserId(session.userId)
     setServiceNotice(null)
     setAuthState('signed-in')
   }
@@ -87,10 +66,12 @@ export function App() {
     setLogoutError(null)
     try {
       await logout()
+      setSessionUserId(null)
       setAuthState('signed-out')
       setServiceNotice(null)
     } catch (error) {
       if (error instanceof AuthApiError && error.status === 401) {
+        setSessionUserId(null)
         setAuthState('signed-out')
         setServiceNotice(null)
       } else {
@@ -101,12 +82,30 @@ export function App() {
     }
   }
 
+  const handleSessionExpired = useCallback(() => {
+    setSessionUserId(null)
+    setLogoutError(null)
+    setAuthState('signed-out')
+    setServiceNotice(null)
+  }, [])
+
   if (authState === 'checking') {
     return <main className="auth-loading" role="status">Checking your session…</main>
   }
 
   if (authState === 'signed-in') {
-    return <SignedInWorkspace busy={logoutBusy} error={logoutError} onSignOut={() => void handleSignOut()} />
+    if (!sessionUserId) return <main className="auth-loading" role="status">Loading your workspace…</main>
+    return (
+      <ReporterWorkspace
+        key={sessionUserId}
+        theme={theme}
+        onThemeChange={setTheme}
+        onSessionExpired={handleSessionExpired}
+        onSignOut={() => void handleSignOut()}
+        signingOut={logoutBusy}
+        signOutError={logoutError}
+      />
+    )
   }
 
   return (

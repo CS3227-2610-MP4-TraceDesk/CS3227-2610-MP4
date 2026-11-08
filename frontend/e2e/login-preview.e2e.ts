@@ -45,7 +45,7 @@ test('development demo accounts use the real session flow and sign out on the se
     await expect(page.getByLabel('Email', { exact: true })).toHaveValue(email)
     await expect(page.getByLabel('Password', { exact: true })).toHaveValue('tracedesk-demo')
     await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'You’re signed in' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Open a project' })).toBeVisible()
     expect(requests.filter(request => request.path === '/api/session/login').at(-1)).toMatchObject({
       method: 'POST',
       headers: expect.objectContaining({ 'x-csrf-token': 'synthetic-csrf-token' }),
@@ -55,6 +55,7 @@ test('development demo accounts use the real session flow and sign out on the se
     expect(sessionCookie).toMatchObject({ secure: true, httpOnly: true, sameSite: 'Lax' })
     expect(requests.filter(request => request.path === '/api/session').at(-1)?.headers.cookie)
       .toContain('TDSESSION=synthetic-session')
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
     await page.getByRole('button', { name: 'Sign out' }).click()
     await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
     expect(requests.filter(request => request.path === '/api/session/logout').at(-1)).toMatchObject({
@@ -81,24 +82,28 @@ test('session restored after a reload remains server-confirmed', async ({ page }
   await page.getByText('Demo accounts', { exact: true }).click()
   await page.getByRole('button', { name: 'Reporter', exact: true }).click()
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'You’re signed in' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Open a project' })).toBeVisible()
 
   await page.reload()
 
-  await expect(page.getByRole('heading', { name: 'You’re signed in' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Open a project' })).toBeVisible()
   expect(requests.filter(request => request.path === '/api/session').at(-1)?.headers.cookie)
     .toContain('TDSESSION=synthetic-session')
 })
 
 test('unavailable startup stays signed out and offers a retry', async ({ page }) => {
   // React StrictMode may perform the initial read twice in development.
-  const requests = await mockAuthApi(page, { sessionStatuses: [503, 503, 401] })
+  const sessionStatuses = [503, 503]
+  const requests = await mockAuthApi(page, { sessionStatuses })
   await page.goto('/')
 
   await expect(page.getByRole('status')).toContainText('temporarily unavailable')
   await expect.poll(() => requests.filter(request =>
     request.method === 'GET' && request.path === '/api/session',
-  ).length).toBeGreaterThanOrEqual(2)
+  ).length).toBeGreaterThanOrEqual(1)
+  // StrictMode can cancel its first read before it reaches the mock. Restore
+  // availability explicitly instead of depending on the number of reads.
+  sessionStatuses.fill(401)
   await page.getByRole('button', { name: 'Retry connection' }).click()
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
   await expect(page.getByRole('status')).toHaveCount(0)
@@ -110,10 +115,11 @@ test('logout outage keeps the signed-in state and reports failure', async ({ pag
   await page.getByText('Demo accounts', { exact: true }).click()
   await page.getByRole('button', { name: 'Reporter', exact: true }).click()
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await page.getByRole('heading', { name: 'You’re signed in' }).waitFor()
+  await page.getByRole('heading', { name: 'Open a project' }).waitFor()
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
   await page.getByRole('button', { name: 'Sign out' }).click()
 
-  await expect(page.getByRole('heading', { name: 'You’re signed in' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
   await expect(page.getByRole('alert')).toContainText('could not confirm sign out')
 })
 

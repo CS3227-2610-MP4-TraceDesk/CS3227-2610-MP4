@@ -39,10 +39,11 @@ export async function getSession(signal?: AbortSignal): Promise<{ userId: string
   return session as { userId: string }
 }
 
-async function getCsrfToken(): Promise<string> {
+export async function getCsrfToken(signal?: AbortSignal): Promise<string> {
   const response = await fetch('/api/csrf', {
     credentials: 'same-origin',
     cache: 'no-store',
+    signal,
   })
   if (!response.ok) return fail(response)
 

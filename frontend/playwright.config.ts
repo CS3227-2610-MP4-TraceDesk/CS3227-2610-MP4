@@ -23,12 +23,23 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
   },
   projects: [
-    { name: 'production', testMatch: '**/foundation.e2e.ts' },
+    { name: 'production', testMatch: ['**/foundation.e2e.ts', '**/reporter-states.e2e.ts'] },
     {
       name: 'development',
       testMatch: ['**/login-preview.e2e.ts', '**/workspace-preview.e2e.ts'],
       use: { baseURL: 'https://localhost:4178', ignoreHTTPSErrors: true },
     },
+    ...(process.env.TRACEDESK_REAL_BACKEND_TEST === 'true' ? [{
+      name: 'real-backend',
+      testMatch: '**/reporter-real.e2e.ts',
+      use: {
+        baseURL: `https://localhost:${port}`,
+        ignoreHTTPSErrors: true,
+        trace: 'off' as const,
+        screenshot: 'off' as const,
+        video: 'off' as const,
+      },
+    }] : []),
   ],
   webServer: [
     {

@@ -16,6 +16,16 @@ development agents. Trust boundaries: browser → API; role service → project/
 authorization; selected context → provider; model output → preview; test database →
 production database; development workflow → deployment credentials.
 
+REPORT-UI adds browser project selection → server-derived Reporter context,
+asynchronous response → current project/session generation, and uncertain
+submission → confirmed saved report boundaries. The owning
+[workspace contract](../workflow/specs/reporter-workspace-ui.md) requires cleared
+protected state on denial/expiry, cancellation plus generation guards, escaped
+plain text, no browser persistence of report text, and immutable body/key retry
+until the backend confirms the outcome. [REPORT-UI evidence](../workflow/reporter/evidence/reporter-workspace-ui.md)
+records actual browser and failure checks; UI validation never replaces server
+authorization or atomic audit persistence.
+
 | Threat | Impact | Intended control | Evidence to collect | Residual risk |
 | --- | --- | --- | --- | --- |
 | Forged role, project or bug ID | Cross-project disclosure or mutation | Trusted PostgreSQL-backed session actor; fresh active project-membership query before the protected project read; inaccessible and absent projects share a response | TD-AUTH-05/09 direct API and isolated PostgreSQL tests across three roles/two projects; forged-claim assertions | A new endpoint can omit a check; future bug endpoints need object-level checks |

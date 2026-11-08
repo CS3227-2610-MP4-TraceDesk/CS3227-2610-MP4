@@ -1,0 +1,152 @@
+{
+  "base_revision": "9c9f448",
+  "candidate_id": "reporter-ui-da58bcad5eb7dd32",
+  "source_identity_scope": "Changed source/tests/configuration relative to base, including untracked feature files. Remaining repository content is the base revision. Evidence/doc files excluded to avoid self-reference.",
+  "files": {
+    ".github/workflows/ci.yml": {
+      "sha256": "9a6956aaae27b54a2c24417b3999440a940682c536541160bcc2cdadb8fbc291",
+      "bytes": 7670
+    },
+    "backend/auth-app/build.gradle": {
+      "sha256": "06fa2ad3029163dc21eef8e2247bbdf8f5bf2a503208a3e14abca9b46c5b0829",
+      "bytes": 1601
+    },
+    "backend/auth-app/src/test/java/com/tracedesk/auth/api/ReporterBrowserFixture.java": {
+      "sha256": "402215f84200fe24a0ba5f0c57907ababf82675759808bc94ec6d7bae6e0cf44",
+      "bytes": 9682
+    },
+    "frontend/e2e/helpers/reportRealBackend.ts": {
+      "sha256": "daa404960b8fd927761c48d12e8f6288b1b2898f7aebbc46d79209ee2dfee5ac",
+      "bytes": 10339
+    },
+    "frontend/e2e/login-preview.e2e.ts": {
+      "sha256": "89637bb987c337fd1a80103d66dfdee4d455049f046f463d506232fc96dbd80e",
+      "bytes": 10594
+    },
+    "frontend/e2e/reporter-real.e2e.ts": {
+      "sha256": "b113c4fa9551ed1d74bee5b39eb4cb4d3c8094e7ada4c5d14230f7e1f9036a53",
+      "bytes": 17267
+    },
+    "frontend/e2e/reporter-states.e2e.ts": {
+      "sha256": "d9c03287b92ddde213d0086529bcd96fa7548004ebc3ad0301a6e2ec7e14c1d2",
+      "bytes": 7790
+    },
+    "frontend/playwright.config.ts": {
+      "sha256": "192d0c070b7177d57d355cef8a25ca7a862e71a13fc4ff8cc61051b5beaa6981",
+      "bytes": 1865
+    },
+    "frontend/src/App.test.tsx": {
+      "sha256": "20ea91e09c38fd310b58543269e0ed56563cb3889f17df23e74fe40710f05f3b",
+      "bytes": 5318
+    },
+    "frontend/src/App.tsx": {
+      "sha256": "9f8273d01bb3b0d4cf66f09d8f124e6f04c3b9bd2731a6b443cce15ef4825fd0",
+      "bytes": 3834
+    },
+    "frontend/src/auth/sessionApi.ts": {
+      "sha256": "1b9f8f67edae2a51fbf430588cb741b21b6dba670c3b2f00f1d2d74caf2c93d3",
+      "bytes": 2754
+    },
+    "frontend/src/reports/ReporterWorkspace.test.tsx": {
+      "sha256": "bc49f86c3048f45920efe84c5d303f07dabe4f47623111f50c4034bf935709e6",
+      "bytes": 9811
+    },
+    "frontend/src/reports/ReporterWorkspace.tsx": {
+      "sha256": "f300aadb88cf7a8efb948f3a9b89422576746ea1c41798f0ca2ae3b8957d4d48",
+      "bytes": 36335
+    },
+    "frontend/src/reports/reportApi.test.ts": {
+      "sha256": "37148cf518f1509786aedbdd0bc31682c6491d260ef61a0b61fa674a155ddc91",
+      "bytes": 4058
+    },
+    "frontend/src/reports/reportApi.ts": {
+      "sha256": "c1b446bd49284caf15bd8aa0bb3f18fdee9e445085f666cf12cdd22102cc5161",
+      "bytes": 7080
+    },
+    "frontend/src/reports/reportValidation.test.ts": {
+      "sha256": "42a02b5b8a9ff756d18485034b999b45259c714aa9c82396629d35c713daf1d3",
+      "bytes": 2699
+    },
+    "frontend/src/reports/reportValidation.ts": {
+      "sha256": "b720ae0a4bd740f24db73908cf36db66898beb1ce188299a2f60e45b0c681b65",
+      "bytes": 4105
+    },
+    "frontend/src/reports/reporter-workspace.css": {
+      "sha256": "8235abf92d397fe2fa11bd8c0c9e0fe58784cc4925ce4f1087d7c088c5613d8b",
+      "bytes": 7976
+    },
+    "frontend/vite.config.ts": {
+      "sha256": "96318423816c38c8e96c770baa39c87bc2dd05b386c38feb19e69086c2561e30",
+      "bytes": 885
+    }
+  },
+  "preexisting_tested_change": "backend/auth-app/build.gradle contains one pre-existing Flyway starter dependency excluded from feature commits; full tested bytes are pinned here.",
+  "screenshots": {
+    "reporter-composer-320-reduced-motion.png": {
+      "sha256": "8dbfa7c14c895e3b2812765fdd875f6a6a8250bc16fa93b61515ec9cbe8ab847",
+      "bytes": 41618
+    },
+    "reporter-composer-320.png": {
+      "sha256": "85ae54922c49d4c4e4f29fb3db67852cf81c8399e9db80078430a910f8f0b909",
+      "bytes": 52086
+    },
+    "reporter-composer-390.png": {
+      "sha256": "af9ba654447711a4965c1b95d212b4b28683e9dc9861b4d6429f5b73526e9ccc",
+      "bytes": 55925
+    },
+    "reporter-composer-dark.png": {
+      "sha256": "fafe5011c9e0631cdfa9f739649d41d5cd9b70400abaae8436b74006fb4c5e92",
+      "bytes": 65607
+    },
+    "reporter-composer-desktop-light.png": {
+      "sha256": "290be935160dbd00144d66b3821975b7bbe0e457c76962b331a22b7a49c9c17d",
+      "bytes": 83180
+    },
+    "reporter-detail-320.png": {
+      "sha256": "70cd343c33fecba273426f21a9ce3e0eabdec59b0d919ce650aab12e2f45528a",
+      "bytes": 46981
+    },
+    "reporter-detail-390.png": {
+      "sha256": "d1d4138643bff7b10684608a4ab4686c9003c4d91b295ca005c4af68086c85b8",
+      "bytes": 52499
+    },
+    "reporter-detail-desktop.png": {
+      "sha256": "0864b630c5e3c15826fcd38ea6bf8ee413013e41316c69b4b35df90a57bff4da",
+      "bytes": 91880
+    },
+    "reporter-empty-list.png": {
+      "sha256": "b8c39aca774e29aaf431aab9dbc43fbe98b760cf27e3c34c169c4b5a2879f59e",
+      "bytes": 41257
+    },
+    "reporter-list-after-create.png": {
+      "sha256": "2b243b76fdad345876ac18ca78456e13b1468261a3c765107fcc96d47022f86f",
+      "bytes": 43830
+    }
+  },
+  "captures_sha256": "f57f6f3fb2684cbc47a37211b6930d347e35f1f2e5dfe3aa257107b53c3dd46f",
+  "final_real_browser_result": {
+    "tests": 1,
+    "passed": 1,
+    "failed": 0,
+    "journey_seconds": 10.8,
+    "total_seconds": 23.9
+  },
+  "checks": {
+    "frontend_units": {
+      "passed": 26,
+      "failed": 0
+    },
+    "ordinary_browser": {
+      "passed": 31,
+      "failed": 0,
+      "seconds": 38.0
+    },
+    "auth_backend": {
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 18
+    }
+  }
+}
