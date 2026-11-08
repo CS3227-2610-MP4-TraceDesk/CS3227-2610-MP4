@@ -296,3 +296,73 @@ test('real HTTPS session creates, lists, reads, denies and restores a Reporter r
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
 })
+
+test('real saved draft AI preview applies only explicit selected changes through versioned PATCH', async ({ page, browser }) => {
+  test.setTimeout(60_000)
+  await page.goto('/')
+  await page.getByLabel('Email', { exact: true }).fill(accounts.login)
+  await page.getByLabel('Password', { exact: true }).fill(fixture.credentials.password)
+  await page.getByLabel('Password', { exact: true }).press('Enter')
+  await expect(page.getByLabel('Project ID', { exact: true })).toBeVisible()
+  await page.goto(`/?project=${accounts.projectId}`)
+  await page.getByRole('main').getByRole('button', { name: 'New report' }).first().click()
+  const field = (name: string) => page.getByRole('textbox', { name: new RegExp(`^${name}\\b`, 'i') })
+  const originalDescription = 'A synthetic Java exception needs clearer reproduction details.'
+  const logs = 'AI_DO_NOT_SEND_LOG_CANARY <script>window.__aiLogInjected=true</script>'
+  for (const [label, value] of [
+    ['Title', 'Original Java report'], ['Description', originalDescription],
+    ['Environment', 'Java 25 on a synthetic local test'], ['Steps to reproduce', '1. Run the synthetic sample.'],
+    ['Expected behavior', 'The sample completes.'], ['Actual behavior', 'The sample throws an exception.'],
+    ['Logs or error text', logs],
+  ]) await field(label).fill(value)
+  await expect(page.locator('summary').filter({ hasText: 'Review with AI' })).toHaveCount(0)
+  const savedResponse = page.waitForResponse(response => response.request().method() === 'POST' && /\/drafts$/.test(new URL(response.url()).pathname))
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+  const saved = await (await savedResponse).json() as { id: string; version: number }
+  await expect(page.getByRole('heading', { name: 'Resume draft' })).toBeVisible()
+  const patchBodies: Array<Record<string, unknown>> = []
+  const suggestionBodies: Array<Record<string, unknown>> = []
+  page.on('request', request => {
+    if (request.method() === 'PATCH' && request.url().includes(`/drafts/${saved.id}`)) patchBodies.push(request.postDataJSON() as Record<string, unknown>)
+    if (request.method() === 'POST' && request.url().endsWith(`/drafts/${saved.id}/suggestions`)) suggestionBodies.push(request.postDataJSON() as Record<string, unknown>)
+  })
+  await page.locator('summary').filter({ hasText: 'Review with AI' }).click()
+  await expect(page.getByText(/Logs are excluded/)).toBeVisible()
+  await fixture.setAiAvailable(false)
+  await page.getByRole('button', { name: 'Generate suggestions' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'AI review is unavailable' })).toBeVisible()
+  await expect(field('Title')).toHaveValue('Original Java report')
+  await expect(field('Logs or error text')).toHaveValue(logs)
+  expect(patchBodies).toHaveLength(0)
+  await fixture.setAiAvailable(true)
+  await page.getByRole('button', { name: 'Generate suggestions' }).click()
+  const replacement = 'Clearer Java report <img src=x onerror=window.__aiInjected=true>'
+  await expect(page.getByText(replacement, { exact: true })).toBeVisible()
+  await expect(page.getByText('Which Java version reproduces this issue?', { exact: true })).toBeVisible()
+  await expect(page.locator('.report-ai-preview img, .report-ai-preview script')).toHaveCount(0)
+  expect(await page.evaluate(() => (window as Window & { __aiInjected?: boolean }).__aiInjected)).toBeUndefined()
+  expect(patchBodies).toHaveLength(0)
+  expect(suggestionBodies).toEqual([{ expectedVersion: saved.version }, { expectedVersion: saved.version }])
+  const axe = await new AxeBuilder({ page }).analyze()
+  expect(axe.violations.map(({ id, impact }) => `${id}:${impact}`)).toEqual([])
+  await captureReporterEvidence(page, browser.version(), 'reporter-ai-preview-desktop')
+  await page.setViewportSize({ width: 320, height: 844 })
+  const mobile = await captureReporterEvidence(page, browser.version(), 'reporter-ai-preview-320')
+  expect(mobile.horizontalOverflow).toBe(false)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.getByRole('checkbox', { name: 'Apply Title', exact: true }).check()
+  const appliedResponse = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().includes(`/drafts/${saved.id}`))
+  await page.getByRole('button', { name: 'Apply selected changes' }).click()
+  const applied = await appliedResponse
+  expect(applied.status()).toBe(200)
+  await expect(field('Title')).toHaveValue(replacement)
+  await expect(field('Description')).toHaveValue(originalDescription)
+  await expect(field('Logs or error text')).toHaveValue(logs)
+  expect(patchBodies).toHaveLength(1)
+  expect(patchBodies[0]?.expectedVersion).toBe(saved.version)
+  expect(patchBodies[0]?.textLogs).toBe(logs)
+  const persisted = await page.request.get(`/api/projects/${accounts.projectId}/drafts/${saved.id}`)
+  expect(persisted.ok()).toBe(true)
+  const current = await persisted.json() as { title: string; description: string; textLogs: string; version: number }
+  expect(current).toMatchObject({ title: replacement, description: originalDescription, textLogs: logs, version: saved.version + 1 })
+})

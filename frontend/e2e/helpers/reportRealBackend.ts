@@ -101,6 +101,10 @@ export class ReportRealBackend {
     await this.sendFixtureCommand(available ? 'audit-on' : 'audit-off')
   }
 
+  async setAiAvailable(available: boolean): Promise<void> {
+    await this.sendFixtureCommand(available ? 'ai-on' : 'ai-off')
+  }
+
   private async sendFixtureCommand(command: string): Promise<void> {
     if (!this.metadata || !this.child) throw new Error('Reporter fixture is not running')
     await rm(this.ackFile, { force: true })
