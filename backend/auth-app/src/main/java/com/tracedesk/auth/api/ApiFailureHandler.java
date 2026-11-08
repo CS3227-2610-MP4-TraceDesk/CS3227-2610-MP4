@@ -29,12 +29,17 @@ public class ApiFailureHandler {
     ResponseEntity<?> malformed(HttpMessageNotReadableException ignored,HttpServletRequest request) {
         if("/api/session/login".equals(request.getRequestURI())) { try { store.event("LOGIN_INVALID_REQUEST","/api/session/login",400,null,null); } catch(DataAccessException eventFailure) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); } }
         else if (isReportRoute(request.getRequestURI())) { try { store.event("REPORT_INVALID_REQUEST",reportRoute(request.getRequestURI()),400,TrustedSessionActor.forEvent(request,clock),null); } catch(DataAccessException eventFailure) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); } }
+        else if (isInvestigationRoute(request.getRequestURI())) { try { store.event("DEVELOPER_INVALID_REQUEST",investigationRoute(request.getRequestURI()),400,TrustedSessionActor.forEvent(request,clock),null); } catch(DataAccessException eventFailure) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); } }
         return failure(HttpStatus.BAD_REQUEST,"INVALID_REQUEST","Invalid request");
     }
     @ExceptionHandler(ReportService.Failure.class)
     ResponseEntity<?> reportFailure(ReportService.Failure problem,HttpServletRequest request) {
         if ("INVALID_REQUEST".equals(problem.code()) && isReportRoute(request.getRequestURI())) {
             try { store.event("REPORT_INVALID_REQUEST",reportRoute(request.getRequestURI()),problem.status(),TrustedSessionActor.forEvent(request,clock),null); }
+            catch(DataAccessException eventFailure) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); }
+        }
+        else if ("INVALID_REQUEST".equals(problem.code()) && isInvestigationRoute(request.getRequestURI())) {
+            try { store.event("DEVELOPER_INVALID_REQUEST",investigationRoute(request.getRequestURI()),problem.status(),TrustedSessionActor.forEvent(request,clock),null); }
             catch(DataAccessException eventFailure) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); }
         }
         HttpStatus status=HttpStatus.valueOf(problem.status());
@@ -45,6 +50,13 @@ public class ApiFailureHandler {
     ResponseEntity<?> unexpected(Exception ignored) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); }
 
     private static boolean isReportRoute(String path) { return path.matches("/api/projects/[^/]+/(reports(?:/[^/]+)?|reporter-context)"); }
+    private static boolean isInvestigationRoute(String path) { return path.matches("/api/projects/[^/]+/(developer-context|reports/[^/]+/(investigation/start|notes(?:/[^/]+)?))"); }
+    private static String investigationRoute(String path) {
+        if(path.endsWith("/developer-context")) return "/api/projects/{projectId}/developer-context";
+        if(path.endsWith("/investigation/start")) return "/api/projects/{projectId}/reports/{reportId}/investigation/start";
+        if(path.matches(".*/notes/[^/]+$")) return "/api/projects/{projectId}/reports/{reportId}/notes/{noteId}";
+        return "/api/projects/{projectId}/reports/{reportId}/notes";
+    }
     private static String reportRoute(String path) {
         if(path.endsWith("/reporter-context")) return "/api/projects/{projectId}/reporter-context";
         return path.matches(".*/reports/[^/]+$") ? "/api/projects/{projectId}/reports/{reportId}" : "/api/projects/{projectId}/reports";
