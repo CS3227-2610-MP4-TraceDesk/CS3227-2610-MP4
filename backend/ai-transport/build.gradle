@@ -16,6 +16,7 @@ repositories {
 }
 
 dependencies {
+    api project(':backend:ai-gateway')
     // Versions present in the audited source environment; no Spring runtime required.
     implementation 'tools.jackson.core:jackson-databind:3.1.5'
     testImplementation platform('org.junit:junit-bom:6.0.3')

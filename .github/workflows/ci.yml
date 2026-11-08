@@ -19,8 +19,8 @@ jobs:
           java-version: '25'
       - name: Check portable resources and module boundaries
         run: python3 tools/check_foundation.py
-      - name: Test synthetic provider transport
-        run: ./gradlew :backend:ai-transport:test --no-daemon
+      - name: Test secured gateway and synthetic provider transport
+        run: ./gradlew :backend:ai-gateway:test :backend:ai-transport:test --no-daemon
       - name: Preserve revision-linked test evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -29,6 +29,8 @@ jobs:
           path: |
             backend/ai-transport/build/test-results/test/
             backend/ai-transport/build/reports/tests/test/
+            backend/ai-gateway/build/test-results/test/
+            backend/ai-gateway/build/reports/tests/test/
           retention-days: 7
 
   authentication:

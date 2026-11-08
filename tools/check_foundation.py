@@ -59,6 +59,11 @@ def check():
             if forbidden in text:
                 errors.append(f"{path.relative_to(ROOT)}: old-project/framework coupling: {forbidden}")
 
+    for path in (ROOT / "backend/ai-gateway/src/main").rglob("*.java"):
+        for forbidden in ("org.springframework", "java.sql", "javax.sql", "com.company.incidentdesk"):
+            if forbidden in path.read_text():
+                errors.append(f"{path.relative_to(ROOT)}: gateway domain/framework coupling: {forbidden}")
+
     frontend_sources = sorted((ROOT / "frontend/src").rglob("*.ts"))
     frontend_sources += sorted((ROOT / "frontend/src").rglob("*.tsx"))
     for path in frontend_sources:

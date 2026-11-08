@@ -4,6 +4,14 @@ Status: initial design for the three-role web app. It adapts MP3's threat-to-evi
 format, not MP3's incident controls or approvals. Review each row when a feature's
 data flow becomes concrete.
 
+Issue #39 adds the shared AI invocation/admission/provider/delivery boundary.
+The [gateway contract](../workflow/specs/secured-ai-gateway.md) and
+[executed evidence](../workflow/reporter/evidence/shared-ai-gateway.md) cover
+authorization before context/provider, delivery rechecks, bounded workers,
+independent accounting transactions, concurrent budgets, immutable configuration,
+expiry/replay/circuit fences and safe failures using synthetic providers. Role
+adapters and live monetary funding/deployment remain unverified and disabled.
+
 ## Assets and trust boundaries
 
 Assets: bug reports, pasted code/logs, project membership, investigation notes,

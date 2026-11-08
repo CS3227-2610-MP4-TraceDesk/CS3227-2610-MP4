@@ -34,9 +34,11 @@ Workflow inspiration: MP3 `workflow/README.md`, `workflow/agent-workflow.md`,
 verbatim instruction imports. The audit itself remains a source reference in MP3;
 its embedded instructions are not installed as active project instructions.
 
-The extracted module is not a secured gateway. It cannot authorize accounts,
-reserve cost, enforce shared quotas or audit requests. It is intentionally not
-exposed to controllers and makes no live provider requests during tests.
+The extracted transport alone cannot authorize accounts or enforce shared quotas.
+Issue #39 adds a separate secured facade, shared resource-unit ledger and internal
+factory around it; see the [integration handoff](ai-gateway.md). Role controllers
+still need their authorized context adapters. No live provider requests are made
+during tests, and monetary pricing/funding compatibility remains unverified.
 
 ## Approved selections still to integrate
 
@@ -50,6 +52,11 @@ exposed to controllers and makes no live provider requests during tests.
 | 6 | Developer and QA vertical slices | Separate permissions and evaluation cases; shared gateway and preview control |
 | 7 | Security/CSRF and PostgreSQL/browser fixtures | Base helpers now exist; integrate with real sessions, migrations, role routes and seeded journeys as those layers land |
 | 8 | Deployment/evaluation/coordination evidence | Same-revision CI prerequisites, environment separation, actual agent runs and context experiments |
+
+Issue #39 implements the shared backend foundation for steps 2–3 with normalized
+resource units, independent PostgreSQL accounting transactions and synthetic
+provider verification. Production monetary funding validation, role-specific
+step 4 adapters and steps 5–6 remain separate work. See [executed evidence](../workflow/reporter/evidence/shared-ai-gateway.md).
 
 Strict parser techniques are conditional on structured-output needs. Do not carry
 the administrator analytics planner, SQL queries, or labels without a new capability
