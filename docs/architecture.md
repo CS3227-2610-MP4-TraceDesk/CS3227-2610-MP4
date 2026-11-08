@@ -29,15 +29,17 @@ be packages/modules; extract separate libraries only where a boundary earns it.
 | Provider adapter | HTTP transport, bounded decoding, safe provider failures | Accounts, JDBC, domain entities |
 | Persistence | Fresh migrations, locking, authorized repository queries | Browser identity claims |
 
-The current `backend/ai-transport` module contains package-private transport
-implementation only. It exposes no public invocation facade and is not wired into
-an application. A future secured gateway/factory may construct it internally;
-application services receive only the secured facade. Do not make the raw client
-public to speed up a vertical slice.
+`backend/ai-gateway` supplies the secured facade and provider-independent ports;
+`backend/ai-transport` keeps its client package-private and constructs it only
+through a factory returning the secured facade. The PostgreSQL ledger lives in
+the backend persistence adapter. Role adapters and endpoints remain future
+integration work; see the [gateway handoff](ai-gateway.md). Do not make the raw
+client public to speed up a vertical slice.
 
 ## Intended integration ports
 
-Define concrete signatures with the gateway specification, not speculative stubs:
+Concrete shared signatures are defined by the [gateway specification](../workflow/specs/secured-ai-gateway.md)
+and its Java ports. Role slices supply these trusted adapters:
 
 - `ActorResolver`: obtain a trusted authenticated identity.
 - `CapabilityAuthorizer`: enforce project, role and object access.

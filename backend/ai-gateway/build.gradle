@@ -1,0 +1,12 @@
+plugins { id 'java-library' }
+group = 'com.tracedesk'
+version = '0.1.0-SNAPSHOT'
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
+repositories { mavenCentral() }
+dependencies {
+    implementation 'tools.jackson.core:jackson-databind:3.1.5'
+    testImplementation platform('org.junit:junit-bom:6.0.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+test { useJUnitPlatform() }

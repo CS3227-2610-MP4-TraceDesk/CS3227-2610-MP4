@@ -11,6 +11,8 @@ const fixture = new ReportRealBackend()
 let accounts: ReporterFixtureMetadata
 
 test.beforeAll(async () => {
+  // Cold CI Gradle compilation is part of setup; the fixture itself has a 90s deadline.
+  test.setTimeout(120_000)
   accounts = await fixture.start()
 })
 
