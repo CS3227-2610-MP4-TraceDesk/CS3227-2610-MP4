@@ -29,6 +29,7 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standal
 
 class InvestigationControllerTest {
     private static final Instant NOW = Instant.parse("2026-11-08T02:03:04Z");
+    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
     @Test void trustedDeveloperContextStartAndPrivateNoteRepresentationsAreAllowlisted() throws Exception {
         UUID actor=UUID.randomUUID(), project=UUID.randomUUID(), report=UUID.randomUUID(), note=UUID.randomUUID();
@@ -130,7 +131,7 @@ class InvestigationControllerTest {
 
     @Test void bodyLimitFailsClosedBeforeController() throws Exception {
         InvestigationRepository repository=mock(InvestigationRepository.class); AuthStore events=mock(AuthStore.class);
-        MockMvc mvc=standaloneSetup(controller(repository,events)).setControllerAdvice(new ApiFailureHandler(events))
+        MockMvc mvc=standaloneSetup(controller(repository,events)).setControllerAdvice(new ApiFailureHandler(events,CLOCK))
                 .addFilters(new InvestigationBodyLimitFilter(events)).build();
         mvc.perform(post("/api/projects/{projectId}/reports/{reportId}/notes",UUID.randomUUID(),UUID.randomUUID())
                         .contentType("application/json").content("{\"body\":\""+"x".repeat(70_000)+"\"}"))
@@ -145,11 +146,10 @@ class InvestigationControllerTest {
     }
 
     private static MockMvc mvc(InvestigationRepository repository,AuthStore events) {
-        return standaloneSetup(controller(repository,events)).setControllerAdvice(new ApiFailureHandler(events)).build();
+        return standaloneSetup(controller(repository,events)).setControllerAdvice(new ApiFailureHandler(events,CLOCK)).build();
     }
     private static InvestigationController controller(InvestigationRepository repository,AuthStore events) {
-        Clock clock=Clock.fixed(NOW, ZoneOffset.UTC);
-        return new InvestigationController(new InvestigationService(repository,new ReportCursorSigner(),clock),events,clock);
+        return new InvestigationController(new InvestigationService(repository,new ReportCursorSigner(),CLOCK),events,CLOCK);
     }
     private static ReportRepository.Membership membership(UUID project,String role) {
         return new ReportRepository.Membership(project,"Synthetic Project",true,true,true,role);

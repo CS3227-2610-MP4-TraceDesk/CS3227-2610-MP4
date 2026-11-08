@@ -223,3 +223,28 @@ application database or `.env*` file was read.
 This resolves the two supported review findings in the candidate working tree.
 TD-DEV-10 remains a broader runtime-acceptance gate: these backend checks do not
 prove the future QA assignment UI/journey, deployment, or production behavior.
+
+## 2026-11-08 CI clock-fixture correction
+
+GitHub Actions exposed a time-dependent test defect after `76a347a`:
+`InvestigationControllerTest.deleteWithMissingOrMalformedExpectedVersionIsInvalidRequestNotServiceUnavailable`
+expected invalid-request security events to contain the synthetic actor, but the
+test constructed `ApiFailureHandler` with the system clock while its controller
+and session used the fixed instant `2026-11-08T02:03:04Z`. Once wall time was at
+least eight hours later, the handler correctly treated that synthetic session as
+expired and recorded a null actor. Production code was not implicated.
+
+The controller test now shares one fixed `Clock` between the controller, service
+and exception handler. This preserves the intended assertion—that a valid
+synthetic session contributes its trusted actor to all four invalid DELETE events—
+without depending on execution date or timezone.
+
+| Command | Outcome | Scope |
+| --- | --- | --- |
+| `.\gradlew.bat --no-daemon --console=plain :backend:auth-app:test --tests "com.tracedesk.auth.investigation.api.InvestigationControllerTest.deleteWithMissingOrMalformedExpectedVersionIsInvalidRequestNotServiceUnavailable" --rerun-tasks` | **Passed**: `BUILD SUCCESSFUL` | Formerly failing missing/empty/malformed/non-positive `expectedVersion` regression |
+| `.\gradlew.bat :backend:auth-app:test --no-daemon --rerun-tasks` with explicit isolated-test settings and a fresh disposable PostgreSQL 18 cluster | **Passed**: 36 tests across 16 suites, 0 failed, 0 skipped | Exact CI Gradle task after the clock-fixture correction |
+| `git diff --check` | **Passed**; only line-ending conversion warnings were printed | Patch hygiene |
+
+The disposable cluster used synthetic credentials, listened only on loopback
+port 54331, and was stopped and removed after the run. No existing application
+database or `.env*` file was read.
