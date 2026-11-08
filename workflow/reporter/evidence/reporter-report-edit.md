@@ -1,8 +1,9 @@
 # REPORT-EDIT implementation checkpoint
 
 Status: implementation checkpoint for issue #15; TD-RPT-16–20 are not accepted.
-Candidate branch: `codex/reporter-drafts-edit`; implementation candidate:
-`bb66c69` (with documentation-only evidence changes pending). The behavior contract is
+Candidate branch: `codex/reporter-drafts-edit`; final working-tree revision:
+`b7e77c8` (implementation changes are in `9f156bc`, `a21c529`, and `bb66c69`).
+The behavior contract is
 [REPORT-EDIT](../../specs/reporter-report-edit.md), indexed in
 [acceptance criteria](../../acceptance-criteria.md). The implementation uses
 server-side draft persistence and report editing; it does not add browser storage,
