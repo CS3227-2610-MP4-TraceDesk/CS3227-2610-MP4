@@ -15,12 +15,12 @@ afterEach(() => {
 })
 
 describe('login and server session flow', () => {
-  it('shows the signed-in placeholder only after the server confirms a session', async () => {
+  it('shows the project gate only after the server confirms a session', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply(200, { userId: 'synthetic-user' })))
 
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: 'You’re signed in' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Open a project' })).toBeInTheDocument()
     expect(screen.queryByText(/reporter|developer|qa reviewer/i)).not.toBeInTheDocument()
   })
 
@@ -37,7 +37,7 @@ describe('login and server session flow', () => {
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'synthetic-password' } })
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
-    expect(await screen.findByRole('heading', { name: 'You’re signed in' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Open a project' })).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(4)
     expect(fetchMock.mock.calls[1][0]).toBe('/api/csrf')
     expect(fetchMock.mock.calls[2][0]).toBe('/api/session/login')
@@ -77,7 +77,7 @@ describe('login and server session flow', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Email or password is incorrect.')
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'You’re signed in' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Open a project' })).not.toBeInTheDocument()
   })
 
   it('retains signed-in state when the server cannot confirm logout', async () => {
@@ -88,10 +88,11 @@ describe('login and server session flow', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('could not confirm sign out')
-    expect(screen.getByRole('heading', { name: 'You’re signed in' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
   })
 
   it('clears local state when the server confirms the session already ended', async () => {
@@ -102,7 +103,8 @@ describe('login and server session flow', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
   })
