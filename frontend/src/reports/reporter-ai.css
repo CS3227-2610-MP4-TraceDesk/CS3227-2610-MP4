@@ -1,0 +1,17 @@
+.report-ai { border-block: 1px solid var(--td-line); padding-block: 16px; }
+.report-ai-content { padding-block: 12px; display: grid; gap: 12px; min-width: 0; }
+.report-ai-content h2 { font-size: 16px; font-weight: 600; }
+.report-ai-content h3 { font-size: 14px; font-weight: 600; }
+.report-ai-content p { margin: 0; }
+.report-ai-preview { display: grid; gap: 14px; min-width: 0; }
+.report-ai-change { display: grid; gap: 8px; padding-block: 12px; border-bottom: 1px solid var(--td-line); }
+.report-ai-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.report-ai-preview ul { margin: 0; padding-inline-start: 20px; }
+.report-ai-preview > button { justify-self: start; }
+@media (max-width: 390px) { .report-ai .report-form-actions { align-items: stretch; flex-direction: column; } }
+
+.report-ai summary { display: flex; align-items: center; gap: 6px; width: fit-content; min-height: 28px; padding-inline: 8px; border-radius: 999px; cursor: pointer; font-size: 13px; line-height: 20px; list-style: none; }
+.report-ai summary::-webkit-details-marker { display: none; }
+.report-ai summary:hover { background: var(--td-sidebar); }
+.report-ai summary:focus-visible { outline: 2px solid var(--td-ink); outline-offset: 3px; }
+.report-ai summary > svg { width: 14px; height: 14px; }
