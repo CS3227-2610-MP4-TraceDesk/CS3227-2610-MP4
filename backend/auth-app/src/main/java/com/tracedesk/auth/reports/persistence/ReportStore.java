@@ -122,8 +122,8 @@ public class ReportStore implements ReportRepository {
             lockDraft(actor,project,draft);
             var current=loadDraft(actor,project,draft,now,true).orElseThrow(()->new ReportService.Failure("NOT_FOUND",404));
             if(current.submittedReportId()!=null) throw new ReportService.Failure("INVALID_STATE",409);
-            if(ReportData.validateDraft(fields)!=null) throw new ReportService.Failure("VALIDATION_ERROR",400);
             if(current.version()!=expectedVersion) throw new ReportService.Failure("STALE_VERSION",409,current.version());
+            if(ReportData.validateDraft(fields)!=null) throw new ReportService.Failure("VALIDATION_ERROR",400);
             jdbc.update("update td_report_drafts set title=?,description=?,environment=?,reproduction_steps=?,expected_behavior=?,actual_behavior=?,text_logs=?,updated_at=?,version=version+1 where id=? and version=?",
                     fields.title(),fields.description(),fields.environment(),fields.reproductionSteps(),fields.expectedBehavior(),fields.actualBehavior(),fields.textLogs(),ts(now),draft,expectedVersion);
             audit("DRAFT_EDITED",requestId,actor,project,null,draft,null,expectedVersion+1,expectedVersion);
@@ -151,8 +151,8 @@ public class ReportStore implements ReportRepository {
                     rs->rs.next()?mapReport(rs):null,report,project,actor);
             if(current==null) throw new ReportService.Failure("NOT_FOUND",404);
             if(!"OPEN".equals(current.status())) throw new ReportService.Failure("INVALID_STATE",409);
-            if(ReportData.validate(fields)!=null) throw new ReportService.Failure("VALIDATION_ERROR",400);
             if(current.version()!=expectedVersion) throw new ReportService.Failure("STALE_VERSION",409,current.version());
+            if(ReportData.validate(fields)!=null) throw new ReportService.Failure("VALIDATION_ERROR",400);
             jdbc.update("update td_reports set title=?,description=?,environment=?,reproduction_steps=?,expected_behavior=?,actual_behavior=?,text_logs=?,updated_at=?,version=version+1 where id=? and version=?",
                     fields.title(),fields.description(),fields.environment(),fields.reproductionSteps(),fields.expectedBehavior(),fields.actualBehavior(),fields.textLogs(),ts(now),report,expectedVersion);
             audit("REPORT_EDITED",requestId,actor,project,report,null,null,expectedVersion+1,expectedVersion);
