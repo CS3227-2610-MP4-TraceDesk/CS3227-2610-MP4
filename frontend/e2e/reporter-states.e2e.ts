@@ -24,6 +24,10 @@ async function controlledApi(page: Page, results: PostResult[], forbiddenCode = 
       await route.fulfill({ json: { project: { id: projectId, name: 'Controlled browser project' }, role: 'REPORTER' } })
       return
     }
+    if (url.pathname === `/api/projects/${projectId}/drafts` && request.method() === 'GET') {
+      await route.fulfill({ json: { items: [], nextCursor: null } })
+      return
+    }
     if (url.pathname === reportsPath && request.method() === 'GET') {
       await route.fulfill({ json: { items: saved ? [saved] : [], nextCursor: null } })
       return
