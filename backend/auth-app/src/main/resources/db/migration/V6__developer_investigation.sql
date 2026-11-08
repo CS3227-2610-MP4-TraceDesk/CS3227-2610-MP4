@@ -70,37 +70,44 @@ update td_business_audit_events
   where object_id is null;
 alter table td_business_audit_events alter column object_id set not null;
 alter table td_business_audit_events add constraint td_business_audit_events_shape_check check (
-  (event_code = 'REPORT_CREATED' and object_type = 'REPORT' and object_id = report_id and
+  (event_code = 'REPORT_CREATED' and object_type = 'REPORT' and report_id is not null and draft_id is null and
+    object_id = report_id and
     prior_status is null and new_status = 'OPEN' and prior_version is null and new_version = 1 and
     resolution_revision is null) or
-  (event_code = 'REPORT_EDITED' and object_type = 'REPORT' and object_id = report_id and
+  (event_code = 'REPORT_EDITED' and object_type = 'REPORT' and report_id is not null and draft_id is null and
+    object_id = report_id and
     prior_status is null and new_status is null and prior_version > 0 and
     new_version = prior_version + 1 and resolution_revision is null) or
-  (event_code = 'DRAFT_CREATED' and object_type = 'DRAFT' and object_id = draft_id and report_id is null and
+  (event_code = 'DRAFT_CREATED' and object_type = 'DRAFT' and draft_id is not null and report_id is null and
+    object_id = draft_id and
     prior_status is null and new_status is null and prior_version is null and new_version = 1 and
     resolution_revision is null) or
-  (event_code = 'DRAFT_EDITED' and object_type = 'DRAFT' and object_id = draft_id and report_id is null and
+  (event_code = 'DRAFT_EDITED' and object_type = 'DRAFT' and draft_id is not null and report_id is null and
+    object_id = draft_id and
     prior_status is null and new_status is null and prior_version > 0 and
     new_version = prior_version + 1 and resolution_revision is null) or
-  (event_code = 'DRAFT_DELETED' and object_type = 'DRAFT' and object_id = draft_id and report_id is null and
+  (event_code = 'DRAFT_DELETED' and object_type = 'DRAFT' and draft_id is not null and report_id is null and
+    object_id = draft_id and
     prior_status is null and new_status is null and prior_version > 0 and new_version = prior_version and
     resolution_revision is null) or
-  (event_code = 'DRAFT_SUBMITTED' and object_type = 'DRAFT' and object_id = draft_id and report_id is not null and
+  (event_code = 'DRAFT_SUBMITTED' and object_type = 'DRAFT' and draft_id is not null and report_id is not null and
+    object_id = draft_id and
     prior_status is null and new_status = 'OPEN' and prior_version > 0 and
     new_version = prior_version + 1 and resolution_revision is null) or
-  (event_code = 'REPORT_INVESTIGATION_STARTED' and object_type = 'REPORT' and object_id = report_id and
+  (event_code = 'REPORT_INVESTIGATION_STARTED' and object_type = 'REPORT' and report_id is not null and draft_id is null and
+    object_id = report_id and
     prior_status = 'OPEN' and new_status = 'IN_PROGRESS' and prior_version > 0 and
     new_version = prior_version + 1 and resolution_revision is null) or
-  (event_code = 'INVESTIGATION_NOTE_CREATED' and object_type = 'NOTE' and
+  (event_code = 'INVESTIGATION_NOTE_CREATED' and object_type = 'NOTE' and report_id is not null and draft_id is null and
     prior_status is null and new_status is null and prior_version is null and new_version = 1 and
     resolution_revision is null) or
-  (event_code = 'INVESTIGATION_NOTE_UPDATED' and object_type = 'NOTE' and
+  (event_code = 'INVESTIGATION_NOTE_UPDATED' and object_type = 'NOTE' and report_id is not null and draft_id is null and
     prior_status is null and new_status is null and prior_version > 0 and
     new_version = prior_version + 1 and resolution_revision is null) or
-  (event_code = 'INVESTIGATION_NOTE_DELETED' and object_type = 'NOTE' and
+  (event_code = 'INVESTIGATION_NOTE_DELETED' and object_type = 'NOTE' and report_id is not null and draft_id is null and
     prior_status is null and new_status is null and prior_version > 0 and new_version is null and
     resolution_revision is null) or
-  (event_code = 'REPORT_RESOLUTION_PROPOSED' and object_type = 'RESOLUTION' and
+  (event_code = 'REPORT_RESOLUTION_PROPOSED' and object_type = 'RESOLUTION' and report_id is not null and draft_id is null and
     prior_status = 'IN_PROGRESS' and new_status = 'READY_FOR_QA' and prior_version > 0 and
     new_version = prior_version + 1 and resolution_revision > 0)
 );

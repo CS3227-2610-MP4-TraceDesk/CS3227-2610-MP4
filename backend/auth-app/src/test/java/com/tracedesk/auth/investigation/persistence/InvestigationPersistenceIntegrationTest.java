@@ -40,6 +40,20 @@ class InvestigationPersistenceIntegrationTest {
             assertEquals(1,sql.queryForObject("select count(*) from td_business_audit_events where report_id=? and event_code='REPORT_INVESTIGATION_STARTED'",Integer.class,report));
             assertEquals("INVALID_STATE",failure(() -> store.start(developer,project,report,1,UUID.randomUUID(),created.plusSeconds(2))).code());
 
+            // Every audit branch rejects unrelated target columns and note events require a report target.
+            assertThrows(DataAccessException.class,() -> sql.update("""
+                    insert into td_business_audit_events
+                      (event_code,request_id,actor_id,project_id,report_id,draft_id,object_type,object_id,
+                       prior_status,new_status,prior_version,new_version,outcome)
+                    values('REPORT_INVESTIGATION_STARTED',?,?,?,?,?,'REPORT',?,'OPEN','IN_PROGRESS',1,2,'SUCCESS')
+                    """,UUID.randomUUID(),developer,project,report,UUID.randomUUID(),report));
+            assertThrows(DataAccessException.class,() -> sql.update("""
+                    insert into td_business_audit_events
+                      (event_code,request_id,actor_id,project_id,report_id,draft_id,object_type,object_id,
+                       new_version,outcome)
+                    values('INVESTIGATION_NOTE_CREATED',?,?,?,null,?,'NOTE',?,1,'SUCCESS')
+                    """,UUID.randomUUID(),developer,project,UUID.randomUUID(),UUID.randomUUID()));
+
             UUID absentKey=UUID.randomUUID();
             assertEquals("NOT_FOUND",failure(() -> store.createNote(developer,project,UUID.randomUUID(),absentKey,
                     new InvestigationNoteData("missing report"),UUID.randomUUID(),created.plusSeconds(2))).code());
@@ -111,6 +125,59 @@ class InvestigationPersistenceIntegrationTest {
                     new InvestigationNoteData("hidden"),UUID.randomUUID(),created.plusSeconds(7))).code(),
                     "former assignee is denied before note lookup");
 
+            UUID deleteRequest=UUID.randomUUID();
+            store.deleteNote(successor,project,report,note.id(),2,deleteRequest,created.plusSeconds(7));
+            assertEquals(0,sql.queryForObject("select count(*) from td_investigation_notes where id=?",Integer.class,note.id()));
+            assertEquals(1,sql.queryForObject("""
+                    select count(*) from td_business_audit_events
+                    where event_code='INVESTIGATION_NOTE_DELETED' and request_id=? and actor_id=? and project_id=?
+                      and report_id=? and draft_id is null and object_type='NOTE' and object_id=?
+                      and prior_status is null and new_status is null and prior_version=2 and new_version is null
+                    """,Integer.class,deleteRequest,successor,project,report,note.id()));
+
+            // Two mutations with the same note version serialize: one commits and one observes the stale version.
+            var versioned=store.createNote(successor,project,report,UUID.randomUUID(),new InvestigationNoteData("version race"),
+                    UUID.randomUUID(),created.plusSeconds(7));
+            CountDownLatch versionReady=new CountDownLatch(2),versionGo=new CountDownLatch(1);
+            var versionPool=Executors.newFixedThreadPool(2);
+            try {
+                var one=versionPool.submit(() -> updateAfterGate(store,successor,project,report,versioned.id(),versionReady,versionGo,"one",created.plusSeconds(8)));
+                var two=versionPool.submit(() -> updateAfterGate(store,successor,project,report,versioned.id(),versionReady,versionGo,"two",created.plusSeconds(8)));
+                assertTrue(versionReady.await(5,TimeUnit.SECONDS)); versionGo.countDown();
+                int successes=0,stale=0;
+                for (var future : java.util.List.of(one,two)) {
+                    try { future.get(10,TimeUnit.SECONDS); successes++; }
+                    catch (java.util.concurrent.ExecutionException failure) {
+                        if (failure.getCause() instanceof ReportService.Failure f && "STALE_VERSION".equals(f.code())) stale++;
+                        else throw failure;
+                    }
+                }
+                assertEquals(1,successes); assertEquals(1,stale);
+                assertEquals(2,sql.queryForObject("select version from td_investigation_notes where id=?",Integer.class,versioned.id()));
+                assertEquals(1,sql.queryForObject("select count(*) from td_business_audit_events where object_id=? and event_code='INVESTIGATION_NOTE_UPDATED'",Integer.class,versioned.id()));
+            } finally { versionGo.countDown(); versionPool.shutdownNow(); }
+
+            // A reassignment holding the report lock commits before the blocked mutation and revokes mutation access.
+            CountDownLatch reportLocked=new CountDownLatch(1),commitReassignment=new CountDownLatch(1);
+            var assignmentPool=Executors.newFixedThreadPool(2); TransactionTemplate assignmentTx=new TransactionTemplate(new DataSourceTransactionManager(db));
+            int versionAudits=sql.queryForObject("select count(*) from td_business_audit_events where object_id=? and event_code='INVESTIGATION_NOTE_UPDATED'",Integer.class,versioned.id());
+            try {
+                var reassign=assignmentPool.submit(() -> assignmentTx.executeWithoutResult(status -> {
+                    sql.queryForObject("select status from td_reports where project_id=? and id=? for update",String.class,project,report);
+                    reportLocked.countDown(); await(commitReassignment);
+                    sql.update("update td_reports set assigned_developer_id=? where project_id=? and id=?",developer,project,report);
+                }));
+                assertTrue(reportLocked.await(5,TimeUnit.SECONDS));
+                var blocked=assignmentPool.submit(() -> store.updateNote(successor,project,report,versioned.id(),2,
+                        new InvestigationNoteData("must not commit after reassignment"),UUID.randomUUID(),created.plusSeconds(9)));
+                assertTrue(awaitLock(sql,"from td_reports")); commitReassignment.countDown(); reassign.get(5,TimeUnit.SECONDS);
+                var cause=assertThrows(java.util.concurrent.ExecutionException.class,() -> blocked.get(5,TimeUnit.SECONDS)).getCause();
+                assertTrue(cause instanceof ReportService.Failure); assertEquals("FORBIDDEN",((ReportService.Failure)cause).code());
+                assertEquals(2,sql.queryForObject("select version from td_investigation_notes where id=?",Integer.class,versioned.id()));
+                assertEquals(versionAudits,sql.queryForObject("select count(*) from td_business_audit_events where object_id=? and event_code='INVESTIGATION_NOTE_UPDATED'",Integer.class,versioned.id()));
+            } finally { commitReassignment.countDown(); assignmentPool.shutdownNow(); }
+            sql.update("update td_reports set assigned_developer_id=? where project_id=? and id=?",successor,project,report);
+
             // Database constraints independently protect project/report consistency and note text bounds.
             assertThrows(DataAccessException.class,() -> rawNote(sql,UUID.randomUUID(),foreignProject,report,successor,"mismatch"));
             assertThrows(DataAccessException.class,() -> rawNote(sql,UUID.randomUUID(),project,report,successor," \t\n"));
@@ -177,15 +244,30 @@ class InvestigationPersistenceIntegrationTest {
             } finally { commitRevocation.countDown(); racePool.shutdownNow(); }
             sql.update("update td_project_memberships set state='ACTIVE' where project_id=? and user_id=?",project,successor);
 
-            // Audit failure rolls the note and idempotency record back together.
+            // Audit failure rolls start, create, edit and delete back with their domain mutations.
+            UUID rollbackStartReport=UUID.randomUUID();
+            insertReport(sql,rollbackStartReport,project,reporter,successor,"OPEN",1,created);
+            UUID rollbackNote=UUID.randomUUID(); rawNote(sql,rollbackNote,project,report,successor,"rollback original");
             sql.execute("create function fail_developer_audit() returns trigger language plpgsql as $$ begin raise exception 'synthetic audit failure'; end $$");
             sql.execute("create trigger fail_developer_audit before insert on td_business_audit_events for each row execute function fail_developer_audit()");
+            int auditsBefore=sql.queryForObject("select count(*) from td_business_audit_events",Integer.class);
+            assertThrows(DataAccessException.class,() -> store.start(successor,project,rollbackStartReport,1,UUID.randomUUID(),created.plusSeconds(10)));
+            assertEquals("OPEN",sql.queryForObject("select status from td_reports where id=?",String.class,rollbackStartReport));
+            assertEquals(1,sql.queryForObject("select version from td_reports where id=?",Integer.class,rollbackStartReport));
             int notesBefore=sql.queryForObject("select count(*) from td_investigation_notes",Integer.class);
             int keysBefore=sql.queryForObject("select count(*) from td_investigation_note_idempotency",Integer.class);
             assertThrows(DataAccessException.class,() -> store.createNote(successor,project,report,UUID.randomUUID(),
                     new InvestigationNoteData("rollback canary"),UUID.randomUUID(),created.plusSeconds(10)));
             assertEquals(notesBefore,sql.queryForObject("select count(*) from td_investigation_notes",Integer.class));
             assertEquals(keysBefore,sql.queryForObject("select count(*) from td_investigation_note_idempotency",Integer.class));
+            assertThrows(DataAccessException.class,() -> store.updateNote(successor,project,report,rollbackNote,1,
+                    new InvestigationNoteData("rollback edit"),UUID.randomUUID(),created.plusSeconds(10)));
+            assertEquals("rollback original",sql.queryForObject("select body from td_investigation_notes where id=?",String.class,rollbackNote));
+            assertEquals(1,sql.queryForObject("select version from td_investigation_notes where id=?",Integer.class,rollbackNote));
+            assertThrows(DataAccessException.class,() -> store.deleteNote(successor,project,report,rollbackNote,1,
+                    UUID.randomUUID(),created.plusSeconds(10)));
+            assertEquals(1,sql.queryForObject("select count(*) from td_investigation_notes where id=?",Integer.class,rollbackNote));
+            assertEquals(auditsBefore,sql.queryForObject("select count(*) from td_business_audit_events",Integer.class));
         }
     }
 
@@ -197,6 +279,12 @@ class InvestigationPersistenceIntegrationTest {
             InvestigationStore store,UUID actor,UUID project,UUID report,UUID key,CountDownLatch ready,CountDownLatch go,Instant now) throws Exception {
         ready.countDown(); if(!go.await(5,TimeUnit.SECONDS)) throw new IllegalStateException("gate timeout");
         return store.createNote(actor,project,report,key,new InvestigationNoteData("concurrent"),UUID.randomUUID(),now);
+    }
+    private static com.tracedesk.auth.investigation.application.InvestigationRepository.Note updateAfterGate(
+            InvestigationStore store,UUID actor,UUID project,UUID report,UUID note,CountDownLatch ready,
+            CountDownLatch go,String body,Instant now) throws Exception {
+        ready.countDown(); if(!go.await(5,TimeUnit.SECONDS)) throw new IllegalStateException("gate timeout");
+        return store.updateNote(actor,project,report,note,1,new InvestigationNoteData(body),UUID.randomUUID(),now);
     }
     private static ReportService.Failure failure(org.junit.jupiter.api.function.Executable executable) {
         return assertThrows(ReportService.Failure.class,executable);

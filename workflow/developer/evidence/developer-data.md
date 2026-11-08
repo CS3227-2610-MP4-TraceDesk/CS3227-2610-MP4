@@ -190,3 +190,36 @@ with `main`, the V6 reconciliation and the `ReportStore.audit` change in `9cd3dc
 
 Runtime acceptance of TD-DEV-10 is still not claimed. No agent reviewed this
 reconciliation independently, and the CI gaps above remain.
+
+## 2026-11-08 independent-review corrections
+
+A fresh independent read-only review of PR #38 at
+`67774853e732c299d3d4d6f14ceab4e32c291411` against `origin/main`
+`341dde3409c577a11be2a1735d5b255a4cf6b869` found two P2 gaps: V6 did not
+reject unrelated audit target columns for every event shape, and the persistence
+suite did not exercise successful delete audit shape, reassignment and note-version
+races, or audit-failure rollback for start/edit/delete.
+
+The working-tree correction tightens every V6 audit branch to require the exact
+report/draft target combination. The investigation persistence test now rejects
+a report event carrying a draft target and a note event without a report target;
+checks a successful hard delete and its exact metadata-only audit row; races two
+updates at the same note version; commits reassignment ahead of a blocked note
+mutation; and verifies audit failure rolls back start, create, edit and delete.
+
+| Command | Outcome | Scope |
+| --- | --- | --- |
+| `.\gradlew.bat --no-daemon --console=plain :backend:auth-app:testClasses` | **Passed**: `BUILD SUCCESSFUL` | Production and test source compilation after the review corrections |
+| `.\gradlew.bat --no-daemon --console=plain :backend:auth-app:test --tests 'com.tracedesk.auth.investigation.persistence.InvestigationPersistenceIntegrationTest' --rerun-tasks` with a fresh disposable PostgreSQL 18 cluster and explicit isolated-test settings | **Passed**: `BUILD SUCCESSFUL` | V1–V6 migration, invalid audit fixtures, successful delete audit, concurrent version serialization, reassignment race and audit rollback |
+| `.\gradlew.bat --no-daemon --console=plain :backend:auth-app:test --rerun-tasks` with a second fresh disposable PostgreSQL 18 cluster and explicit isolated-test settings | **Passed**: 36 tests across 16 suites, 0 failed, 0 skipped | Full `auth-app` regression including Reporter persistence and HTTPS integration |
+| `git diff --check` | **Passed**; only line-ending conversion warnings were printed | Patch hygiene |
+
+Both disposable clusters used synthetic credentials, listened only on loopback
+port 54331, were stopped after their run and were removed. The first restricted
+runner attempt left a stopped workspace-local `.tmp-tracedesk-pg-54331` cluster;
+it was verified stopped and removed before recording this evidence. No existing
+application database or `.env*` file was read.
+
+This resolves the two supported review findings in the candidate working tree.
+TD-DEV-10 remains a broader runtime-acceptance gate: these backend checks do not
+prove the future QA assignment UI/journey, deployment, or production behavior.
