@@ -12,10 +12,9 @@ Operations: [enablement](../../../docs/ai-enablement.md) and
 - Enablement implementation and deterministic backend verification: complete;
   final browser/integration evidence is recorded below.
 - Live calls/model quality: user ran the approved `default` evaluation privately.
-  The catalog and three provider completions worked, two delivered successfully;
-  the third delivery was denied after a background metadata refresh. Accounting
-  retained all three outcomes. Full quality comparison remains pending a fixed
-  runner and newly approved batch. No key was supplied to the coordinator. These
+  After the runner correction, all24 newly approved attempts delivered validated
+  suggestions:4 cases,2 context variants and3 repetitions. Independent quality
+  scoring and a live browser journey remain pending. No key was supplied to the coordinator. These
   observations prove access from this local test target, not an arbitrary host.
 - Deployment: unavailable; user selected a portable guide, hosting undecided.
   No target was provisioned, changed or released. No credentials were accessed.
@@ -189,3 +188,18 @@ small diff and reported no finding; reviewer ran no tests or live calls.
 User explicitly approved a fresh24 additional requests/220,800-unit batch after
 that correction and verification. The new ignored approval/launcher expire at
 2026-11-08T20:30:03Z. No agent has executed the renewed batch or accessed the key.
+
+## Successful renewed live batch
+
+User reported success; the local numeric JSONL confirms **24/24 VALIDATED** using
+`default`: RAI-01–04 each have three concise and three expanded repetitions.
+Aggregate measured call latency was85,744ms, with11,011 charged resource units.
+This is cumulative request time, not end-to-end wall time or a performance
+comparison. Cost and provider token breakdown remain unknown. Together with the
+first run there were27 attempts,26 delivered suggestions and12,511 charged units;
+the earlier stale-delivery failure remains recorded rather than erased.
+
+The coordinator selected numeric metadata only for this update. Structured output
+acceptance does not establish factual quality, injection resistance or independent
+rubric scores. Live browser preview/apply, Developer/QA evaluations and deployment
+verification remain pending. The key and raw local observations are not committed.
