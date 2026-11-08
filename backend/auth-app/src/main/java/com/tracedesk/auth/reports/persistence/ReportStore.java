@@ -66,9 +66,10 @@ public class ReportStore implements ReportRepository {
                     values(?,?,'REPORT_CREATE',?,?,?, ?, ?)
                     """, actor, project, key, digest, id, java.sql.Timestamp.from(now), java.sql.Timestamp.from(now.plusSeconds(86400)));
             jdbc.update("""
-                    insert into td_business_audit_events(event_code,request_id,actor_id,project_id,report_id,new_status,new_version,outcome)
-                    values('REPORT_CREATED',?,?,?,?, 'OPEN',1,'SUCCESS')
-                    """, requestId, actor, project, id);
+                    insert into td_business_audit_events(event_code,request_id,actor_id,project_id,report_id,
+                      object_type,object_id,new_status,new_version,outcome)
+                    values('REPORT_CREATED',?,?,?,?, 'REPORT',?, 'OPEN',1,'SUCCESS')
+                    """, requestId, actor, project, id, id);
             return loadReport(actor, project, id, false).orElseThrow();
         });
     }
@@ -212,8 +213,9 @@ public class ReportStore implements ReportRepository {
                 id,project,actor,f.title(),f.description(),f.environment(),f.reproductionSteps(),f.expectedBehavior(),f.actualBehavior(),f.textLogs(),ts(now),ts(now),ts(expires));
     }
     private void audit(String event,UUID requestId,UUID actor,UUID project,UUID report,UUID draft,String status,int version,Integer priorVersion) {
-        jdbc.update("insert into td_business_audit_events(event_code,request_id,actor_id,project_id,report_id,draft_id,new_status,new_version,prior_version,outcome) values(?,?,?,?,?,?,?,?,?,'SUCCESS')",
-                event,requestId,actor,project,report,draft,status,version,priorVersion);
+        boolean draftEvent=event.startsWith("DRAFT_");
+        jdbc.update("insert into td_business_audit_events(event_code,request_id,actor_id,project_id,report_id,draft_id,object_type,object_id,new_status,new_version,prior_version,outcome) values(?,?,?,?,?,?,?,?,?,?,?,'SUCCESS')",
+                event,requestId,actor,project,report,draft,draftEvent?"DRAFT":"REPORT",draftEvent?draft:report,status,version,priorVersion);
     }
     private static java.sql.Timestamp ts(Instant instant) { return java.sql.Timestamp.from(instant); }
     private static byte[] sha256(byte[] value) {

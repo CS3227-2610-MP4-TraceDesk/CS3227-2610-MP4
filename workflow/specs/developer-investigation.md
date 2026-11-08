@@ -119,10 +119,11 @@ Notes on the table:
 
 ## Data contract
 
-Text rules are TD-RPT's: plain Unicode text, never HTML or executable code; count
-code points and UTF-8 bytes after JSON decoding; reject unpaired surrogates, NUL
-and C0/C1 controls other than TAB, LF and CR; no trimming, normalization or silent
-truncation; "nonblank" means at least one non-whitespace code point. Snippets and
+Text rules are TD-RPT's: plain Unicode text, never HTML or executable code; enforce
+the code-point limits and any explicitly listed UTF-8 byte limits after JSON
+decoding; reject unpaired surrogates, NUL and C0/C1 controls other than TAB, LF
+and CR; no trimming, normalization or silent truncation; "nonblank" means at least
+one non-whitespace code point. Snippets and
 logs inside these fields are inert text and are never executed, fetched or
 dereferenced. Identifiers are canonical UUIDs, timestamps UTC `timestamptz`,
 versions positive integers starting at 1 and incremented once per successful
@@ -135,9 +136,9 @@ Persist `id UUID`, `project_id UUID`, `report_id UUID`, `author_user_id UUID`
 each edit to the editing assignee), `body`, `created_at`, `updated_at`,
 `version`.
 
-| Field | Required | Maximum code points | Maximum UTF-8 bytes |
-| --- | --- | ---: | ---: |
-| `body` | yes, nonblank | 8,000 | 32,000 |
+| Field | Required | Maximum code points |
+| --- | --- | ---: |
+| `body` | yes, nonblank | 8,000 |
 
 At most 200 notes may exist per report; creating the 201st returns
 `409 NOTE_LIMIT`. Notes are retained with the report. Delete is an explicit hard
@@ -249,7 +250,10 @@ it.
 
 Each mutation runs in one database transaction that acquires locks in this
 global order, which QA-ASSIGN (TD-ASG) and the QA verification commands must also
-follow: **user/project/membership → report → note**.
+follow: **user/project/membership → note-create idempotency key (when applicable)
+→ report → note**. The idempotency-key lock is transaction-scoped and derived
+only from actor, project, operation and key; it serializes concurrent reuse of
+the same scoped key before either request selects a report.
 
 1. Re-reads the actor's user, project and membership rows `FOR SHARE` and checks
    they are active with role `DEVELOPER`. Membership changes take conflicting
@@ -390,6 +394,20 @@ databases and no `.env*` files or live data.
 | **TD-DEV-03** | Start, note create/edit/delete and propose follow the precondition, locking, version, idempotency, atomic audit and denied/stale/failed/reassigned/concurrent outcomes above; note mutations do not change report version or `updated_at`. | Isolated PostgreSQL tests: one audit per success with exact per-event columns; rollback on audit failure; duplicate start (`INVALID_STATE`), duplicate propose before and after QA rejection (`INVALID_STATE`/`STALE_VERSION`); Developer note create versus QA reassignment under the global lock order without deadlock, and injected serialization failure yielding `503` with nothing committed; synchronized reassignment/revocation versus start, note and propose; QA reject versus Developer clarification; note replay and changed-body conflict. |
 | **TD-DEV-04** | Routes, request/response allowlists, error mapping, `developer-context`, and the My work/All bugs/detail/notes/clarification/handoff UI behavior match this contract with server-side trusted identity. | Per-route direct API tests for allowed/denied/stale/unavailable; step-4 role `403` with nonexistent report IDs; non-assignee `403` identical for real and random note IDs; forged actor/role/status/assignee fields; cursor binding; browser-to-real-backend journeys including stale/reassigned/session-expired states and input preservation. |
 | **TD-DEV-05** | Criteria map to tests and evidence; actual coordination and independent contract review are recorded without claiming unimplemented behavior or human approval. | Independent reviewer reads this contract for contradictions with TD-RPT/TD-AUTH, authorization-before-selection, transaction/audit coverage and test derivability; evidence records revision, findings and corrections under `workflow/developer/evidence/`. |
+
+### DEV-DATA (#27) executable acceptance criteria
+
+These criteria own the bounded backend slice for issue #27. They do not include
+QA assignment UI or the production assignment journey; isolated tests may use
+synthetic pre-assigned reports.
+
+| Criterion | Observable requirement |
+| --- | --- |
+| **TD-DEV-06** | Fresh migrations persist investigation notes, note versions, report transitions, idempotency metadata and business audit records with UUID, UTC, field-bound, lifecycle and cross-project constraints; invalid fixtures are rejected. |
+| **TD-DEV-07** | Start investigation derives the actor from the trusted session and, in one mutation transaction, rechecks and locks the active user, project and Developer membership, current assignment, `OPEN` status and expected report version before changing the report to `IN_PROGRESS`, incrementing its version and inserting one audit event. |
+| **TD-DEV-08** | Private notes follow the current-assignee read and mutation rules, stay absent from shared report representations, use their own versions without changing report version or `updated_at`, and commit create/edit/delete atomically with exactly one metadata-only audit event. |
+| **TD-DEV-09** | Anonymous, wrong-role, unassigned/former Developer, cross-project, disabled membership, reassignment, forged fields, invalid state, stale version, malformed/oversized content and persistence/event failure produce no forbidden read/write, content disclosure or partial audit. |
+| **TD-DEV-10** | Pure policy and validation, direct API, isolated PostgreSQL, revocation/reassignment race, concurrent cap/version and audit-rollback tests pass on a recorded candidate. The required database suite fails rather than skips when isolated settings are unavailable; evidence distinguishes that unavailable environment from a passing runtime check. |
 
 ## Delivery issues
 
