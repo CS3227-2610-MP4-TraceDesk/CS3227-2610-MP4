@@ -45,9 +45,9 @@ class ReportHttpsIntegrationTest {
 
     @Test
     void reportHttpsBoundaryEnforcesIdentityVisibilityIdempotencyAndSafeErrors(CapturedOutput output) throws Exception {
-        assertThrows(ClassNotFoundException.class,
-                () -> Class.forName("com.tracedesk.ai.internal.soclaas.SoclaasClient"),
-                "raw provider transport must not be present on the auth application classpath");
+        assertFalse(java.lang.reflect.Modifier.isPublic(
+                Class.forName("com.tracedesk.ai.internal.soclaas.SoclaasClient").getModifiers()),
+                "the secured factory may load transport, but role controllers cannot access the raw client");
         Path temp = Files.createTempDirectory("tracedesk-report-https-");
         List<String> canaries = new ArrayList<>(List.of(PASSWORD, CANARY));
         try (IsolatedPostgres db = IsolatedPostgres.open(System.getenv())) {

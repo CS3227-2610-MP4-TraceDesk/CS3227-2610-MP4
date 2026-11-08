@@ -2,6 +2,12 @@ package com.tracedesk.auth.api;
 
 import com.tracedesk.auth.AuthApplication;
 import com.tracedesk.auth.persistence.AuthStore;
+import com.tracedesk.auth.ai.persistence.JdbcAiLedger;
+import com.tracedesk.auth.reports.ai.ReportAiService;
+import com.tracedesk.auth.reports.application.ReportRepository;
+import com.tracedesk.ai.gateway.*;
+import com.tracedesk.ai.gateway.GatewayPorts.Provider;
+import com.tracedesk.ai.gateway.GatewayTypes.*;
 import com.tracedesk.testing.IsolatedPostgres;
 import org.flywaydb.core.Flyway;
 import org.springframework.boot.SpringApplication;
@@ -9,18 +15,26 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Set;
+import java.time.Clock;
+import java.time.Duration;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.sql.DataSource;
 
 /** Owned, test-only application process for the same-candidate Reporter browser journey. */
 public final class ReporterBrowserFixture {
     private static final int PORT = 18089;
     private static final String PASSWORD = "Synthetic-browser-password-2026!";
+    private static final AtomicBoolean AI_AVAILABLE = new AtomicBoolean(true);
 
     private ReporterBrowserFixture() { }
 
@@ -55,6 +69,7 @@ public final class ReporterBrowserFixture {
             String developerLogin = "developer-" + suffix + "@example.test";
 
             SpringApplication app = new SpringApplication(AuthApplication.class);
+            app.addPrimarySources(Set.of(AiFixtureConfiguration.class));
             app.setWebApplicationType(WebApplicationType.SERVLET);
             Map<String, Object> fixedProperties = Map.ofEntries(
                     Map.entry("server.address", "127.0.0.1"),
@@ -121,6 +136,9 @@ public final class ReporterBrowserFixture {
                             sql.execute("alter table td_business_audit_events_fixture_off rename to td_business_audit_events");
                             auditUnavailable = false;
                             Files.writeString(ackFile, "done");
+                        } else if ("ai-off".equals(command) || "ai-on".equals(command)) {
+                            AI_AVAILABLE.set("ai-on".equals(command));
+                            Files.writeString(ackFile, "done");
                         } else {
                             Files.writeString(ackFile, "invalid");
                         }
@@ -130,6 +148,28 @@ public final class ReporterBrowserFixture {
             } finally {
                 Files.deleteIfExists(keyStore);
             }
+        }
+    }
+
+    /** Test-only provider behind the real secured gateway, ledger, HTTP/session and UI. */
+    @TestConfiguration(proxyBeanMethods=false)
+    public static class AiFixtureConfiguration {
+        @Bean @Primary ReportAiService browserReportAiService(ReportRepository reports, JdbcTemplate sql, Clock clock) {
+            var metadata = new Metadata("synthetic-java-model", 1, clock.instant().plusSeconds(900), 1);
+            Provider provider = new Provider() {
+                public Metadata metadata() { return metadata; }
+                public Completion complete(Context context) {
+                    if (!AI_AVAILABLE.get()) throw new GatewayFailure(GatewayFailure.Code.AI_UNAVAILABLE);
+                    if (context.dataJson().contains("textLogs") || context.dataJson().contains("AI_DO_NOT_SEND_LOG_CANARY"))
+                        throw new GatewayFailure(GatewayFailure.Code.AI_REJECTED);
+                    return new Completion("""
+                        {"changes":[{"field":"title","replacement":"Clearer Java report <img src=x onerror=window.__aiInjected=true>"}],
+                         "missingInformation":["Which Java version reproduces this issue?"]}
+                        """, new Usage(300, 80));
+                }
+            };
+            return new ReportAiService(reports, clock, provider, new JdbcAiLedger(sql),
+                    new Policy(true, 100, 1_000_000, 500_000, 4, 1, Duration.ofSeconds(60)));
         }
     }
 

@@ -20,12 +20,13 @@ public final class ReportBodyLimitFilter extends OncePerRequestFilter {
     public ReportBodyLimitFilter(AuthStore store) { this.store = store; }
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
         String method=request.getMethod(),path=request.getRequestURI();
-        return !("POST".equals(method)&&path.matches("/api/projects/[^/]+/(reports|drafts|drafts/[^/]+/submit)"))
+        return !("POST".equals(method)&&path.matches("/api/projects/[^/]+/(reports|drafts|drafts/[^/]+/submit|(reports|drafts)/[^/]+/suggestions)"))
                 && !("PATCH".equals(method)&&path.matches("/api/projects/[^/]+/(reports/[^/]+|drafts/[^/]+)"));
     }
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
-        byte[] body = request.getInputStream().readNBytes(LIMIT + 1);
-        if (body.length > LIMIT) {
+        int limit = request.getRequestURI().endsWith("/suggestions") ? 8192 : LIMIT;
+        byte[] body = request.getInputStream().readNBytes(limit + 1);
+        if (body.length > limit) {
             try {
                 store.event("REPORT_INVALID_REQUEST", routeTemplate(request), 400, null, null);
                 writeError(response, 400, "INVALID_REQUEST");
@@ -36,6 +37,7 @@ public final class ReportBodyLimitFilter extends OncePerRequestFilter {
     }
     private static String routeTemplate(HttpServletRequest request) {
         String path=request.getRequestURI();
+        if(path.endsWith("/suggestions")) return path.contains("/drafts/") ? "/api/projects/{projectId}/drafts/{draftId}" : "/api/projects/{projectId}/reports/{reportId}";
         if(path.matches("/api/projects/[^/]+/reports/[^/]+")) return "/api/projects/{projectId}/reports/{reportId}";
         if(path.matches("/api/projects/[^/]+/drafts/[^/]+/submit")) return "/api/projects/{projectId}/drafts/{draftId}/submit";
         if(path.matches("/api/projects/[^/]+/drafts/[^/]+")) return "/api/projects/{projectId}/drafts/{draftId}";

@@ -9,6 +9,7 @@ import { SidebarGroup, SidebarItem } from '../shell/Sidebar'
 import type { TrayItem } from '../shell/IconTray'
 import { createDraft, createReport, deleteDraft, fetchDraft, fetchDrafts, fetchProjectContext, fetchReport, fetchReports, isCanonicalUuid, ReportApiError, submitDraft, updateDraft, updateReport, type DraftDetail, type DraftSummary, type ProjectContext, type ReportDetail, type ReportStatus, type ReportSummary } from './reportApi'
 import { emptyReport, reportFieldRules, reportFields, validateReport, type FieldErrors, type ReportField, type ReportValues } from './reportValidation'
+import { ReporterAiPanel } from './ReporterAiPanel'
 import './reporter-workspace.css'
 
 type WorkspaceArea = 'reports' | 'environments' | 'settings'
@@ -94,6 +95,9 @@ export function ReporterWorkspace({
   const [editRecoveryMessage, setEditRecoveryMessage] = useState<string | null>(null)
   const [editReviewRequired, setEditReviewRequired] = useState(false)
   const [draftRecovery, setDraftRecovery] = useState<DraftDetail | null>(null)
+  const [draftReadRequired, setDraftReadRequired] = useState(false)
+  const [editorClock, setEditorClock] = useState(() => Date.now())
+  useEffect(() => { const timer = window.setInterval(() => setEditorClock(Date.now()), 30_000); return () => window.clearInterval(timer) }, [])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [listLoading, setListLoading] = useState(false)
   const [listUnavailable, setListUnavailable] = useState(false)
@@ -184,6 +188,7 @@ export function ReporterWorkspace({
     setEditRecoveryMessage(null)
     setEditReviewRequired(false)
     setDraftRecovery(null)
+    setDraftReadRequired(false)
     setEditorKind('new')
     setEditorReportVersion(null)
     setEditorReportId(null)
@@ -192,7 +197,7 @@ export function ReporterWorkspace({
   }, [])
 
   const leaveComposer = useCallback((action: string): boolean => {
-    if (view !== 'new' || (!composerDirty && submissionState !== 'unconfirmed' && submissionState !== 'conflict' && submissionState !== 'pending' && !draftAttempt)) return true
+    if (view !== 'new' || (!composerDirty && submissionState !== 'unconfirmed' && submissionState !== 'conflict' && submissionState !== 'pending' && !draftAttempt && !draftBusy)) return true
     if (submissionState === 'pending' || draftBusy) {
       setSubmissionMessage('The report is still being submitted. Wait for the save outcome before changing projects or reports.')
       return false
@@ -208,6 +213,8 @@ export function ReporterWorkspace({
   }, [composerDirty, draftAttempt, draftBusy, editorKind, submissionState, view])
 
   const resetComposer = useCallback(() => {
+    activeMutationController.current?.abort()
+    activeMutationController.current = null
     activeCreateController.current?.abort()
     activeCreateController.current = null
     setValues(emptyReport)
@@ -227,6 +234,7 @@ export function ReporterWorkspace({
     setEditRecoveryMessage(null)
     setEditReviewRequired(false)
     setDraftRecovery(null)
+    setDraftReadRequired(false)
     setSubmitBusy(false)
   }, [])
 
@@ -677,12 +685,12 @@ export function ReporterWorkspace({
     requestAnimationFrame(() => setSelectedReportId(selectedReportId))
   }, [selectedReportId])
 
-  const persistDraft = useCallback(async () => {
-    if (!context || !projectId || draftBusy || submitBusy || Boolean(draftRecovery)) return
+  const persistDraft = useCallback(async (aiValues?: ReportValues) => {
+    if (!context || !projectId || draftBusy || submitBusy || Boolean(draftRecovery) || draftReadRequired) return
     const requestedProjectId = projectId
     const requestedEpoch = projectEpoch.current
     const original = activeDraft
-    const canonicalValues = Object.fromEntries(reportFields.map(field => [field, values[field]])) as ReportValues
+    const canonicalValues = Object.fromEntries(reportFields.map(field => [field, (aiValues ?? values)[field]])) as ReportValues
     const keyAttempt = original ? null : draftAttempt ?? { body: JSON.stringify(canonicalValues), key: crypto.randomUUID() }
     const body = original
       ? JSON.stringify({ ...canonicalValues, expectedVersion: original.version })
@@ -699,6 +707,7 @@ export function ReporterWorkspace({
         ? await updateDraft(requestedProjectId, original.id, body, requestSignal)
         : await createDraft(requestedProjectId, body, keyAttempt!.key, requestSignal)
       if (controller.signal.aborted || requestedEpoch !== projectEpoch.current) return
+      if (original && (saved.id !== original.id || saved.version !== original.version + 1 || !reportFields.every(field => saved[field] === canonicalValues[field]))) throw new ReportApiError(502, 'INVALID_RESPONSE')
       setActiveDraft(saved)
       setEditorKind('draft')
       const savedValues = Object.fromEntries(reportFields.map(field => [field, saved[field]])) as ReportValues
@@ -731,9 +740,11 @@ export function ReporterWorkspace({
           setSubmissionMessage('The save outcome is unconfirmed. Retry this same draft save to resolve it.')
           return
         }
+        setDraftReadRequired(true)
         try {
           const current = await fetchDraft(requestedProjectId, original.id, AbortSignal.timeout(20_000))
           if (requestedEpoch !== projectEpoch.current) return
+          setDraftReadRequired(false)
           const currentValues = Object.fromEntries(reportFields.map(field => [field, current[field]])) as ReportValues
           if (current.version > original.version && reportFields.every(field => currentValues[field] === canonicalValues[field])) {
             setActiveDraft(current)
@@ -759,10 +770,10 @@ export function ReporterWorkspace({
       if (requestedEpoch === projectEpoch.current) setDraftBusy(false)
       if (activeMutationController.current === controller) activeMutationController.current = null
     }
-  }, [activeDraft, context, draftAttempt, draftBusy, draftRecovery, handleProtectedFailure, loadDrafts, projectId, submitBusy, values])
+  }, [activeDraft, context, draftAttempt, draftBusy, draftRecovery, draftReadRequired, handleProtectedFailure, loadDrafts, projectId, submitBusy, values])
 
   const submitSavedDraft = useCallback(async () => {
-    if (!activeDraft || !context || !projectId || draftBusy || submitBusy) return
+    if (!activeDraft || !context || !projectId || draftBusy || submitBusy || draftReadRequired) return
     if (composerDirty) {
       setSubmissionMessage('Save your draft changes first, then submit the saved version.')
       return
@@ -845,11 +856,11 @@ export function ReporterWorkspace({
       if (requestedEpoch === projectEpoch.current) setDraftBusy(false)
       if (activeMutationController.current === controller) activeMutationController.current = null
     }
-  }, [activeDraft, composerDirty, context, draftBusy, handleProtectedFailure, loadDrafts, projectId, submitBusy, values])
+  }, [activeDraft, composerDirty, context, draftBusy, draftReadRequired, handleProtectedFailure, loadDrafts, projectId, submitBusy, values])
 
-  const saveReportEdits = useCallback(async () => {
+  const saveReportEdits = useCallback(async (aiValues?: ReportValues) => {
     if (!editorReportId || editorReportVersion === null || !context || !projectId || submitBusy || draftBusy || editReviewRequired) return
-    const errors = validateReport(values)
+    const errors = validateReport(aiValues ?? values)
     setFieldErrors(errors)
     const invalid = reportFields.find(field => errors[field]) ?? null
     if (invalid) {
@@ -858,7 +869,7 @@ export function ReporterWorkspace({
       return
     }
     setValidationSummary(null)
-    const canonicalValues = Object.fromEntries(reportFields.map(field => [field, values[field]])) as ReportValues
+    const canonicalValues = Object.fromEntries(reportFields.map(field => [field, (aiValues ?? values)[field]])) as ReportValues
     const body = JSON.stringify({ ...canonicalValues, expectedVersion: editorReportVersion })
     const requestedProjectId = projectId
     const requestedEpoch = projectEpoch.current
@@ -872,6 +883,9 @@ export function ReporterWorkspace({
     try {
       const saved = await updateReport(requestedProjectId, editorReportId, body, requestSignal)
       if (controller.signal.aborted || requestedEpoch !== projectEpoch.current) return
+      if (saved.version !== expectedVersion + 1 || !reportFields.every(field => saved[field] === canonicalValues[field])) throw new ReportApiError(502, 'INVALID_RESPONSE')
+      setValues(Object.fromEntries(reportFields.map(field => [field, saved[field]])) as ReportValues)
+      setEditorReportVersion(saved.version)
       setDetail(saved)
       setSelectedReportId(saved.id)
       setListNeedsRefresh(true)
@@ -1207,7 +1221,35 @@ export function ReporterWorkspace({
               )
             })}
           </div>
+          {editorKind === 'new' || composerDirty ? <p className="muted">Save your report as a draft or save your latest edits before using AI review.</p> : !submitBusy && !draftBusy && !composerFrozen && !editReviewRequired && !draftRecovery && !draftReadRequired && (
+            (editorKind === 'draft' && activeDraft && !activeDraft.submittedReportId && Date.parse(activeDraft.expiresAt) > editorClock) ||
+            (editorKind === 'report' && editorReportId && editorReportVersion && detail?.status === 'OPEN')
+          ) ? <ReporterAiPanel
+            key={`${projectId}:${editorKind}:${editorKind === 'draft' ? activeDraft!.id : editorReportId}:${editorKind === 'draft' ? activeDraft!.version : editorReportVersion}`}
+            projectId={projectId}
+            source={editorKind === 'draft' ? { kind: 'DRAFT', id: activeDraft!.id, version: activeDraft!.version } : { kind: 'REPORT', id: editorReportId!, version: editorReportVersion! }}
+            values={values}
+            onProtectedFailure={handleProtectedFailure}
+            onApply={async (nextValues, expectedVersion) => {
+              if (composerDirty || draftBusy || submitBusy || editReviewRequired || draftRecovery || draftReadRequired) return
+              if (editorKind === 'draft' && activeDraft?.version === expectedVersion) await persistDraft(nextValues)
+              else if (editorKind === 'report' && editorReportVersion === expectedVersion) await saveReportEdits(nextValues)
+            }}
+          /> : null}
           {validationSummary && <p className="report-validation-summary" role="alert">{validationSummary}</p>}
+          {draftReadRequired && activeDraft && <div className="report-notice" role="status">
+            <p>The save outcome is unconfirmed. Check the current saved draft before saving or applying suggestions again.</p>
+            <Button type="button" color="secondary" variant="outline" onClick={() => {
+              const epoch = projectEpoch.current
+              const controller = new AbortController()
+              activeMutationController.current?.abort()
+              activeMutationController.current = controller
+              void fetchDraft(projectId, activeDraft.id, AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)])).then(current => {
+                if (controller.signal.aborted || epoch !== projectEpoch.current) return
+                setDraftRecovery(current); setActiveDraft(current); setDraftReadRequired(false)
+              }).catch(error => { if (!controller.signal.aborted && epoch === projectEpoch.current) handleProtectedFailure(error) })
+            }}>Check current draft version</Button>
+          </div>}
           {draftRecovery && editorKind === 'draft' && <section className="report-version-review" aria-labelledby="draft-version-review-title">
             <h2 id="draft-version-review-title">Current saved draft · version {draftRecovery.version}</h2>
             <p>The values below are the current server copy. Your local edits remain in the form above.</p>
@@ -1235,8 +1277,8 @@ export function ReporterWorkspace({
             <Button color="secondary" variant="ghost" type="button" disabled={submitBusy || draftBusy} onClick={() => { if (leaveComposer(editorKind === 'report' ? 'Leaving report editing' : 'Returning to reports')) { const wasEdit = editorKind === 'report'; resetComposer(); setView(wasEdit ? 'detail' : 'list') } }}>Cancel</Button>
             {editorKind === 'new' && <Button color="secondary" variant="outline" type="button" disabled={submitBusy || draftBusy || (composerFrozen && !draftAttempt)} loading={draftBusy} onClick={() => void persistDraft()}>{draftAttempt ? 'Retry draft save' : 'Save draft'}</Button>}
             {editorKind === 'draft' && <>
-              <Button color="secondary" variant="outline" type="button" disabled={submitBusy || draftBusy || composerFrozen || Boolean(draftRecovery)} loading={draftBusy} onClick={() => void persistDraft()}>Save draft</Button>
-              <Button color="primary" type="button" disabled={submitBusy || draftBusy || Boolean(draftRecovery) || composerDirty} loading={draftBusy} onClick={() => void submitSavedDraft()}>Submit as report</Button>
+              <Button color="secondary" variant="outline" type="button" disabled={submitBusy || draftBusy || composerFrozen || Boolean(draftRecovery) || draftReadRequired} loading={draftBusy} onClick={() => void persistDraft()}>Save draft</Button>
+              <Button color="primary" type="button" disabled={submitBusy || draftBusy || Boolean(draftRecovery) || draftReadRequired || composerDirty} loading={draftBusy} onClick={() => void submitSavedDraft()}>Submit as report</Button>
             </>}
             {editorKind === 'report' && <Button color="primary" type="button" disabled={submitBusy || draftBusy || editReviewRequired || !composerDirty} loading={draftBusy} onClick={() => void saveReportEdits()}>Save changes</Button>}
             {editorKind === 'new' && <Button color="primary" type="submit" disabled={submitBusy || draftBusy || submissionState === 'conflict'} loading={submitBusy}>{submissionState === 'unconfirmed' ? 'Retry submission' : submitBusy ? 'Creating report…' : 'Create report'}</Button>}

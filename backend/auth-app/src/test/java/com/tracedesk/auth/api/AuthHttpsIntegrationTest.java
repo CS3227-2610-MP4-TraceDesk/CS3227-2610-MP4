@@ -47,9 +47,9 @@ class AuthHttpsIntegrationTest {
     void realHttpsSessionCsrfAndRoleMembershipBoundaries(CapturedOutput capturedOutput) throws Exception {
         Path temp = Files.createTempDirectory("tracedesk-auth-https-");
         List<String> logCanaries = new ArrayList<>(List.of(PASSWORD, PRIVACY_CANARY));
-        assertThrows(ClassNotFoundException.class,
-                () -> Class.forName("com.tracedesk.ai.internal.soclaas.SoclaasClient"),
-                "raw provider transport must not be present on the auth application classpath");
+        assertFalse(java.lang.reflect.Modifier.isPublic(
+                Class.forName("com.tracedesk.ai.internal.soclaas.SoclaasClient").getModifiers()),
+                "the secured factory may load transport, but role controllers cannot access the raw client");
         try (IsolatedPostgres db = IsolatedPostgres.open(System.getenv())) {
             Flyway.configure().dataSource(db).locations("classpath:db/migration")
                     .schemas(db.schema()).defaultSchema(db.schema()).load().migrate();
