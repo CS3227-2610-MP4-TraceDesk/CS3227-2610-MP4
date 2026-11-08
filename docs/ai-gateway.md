@@ -13,7 +13,7 @@ adapters and deployment remain separate work.
 - `backend:ai-transport`: fixed-origin SoCLaaS adapter. Call
   `SoclaasGatewayFactory.create(...)`; it returns only a secured gateway and
   owns its internal client. Close the gateway at application shutdown.
-- `backend:auth-app`: `JdbcAiLedger` and Flyway V6 provide shared PostgreSQL
+- `backend:auth-app`: `JdbcAiLedger` and Flyway V7 provide shared PostgreSQL
   configuration, daily units, tickets, accounting events and circuit state.
   Construct the ledger using the application's `JdbcTemplate`. There is no
   automatic enabled Spring bean or scheduler in this feature.
