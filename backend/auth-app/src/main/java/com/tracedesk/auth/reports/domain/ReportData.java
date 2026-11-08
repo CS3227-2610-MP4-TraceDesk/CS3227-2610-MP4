@@ -40,6 +40,26 @@ public record ReportData(String title, String description, String environment,
         return aggregateBytes <= 184640 ? null : "INVALID";
     }
 
+    /** Validates the shared field limits while permitting empty draft fields. */
+    public static String validateDraft(ReportData data) {
+        if (data == null) return "INVALID";
+        String[] values = data.values();
+        long aggregateBytes = 0;
+        for (int i = 0; i < values.length; i++) {
+            String value = values[i];
+            if (value == null || hasUnpairedSurrogate(value)) return "INVALID";
+            int bytes = value.getBytes(StandardCharsets.UTF_8).length;
+            if (value.codePointCount(0, value.length()) > CODE_POINTS[i] || bytes > UTF8_BYTES[i]) return "INVALID";
+            aggregateBytes += bytes;
+            for (int offset = 0; offset < value.length();) {
+                int cp = value.codePointAt(offset);
+                if ((cp <= 0x1f || (cp >= 0x7f && cp <= 0x9f)) && cp != '\t' && cp != '\n' && cp != '\r') return "INVALID";
+                offset += Character.charCount(cp);
+            }
+        }
+        return aggregateBytes <= 184640 ? null : "INVALID";
+    }
+
     public byte[] canonicalJson() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         out.write('{');

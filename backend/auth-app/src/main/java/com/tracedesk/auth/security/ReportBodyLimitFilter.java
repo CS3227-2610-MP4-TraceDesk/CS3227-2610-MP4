@@ -19,18 +19,28 @@ public final class ReportBodyLimitFilter extends OncePerRequestFilter {
     private final AuthStore store;
     public ReportBodyLimitFilter(AuthStore store) { this.store = store; }
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !"POST".equals(request.getMethod()) || !request.getRequestURI().matches("/api/projects/[^/]+/reports");
+        String method=request.getMethod(),path=request.getRequestURI();
+        return !("POST".equals(method)&&path.matches("/api/projects/[^/]+/(reports|drafts|drafts/[^/]+/submit)"))
+                && !("PATCH".equals(method)&&path.matches("/api/projects/[^/]+/(reports/[^/]+|drafts/[^/]+)"));
     }
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         byte[] body = request.getInputStream().readNBytes(LIMIT + 1);
         if (body.length > LIMIT) {
             try {
-                store.event("REPORT_INVALID_REQUEST", "/api/projects/{projectId}/reports", 400, null, null);
+                store.event("REPORT_INVALID_REQUEST", routeTemplate(request), 400, null, null);
                 writeError(response, 400, "INVALID_REQUEST");
             } catch (DataAccessException failure) { writeError(response, 503, "SERVICE_UNAVAILABLE"); }
             return;
         }
         chain.doFilter(new CachedRequest(request, body), response);
+    }
+    private static String routeTemplate(HttpServletRequest request) {
+        String path=request.getRequestURI();
+        if(path.matches("/api/projects/[^/]+/reports/[^/]+")) return "/api/projects/{projectId}/reports/{reportId}";
+        if(path.matches("/api/projects/[^/]+/drafts/[^/]+/submit")) return "/api/projects/{projectId}/drafts/{draftId}/submit";
+        if(path.matches("/api/projects/[^/]+/drafts/[^/]+")) return "/api/projects/{projectId}/drafts/{draftId}";
+        if(path.matches("/api/projects/[^/]+/drafts")) return "/api/projects/{projectId}/drafts";
+        return "/api/projects/{projectId}/reports";
     }
     private static void writeError(HttpServletResponse response, int status, String code) throws IOException {
         response.setHeader("Cache-Control", "no-store"); response.setStatus(status); response.setCharacterEncoding("UTF-8"); response.setContentType("application/json");
