@@ -20,6 +20,26 @@ import static org.junit.jupiter.api.Assertions.*;
 class SoclaasEnablementManagerIntegrationTest {
     private static final Instant NOW = Instant.parse("2026-11-09T03:00:00Z");
 
+    @Test void controlledEvaluationDoesNotRefreshDuringTheProductionStartupTimer() throws Exception {
+        try (var db = IsolatedPostgres.open(System.getenv())) {
+            Flyway.configure().dataSource(db).locations("classpath:db/migration").load().migrate();
+            var sql = new JdbcTemplate(db);
+            var probe = new Probe();
+            try (var manager = LiveEvaluationManager.open(settings(NOW.plusSeconds(900)), new JdbcAiLedger(sql),
+                    Clock.fixed(NOW, ZoneOffset.UTC), probe)) {
+                manager.refreshNow();
+                Long revision = sql.queryForObject("select metadata_revision from td_ai_control", Long.class);
+                assertEquals(SoclaasEnablementManager.Status.AVAILABLE, manager.status());
+                // The production manager starts its background refresh after ten real seconds.
+                // Crossing that boundary reproduces the observed third-request race if it is enabled here.
+                Thread.sleep(11_000);
+                assertEquals(1, probe.calls.get());
+                assertEquals(revision, sql.queryForObject("select metadata_revision from td_ai_control", Long.class));
+                assertEquals(SoclaasEnablementManager.Status.AVAILABLE, manager.status());
+            }
+        }
+    }
+
     @Test void disabledAndExpiredStartupNeverCallCatalog() throws Exception {
         try (var db = IsolatedPostgres.open(System.getenv())) {
             Flyway.configure().dataSource(db).locations("classpath:db/migration").load().migrate();

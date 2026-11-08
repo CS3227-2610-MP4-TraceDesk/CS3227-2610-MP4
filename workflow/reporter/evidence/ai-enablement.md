@@ -11,12 +11,12 @@ Operations: [enablement](../../../docs/ai-enablement.md) and
 
 - Enablement implementation and deterministic backend verification: complete;
   final browser/integration evidence is recorded below.
-- Live calls/model quality: pending execution; user selected model `default` and
-  explicitly approved24 attempts/220,800 resource units with stop-on-first-failure
-  in this chat. No key was supplied to the coordinator and no live provider
-  request was executed. The test-only runner is not live
-  evidence. SoCLaaS public sponsored-access semantics do not prove this account's
-  access or an arbitrary host's connectivity.
+- Live calls/model quality: user ran the approved `default` evaluation privately.
+  The catalog and three provider completions worked, two delivered successfully;
+  the third delivery was denied after a background metadata refresh. Accounting
+  retained all three outcomes. Full quality comparison remains pending a fixed
+  runner and newly approved batch. No key was supplied to the coordinator. These
+  observations prove access from this local test target, not an arbitrary host.
 - Deployment: unavailable; user selected a portable guide, hosting undecided.
   No target was provisioned, changed or released. No credentials were accessed.
 - Developer/QA live validation: pending their owning integrations; Reporter-only
@@ -158,3 +158,34 @@ fixed expiry2026-11-08T20:22:40Z, model `default` and the local isolated test ta
 The approval and launcher remain ignored local artifacts, not source-controlled
 credentials or claims that the account/model has already been verified. The
 launcher passed shell syntax validation; it has not been executed by an agent.
+
+## First live run and controlled-runner correction
+
+The user's actual console output and local numeric JSONL record show RAI-01,
+concise, repetitions1–3 with latencies4,767/3,766/4,819ms. All three ledger outcomes
+were SUCCESS, charged460/477/563 resource units (1,500 total); first two role
+outputs were VALIDATED, third was AI_UNAVAILABLE after provider settlement. Cost
+and provider input/output token breakdown remain unknown. No quality rubric
+score has been awarded to these outputs.
+
+The evaluation manually refreshed on startup but also used the production
+manager's10-second background timer. That timer changed metadata while the third
+call was in flight; the existing final-current-publication check correctly denied
+delivery. The restricted-method Java warning did not stop execution. The runner
+then stopped on this first failure, with no automatic retry; its approval file
+was consumed. This failure is an experiment-harness scheduling error, not proof
+that the API key or model was inaccessible.
+
+The correction is confined to test sources: `LiveEvaluationManager` uses the
+existing package-private manager seam with scheduling disabled; the runner still
+explicitly validates the catalog and retains all snapshot/approval expiry,
+authorization, accounting and delivery checks. Production scheduling is unchanged.
+The regression crosses the real11-second boundary and verifies one catalog probe
+and an unchanged metadata revision. Focused manager/approval tests: **5 passed**,
+zero failures/errors/skips,21s. Full production suites/browser checks above were
+not repeated for this test-only change. Independent reviewer inspected the final
+small diff and reported no finding; reviewer ran no tests or live calls.
+
+User explicitly approved a fresh24 additional requests/220,800-unit batch after
+that correction and verification. The new ignored approval/launcher expire at
+2026-11-08T20:30:03Z. No agent has executed the renewed batch or accessed the key.

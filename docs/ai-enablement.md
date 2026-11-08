@@ -186,3 +186,10 @@ This service-level evaluation does not verify login, browser apply or a deployed
 environment. Those need a separate authorized synthetic-account browser journey.
 Developer and QA need their own integrations and evaluations; Reporter results
 cannot certify them.
+
+The controlled evaluation uses a test-classpath manager with background refresh
+disabled and performs one explicit catalog refresh before the batch. This pins
+the verified metadata snapshot for comparable observations; its existing validity
+and fixed approval expiry still apply and stop an overlong run. Production's
+scheduled refresh and every admission/delivery check remain unchanged. Do not use
+this test harness as a production gateway configuration.

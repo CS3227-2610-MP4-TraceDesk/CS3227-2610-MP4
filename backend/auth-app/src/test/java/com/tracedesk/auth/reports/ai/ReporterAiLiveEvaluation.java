@@ -2,6 +2,7 @@ package com.tracedesk.auth.reports.ai;
 
 import com.tracedesk.ai.internal.soclaas.SoclaasSettings;
 import com.tracedesk.auth.ai.configuration.SoclaasEnablementManager;
+import com.tracedesk.auth.ai.configuration.LiveEvaluationManager;
 import com.tracedesk.auth.ai.persistence.JdbcAiLedger;
 import com.tracedesk.auth.reports.application.ReportService;
 import com.tracedesk.auth.reports.persistence.ReportStore;
@@ -110,7 +111,7 @@ public final class ReporterAiLiveEvaluation {
             sql.update("insert into td_users(id,login_normalized,password_hash) values(?,'live-synthetic@example.test','unusable-synthetic-hash')", actor);
             sql.update("insert into td_projects(id,name) values(?,'Synthetic live evaluation')", project);
             sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'REPORTER','ACTIVE')", project, actor);
-            try (var manager = new SoclaasEnablementManager(settings, ledger, clock);
+            try (var manager = LiveEvaluationManager.open(settings, ledger, clock);
                  var service = new ReportAiService(new ReportStore(sql), clock, manager::createGateway)) {
                 manager.refreshNow();
                 if (manager.status() != SoclaasEnablementManager.Status.AVAILABLE) throw new IllegalStateException("AI not available");
