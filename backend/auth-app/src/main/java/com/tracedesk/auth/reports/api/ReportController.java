@@ -2,7 +2,7 @@ package com.tracedesk.auth.reports.api;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.core.JsonFactory;
+import tools.jackson.core.json.JsonFactory;
 import tools.jackson.core.StreamReadFeature;
 import com.tracedesk.auth.persistence.AuthStore;
 import com.tracedesk.auth.reports.application.ReportRepository;

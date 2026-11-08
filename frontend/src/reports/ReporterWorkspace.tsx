@@ -194,7 +194,7 @@ export function ReporterWorkspace({
   const leaveComposer = useCallback((action: string): boolean => {
     if (view !== 'new' || (!composerDirty && submissionState !== 'unconfirmed' && submissionState !== 'conflict' && submissionState !== 'pending' && !draftAttempt)) return true
     if (submissionState === 'pending' || draftBusy) {
-      setSubmissionMessage('A save is still in progress. Wait for its outcome before changing projects or reports.')
+      setSubmissionMessage('The report is still being submitted. Wait for the save outcome before changing projects or reports.')
       return false
     }
     const message = submissionState === 'unconfirmed'
@@ -380,8 +380,12 @@ export function ReporterWorkspace({
 
   useEffect(() => {
     if (!context) return
-    void loadDrafts()
-    return () => activeDraftController.current?.abort()
+    let active = true
+    queueMicrotask(() => { if (active) void loadDrafts() })
+    return () => {
+      active = false
+      activeDraftController.current?.abort()
+    }
   }, [context, loadDrafts])
 
   useEffect(() => {
@@ -1235,7 +1239,7 @@ export function ReporterWorkspace({
               <Button color="primary" type="button" disabled={submitBusy || draftBusy || Boolean(draftRecovery) || composerDirty} loading={draftBusy} onClick={() => void submitSavedDraft()}>Submit as report</Button>
             </>}
             {editorKind === 'report' && <Button color="primary" type="button" disabled={submitBusy || draftBusy || editReviewRequired || !composerDirty} loading={draftBusy} onClick={() => void saveReportEdits()}>Save changes</Button>}
-            {editorKind === 'new' && <Button color="primary" type="submit" disabled={submitBusy || draftBusy || composerFrozen} loading={submitBusy}>{submissionState === 'unconfirmed' ? 'Retry submission' : submitBusy ? 'Creating report…' : 'Create report'}</Button>}
+            {editorKind === 'new' && <Button color="primary" type="submit" disabled={submitBusy || draftBusy || submissionState === 'conflict'} loading={submitBusy}>{submissionState === 'unconfirmed' ? 'Retry submission' : submitBusy ? 'Creating report…' : 'Create report'}</Button>}
           </div>
           {submissionState === 'conflict' && <Button color="secondary" variant="outline" onClick={() => { if (leaveComposer('Returning to reports')) { resetComposer(); setView('list') } }}>Back to reports</Button>}
         </form>

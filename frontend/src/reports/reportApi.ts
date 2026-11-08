@@ -112,8 +112,10 @@ function isDraftSummary(value: unknown, projectId: string): value is DraftSummar
 }
 
 function isDraftDetail(value: unknown, projectId: string): value is DraftDetail {
-  if (!isObject(value) || !isDraftSummary(value, projectId) || !reportFields.every(field => typeof value[field] === 'string')) return false
-  const fields = Object.fromEntries(reportFields.map(field => [field, value[field]])) as ReportValues
+  if (!isObject(value) || !isDraftSummary(value, projectId)) return false
+  const record = value as Record<string, unknown>
+  if (!reportFields.every(field => typeof record[field] === 'string')) return false
+  const fields = Object.fromEntries(reportFields.map(field => [field, record[field]])) as ReportValues
   return Object.keys(validateReport(Object.fromEntries(reportFields.map(field => [field, fields[field] || (field === 'textLogs' ? '' : 'draft ')])) as ReportValues)).length === 0
 }
 
@@ -214,20 +216,20 @@ export async function fetchDrafts(projectId: string, signal?: AbortSignal, curso
   const params = new URLSearchParams({ limit: '100' })
   if (cursor) params.set('cursor', cursor)
   const response = await request(`/api/projects/${projectId}/drafts?${params.toString()}`, signal)
-  return jsonOrThrow(response, value => isObject(value) && Array.isArray(value.items) && value.items.every(item => isDraftSummary(item, projectId)) && (value.nextCursor === null || typeof value.nextCursor === 'string'))
+  return jsonOrThrow(response, (value): value is DraftPage => isObject(value) && Array.isArray(value.items) && value.items.every(item => isDraftSummary(item, projectId)) && (value.nextCursor === null || typeof value.nextCursor === 'string'))
 }
 
 export async function fetchDraft(projectId: string, draftId: string, signal?: AbortSignal): Promise<DraftDetail> {
   const response = await request(`/api/projects/${projectId}/drafts/${draftId}`, signal)
-  return jsonOrThrow(response, value => isDraftDetail(value, projectId) && value.id === draftId)
+  return jsonOrThrow(response, (value): value is DraftDetail => isDraftDetail(value, projectId) && value.id === draftId)
 }
 
 export async function createDraft(projectId: string, body: string, key: string, signal?: AbortSignal): Promise<DraftDetail> {
-  return mutationJson(await mutate(`/api/projects/${projectId}/drafts`, 'POST', body, key, signal), value => isDraftDetail(value, projectId), 201)
+  return mutationJson(await mutate(`/api/projects/${projectId}/drafts`, 'POST', body, key, signal), (value): value is DraftDetail => isDraftDetail(value, projectId), 201)
 }
 
 export async function updateDraft(projectId: string, draftId: string, body: string, signal?: AbortSignal): Promise<DraftDetail> {
-  return mutationJson(await mutate(`/api/projects/${projectId}/drafts/${draftId}`, 'PATCH', body, undefined, signal), value => isDraftDetail(value, projectId))
+  return mutationJson(await mutate(`/api/projects/${projectId}/drafts/${draftId}`, 'PATCH', body, undefined, signal), (value): value is DraftDetail => isDraftDetail(value, projectId))
 }
 
 export async function deleteDraft(projectId: string, draftId: string, version: number, signal?: AbortSignal): Promise<void> {
@@ -237,9 +239,14 @@ export async function deleteDraft(projectId: string, draftId: string, version: n
 
 export async function submitDraft(projectId: string, draftId: string, version: number, key: string, signal?: AbortSignal): Promise<ReportDetail & { submittedDraftId: string }> {
   return mutationJson(await mutate(`/api/projects/${projectId}/drafts/${draftId}/submit`, 'POST', JSON.stringify({ expectedVersion: version }), key, signal),
-    (value): value is ReportDetail & { submittedDraftId: string } => isObject(value) && isReportDetail(value, projectId) && value.submittedDraftId === draftId, 201)
+    (value): value is ReportDetail & { submittedDraftId: string } => {
+      if (!isObject(value)) return false
+      const record = value
+      if (!isReportDetail(value, projectId)) return false
+      return typeof record.submittedDraftId === 'string' && record.submittedDraftId === draftId
+    }, 201)
 }
 
 export async function updateReport(projectId: string, reportId: string, body: string, signal?: AbortSignal): Promise<ReportDetail> {
-  return mutationJson(await mutate(`/api/projects/${projectId}/reports/${reportId}`, 'PATCH', body, undefined, signal), value => isReportDetail(value, projectId) && value.id === reportId)
+  return mutationJson(await mutate(`/api/projects/${projectId}/reports/${reportId}`, 'PATCH', body, undefined, signal), (value): value is ReportDetail => isReportDetail(value, projectId) && value.id === reportId)
 }
