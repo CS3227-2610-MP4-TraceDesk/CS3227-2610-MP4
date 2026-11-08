@@ -1,10 +1,10 @@
 # Shared AI gateway integration handoff
 
 Issue #39 supplies a backend foundation for Reporter #17, Developer #31 and the
-future QA AI slice. It adds no role endpoint or screen. AI is disabled until
-trusted backend wiring supplies an enabled finite policy and an expiring validated
-model/resource-funding snapshot. Live pricing/funding compatibility, role context
-adapters and deployment remain separate work.
+future QA AI slice. It adds no role endpoint or screen. AI defaults to disabled;
+issue #42 adds [trusted shared enablement](ai-enablement.md) for an enabled finite
+policy and an expiring validated model/sponsorship snapshot. Live account/model
+verification, remaining role adapters and deployment remain separate work.
 
 ## Modules and construction
 
@@ -16,7 +16,8 @@ adapters and deployment remain separate work.
 - `backend:auth-app`: `JdbcAiLedger` and Flyway V7 provide shared PostgreSQL
   configuration, daily units, tickets, accounting events and circuit state.
   Construct the ledger using the application's `JdbcTemplate`. There is no
-  automatic enabled Spring bean or scheduler in this feature.
+  automatic enabled Spring bean or scheduler in the original #39 foundation;
+  issue #42's shared manager now owns trusted publication and catalog refresh.
 
 No dependency on test database support belongs on a production runtime classpath.
 The raw `SoclaasClient` stays package-private and has no public provider accessor.
@@ -71,8 +72,10 @@ There is no browser/operator configuration endpoint or hot-reload service here.
 revision and expiry (at most 15 minutes away). SoCLaaS catalog access validates
 model availability; arbitrary catalog price fields are never converted to money.
 These ledger units represent conservative token resources, **not invoiced cost**.
-Production monetary funding/price validation must be independently verified
-before an operator enables live traffic. No live provider was needed for testing.
+Provider access and funding semantics must be verified before live traffic.
+Issue #42 supports explicit operator-approved institutional sponsorship with fixed
+expiry and finite resource limits; it does not implement monetary billing or infer
+prices. No live provider was needed for deterministic testing.
 
 Reserved tickets can be cancelled or expired with zero charge before dispatch.
 Dispatch commits before the single completion POST. Valid positive bounded usage
