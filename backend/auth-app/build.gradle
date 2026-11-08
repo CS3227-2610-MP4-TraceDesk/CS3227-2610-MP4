@@ -23,3 +23,12 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 tasks.withType(Test).configureEach { useJUnitPlatform() }
+
+tasks.register('reporterBrowserFixture', JavaExec) {
+    group = 'verification'
+    description = 'Runs the isolated synthetic backend for the Reporter real-browser test.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.tracedesk.auth.api.ReporterBrowserFixture'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+}
