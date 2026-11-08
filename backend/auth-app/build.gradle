@@ -9,6 +9,7 @@ version = '0.1.0-SNAPSHOT'
 java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 repositories { mavenCentral() }
 dependencies {
+    implementation project(':backend:ai-gateway')
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
