@@ -174,7 +174,20 @@ Reconciliation changes beyond the rename:
 
 The cluster used synthetic credentials only and was deleted afterwards. These
 results supersede the earlier "unavailable" PostgreSQL outcomes for this merged
-candidate. Runtime acceptance of TD-DEV-10 is still not claimed: the human owner's
-sign-off above predates this reconciliation and does not cover it, and no agent
-reviewed it independently. There is still no automated PostgreSQL coverage of draft
-audit writes.
+candidate.
+
+GitHub Actions run `42459090108` passed on PR #38 at head `9cd3dcf`, including
+`Authentication policy tests` and `Reporter browser against isolated backend`,
+whose integration fixtures apply V1–V6 to a fresh PostgreSQL 18 service. CI
+migrates empty databases, so it does not exercise the V6 backfill or an upgrade
+from the old V5, and no CI test writes draft or report-edit audit events.
+
+### Human owner review of the merge (2026-11-08)
+
+The Developer contributor (`Izn432`) asked in the Claude Code session that their
+review sign-off above be updated to cover the latest changes: the merge with
+`main`, the V6 reconciliation and the `ReportStore.audit` change in `9cd3dcf`. This
+section records that request only; what they rechecked was not stated.
+
+Runtime acceptance of TD-DEV-10 is still not claimed. No agent reviewed this
+reconciliation independently, and the CI gaps above remain.
