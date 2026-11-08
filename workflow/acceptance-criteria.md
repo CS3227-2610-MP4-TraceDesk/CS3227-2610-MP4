@@ -14,6 +14,7 @@
 | [Reporter reports and shared lifecycle](specs/reporter-reports.md) | TD-RPT-01 through TD-RPT-05 | REPORT-PLAN contract review recorded in [evidence](reporter/evidence/reporter-reports-plan.md); REPORT-DATA results below; runtime acceptance for #14–17 remains pending |
 | [Reporter report API and persistence](specs/reporter-reports.md#report-data-13-executable-acceptance-criteria) | TD-RPT-06 through TD-RPT-10 | REPORT-DATA implementation and verification recorded in [evidence](reporter/evidence/reporter-report-data.md); later report UI/edit/progress/AI slices remain separate |
 | [Reporter workspace and new report](specs/reporter-workspace-ui.md) | TD-RPT-11 through TD-RPT-15 | REPORT-UI results and remaining gaps tracked in [evidence](reporter/evidence/reporter-workspace-ui.md) |
+| [Reporter drafts and version-safe report editing](specs/reporter-report-edit.md) | TD-RPT-16 through TD-RPT-20 | Implementation and focused security evidence pending for issue #15 |
 | [Developer investigation and QA handoff](specs/developer-investigation.md) | TD-DEV-01 through TD-DEV-05 (contract); TD-DEV-06 through TD-DEV-30 planned in delivery issues #27–31 | Specified for DEV-PLAN #26; independent contract review and corrections in [evidence](developer/evidence/developer-investigation-plan.md); no runtime acceptance claimed |
 
 Add Reporter, Developer, QA and shared gateway specifications as their implementation
