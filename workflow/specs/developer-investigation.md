@@ -37,7 +37,7 @@ only Developer-owned behavior:
 | Developer context read, investigation notes, proposed resolutions | **This contract** |
 | QA rejection-reason representation | **This contract** (see [QA rejection representation](#qa-rejection-representation)) |
 | QA close/reject commands and endpoints, QA checklists | Later QA verification slice (not yet written) |
-| Developer AI suggestions | DEV-AI #31, blocked on a separate secured-gateway specification |
+| Developer AI suggestions | [DEV-AI #31 contract](developer-ai.md) |
 
 Excluded: QA close/reject UI or endpoints, Reporter editing, file/repository/diff
 ingestion, attachments, arbitrary code execution, automatic patches,
@@ -373,6 +373,13 @@ or authorization; DEV-UI replaces the Developer preview path with real API calls
   preserve unsent note, clarification and resolution text and offer refresh.
   `403` after reassignment removes the notes panel and actions. `401` follows the
   shared session-expired flow.
+- **Changed-since-refresh warning**: the detail and notes responses form the page's
+  freshness snapshot. On a later refresh, focus revalidation or mutation response,
+  if the report version, status, assignment or any loaded note version/deletion has
+  changed outside a successful action already incorporated into this view, show one
+  workspace-level warning that the investigation changed since it was last refreshed.
+  Preserve drafts and offer Refresh; do not claim real-time detection. This applies
+  to all human and AI-assisted work, not only AI previews.
 - **Isolation**: drafts, selection and results are keyed by project and report and
   are discarded on report, project or account change; nothing leaks across them.
 - **Safe rendering**: all user, report and (later) model text renders as plain
@@ -389,17 +396,16 @@ or authorization; DEV-UI replaces the Developer preview path with real API calls
 
 ## AI boundary (for DEV-AI #31)
 
-Developer AI is advisory and is blocked until a separately specified and verified
-secured gateway exists; the internal SoCLaaS transport must not be wired to
-Developer controllers or the browser. When specified, the eligible context is at
-most: the authorized report's shared fields and the assigned Developer's
-explicitly selected notes, selected after authorization and reauthorized
-(membership plus assignment plus source version) before delivery. Clarification
-text, resolutions, other reports, other projects, credentials and audit data are
-excluded unless that later contract adds them explicitly. AI output may populate
-an editable preview only; applying it is an ordinary note or resolution command
-with the normal version check. AI never starts investigation, proposes a
-resolution or changes status.
+Developer AI is advisory and is specified in the [DEV-AI contract](developer-ai.md);
+the internal SoCLaaS transport must not be wired to Developer controllers or the
+browser. The eligible context is at most: the authorized report's shared fields and
+the assigned Developer's explicitly selected notes, selected after authorization and
+reauthorized (membership plus assignment plus source version) before delivery.
+Clarification text, resolutions, other reports, other projects, credentials and audit
+data are excluded. AI output may populate an editable preview only; applying it is an
+ordinary note command with the normal assignment, status, cap, idempotency and audit
+checks. The shared changed-since-refresh warning covers stale human and AI-assisted
+drafts. AI never starts investigation, proposes a resolution or changes status.
 
 ## Acceptance criteria
 
@@ -455,7 +461,7 @@ behavior.
 | --- | --- |
 | **TD-DEV-11** | Developer navigation and context render only after trusted session and `developer-context` responses; a route hint, preview role selection or fixture cannot establish production identity or authorization. |
 | **TD-DEV-12** | My work requests `assignedToMe=true`, All bugs follows the canonical same-project read policy, and detail renders only shared report fields plus private notes selected through their separately authorized endpoint for the current assignee. |
-| **TD-DEV-13** | Start-investigation and note create/edit/delete wait for confirmed backend results; recoverable failures preserve unsent text and expose refresh/retry, while denied, reassigned, stale, session-expired, empty, loading and unavailable outcomes remove or retain protected UI as specified above. |
+| **TD-DEV-13** | Start-investigation and note create/edit/delete wait for confirmed backend results; recoverable failures preserve unsent text and expose refresh/retry, while denied, reassigned, stale, session-expired, empty, loading and unavailable outcomes remove or retain protected UI as specified above. A later refresh, focus revalidation or mutation response that reveals changed report/assignment/status or loaded-note state shows the shared changed-since-refresh warning without discarding drafts. |
 | **TD-DEV-14** | User/report/model-like text renders as inert plain text; selection, drafts, attempts and results are isolated by account, project and report and are discarded when their owning context changes. Unknown-outcome note-create retry reuses the same body and idempotency key. |
 | **TD-DEV-15** | Same-candidate browser-to-real-backend evidence covers assigned versus unassigned access, start investigation, notes, stale/reassigned behavior, keyboard use, 320/390px and desktop layout, contrast and reduced motion; any unavailable real-backend environment is recorded as pending rather than replaced by mocked-browser evidence. |
 
@@ -467,7 +473,7 @@ behavior.
 | #28 DEV-UI | TD-DEV-11–15 | My work, All bugs, detail, start and notes UI | #27 |
 | #29 DEV-CLARIFY | TD-DEV-16–20 | **Descoped on 2026-11-09**; see the open decisions below. Clarification text elsewhere in this contract is not current delivery scope. | Not scheduled; #16 depended on this for Reporter replies |
 | #30 DEV-RESOLUTION | TD-DEV-21–25 | Resolution schema, propose endpoint and handoff UI | #27 |
-| #31 DEV-AI | TD-DEV-26–30 | Advisory hypotheses and next steps | #27, #28, secured gateway specification and verification |
+| #31 DEV-AI | TD-DEV-26–30, specified in [developer-ai.md](developer-ai.md) | Advisory hypotheses and next steps | Contract review; #32 for the production journey |
 | #32 QA-ASSIGN | TD-ASG-01–05 | QA assignment, reassignment and clear (QA contributor) | Prerequisite for the production Developer journey |
 
 Applicable threat-model rows: forged role/project/bug ID, report object-ID

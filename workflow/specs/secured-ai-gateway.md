@@ -75,7 +75,10 @@ independent transactions, so an enclosing rollback cannot erase paid usage.
    outcome with no suggestion delivery. Accounting still reflects any dispatch.
 
 The gateway never applies suggestions. Later role apply commands require explicit
-user action, ordinary authorization, source version checks and business audit.
+user action and the destination mutation's ordinary authorization, lifecycle,
+concurrency and business-audit rules. A role contract may require a source-version
+check when the destination operation overwrites versioned source data, but the
+gateway does not create a blanket AI-provenance requirement.
 
 ## Resource policy and funding meaning
 

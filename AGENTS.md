@@ -53,7 +53,9 @@ not transfer. Do not access old environment files or production data.
 - All role AI calls must eventually go through the secured gateway. The extracted
   transport is internal and must not be wired to web controllers by itself.
 - Authorize before selecting prompt fields and again before delivery. Applying
-  suggestions requires explicit user action and a version check.
+  suggestions requires explicit user action and the destination mutation's normal
+  authorization, lifecycle and concurrency checks; do not invent AI-only
+  persistence or provenance requirements unless the feature contract needs them.
 - Commit a domain mutation and its audit event in one database transaction.
   Accounting events and business audit events have different meanings.
 - Use fresh TraceDesk migrations, UTC timestamps, and isolated test databases.

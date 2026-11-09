@@ -24,8 +24,9 @@ not automatically ingest files or entire repositories.
 - Reserve shared capacity/cost before dispatch, settle once, retain conservative
   charges when usage is uncertain. Disabled/unavailable AI must not break ordinary
   bug management.
-- Validate output shape/size; render escaped text. Require explicit apply and a
-  source-version check. AI cannot submit, approve, close, reopen or execute code.
+- Validate output shape/size; render escaped text. Require explicit apply through
+  the destination operation's normal authorization, lifecycle and concurrency
+  rules. AI cannot submit, approve, close, reopen or execute code.
 - Reject unauthorized delivery after membership/session/assignment changes.
 - Record only bounded metadata: capability, model, prompt version, outcome,
   latency, size and provider-reported token counts; missing usage is unknown.
