@@ -64,6 +64,9 @@ final class SoclaasClient implements AutoCloseable {
         throw failure(SoclaasException.Category.AI_REJECTED);
     }
 
+    /** Internal factory signal after a separate fixed-origin catalog validator succeeds. */
+    void markModelValidated() { validatedAt = System.nanoTime(); }
+
     /** Accepts trusted instructions and an already allowlisted JSON object, never a client-selected prompt policy. */
     public Completion complete(String system, String dataJson) {
         if (validatedAt == 0 || System.nanoTime() - validatedAt > Duration.ofMinutes(15).toNanos()) {

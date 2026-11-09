@@ -12,10 +12,11 @@ exceed the AI input budget; an oversized source is rejected without truncation o
 provider dispatch. Model text is untrusted, strictly validated advisory content.
 Already complete reports may return no changes or questions.
 
-Production AI remains disabled. `ReportAiConfiguration` constructs only a disabled
-shared secured factory until a separately verified funding integration supplies
-trusted enabled wiring. There is no browser or environment switch that bypasses
-that requirement. Normal reporting remains usable. The browser test provider is
+AI defaults to disabled. `ReportAiConfiguration` now delegates to the shared
+[enablement manager](ai-enablement.md), requiring trusted backend configuration,
+explicit sponsored-access approval, finite resource limits and verified expiring
+model metadata. Live account/model validation and deployed release verification
+remain separate gates. Normal reporting remains usable. The browser test provider is
 test-only and exercises the real session, API, shared gateway, ledger and PATCH
 path; it does not demonstrate live model quality or funding readiness.
 

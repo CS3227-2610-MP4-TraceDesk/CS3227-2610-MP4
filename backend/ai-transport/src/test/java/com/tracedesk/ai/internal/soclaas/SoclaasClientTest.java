@@ -386,7 +386,7 @@ class SoclaasClientTest {
 
     private SoclaasClient client(TestEnvironment environment) {
         environment.withProperty("AI_ENABLED", "true").withProperty("SOCLAAS_API_KEY", "synthetic-secret")
-                .withProperty("SOCLAAS_MODEL", "test-model");
+                .withProperty("SOCLAAS_MODEL", "test-model").withSponsoredAccess();
         return new SoclaasClient(SoclaasSettings.from(environment),
                 URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/v1"));
     }

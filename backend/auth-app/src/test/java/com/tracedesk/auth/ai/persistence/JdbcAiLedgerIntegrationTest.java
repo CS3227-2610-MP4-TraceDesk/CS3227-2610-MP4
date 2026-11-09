@@ -23,7 +23,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class JdbcAiLedgerIntegrationTest {
     private static final Instant NOW=Instant.parse("2026-11-09T23:59:50Z");
     private static final Policy POLICY=new Policy(true,1,1000,800,4,1,Duration.ofSeconds(60));
-    private static Metadata metadata(Instant now) { return new Metadata("synthetic-model",1,NOW.plusSeconds(900),1); }
+    private static final String APPROVAL="0".repeat(64);
+    private static Metadata metadata(Instant now) { return new Metadata("synthetic-model",1,NOW.plusSeconds(900),1,APPROVAL,NOW.plusSeconds(1800)); }
 
     @Test void ambientRollbackCannotEraseAccountingAndFacadeBoundaryRejectsIt() throws Exception {
         try (Fixture f=new Fixture()) {
@@ -62,15 +63,85 @@ class JdbcAiLedgerIntegrationTest {
         }
     }
 
+    @Test void repeatedDisabledPolicyPublicationDoesNotWriteOrAdvanceMetadataRevision() throws Exception {
+        try (Fixture f=new Fixture()) {
+            Policy disabled=new Policy(false,2,0,0,4,1,Duration.ofSeconds(60));
+            f.ledger.configure(disabled,null,NOW);
+            long afterDisable=f.sql.queryForObject("select metadata_revision from td_ai_control",Long.class);
+            f.ledger.configure(disabled,null,NOW.plusSeconds(1));
+            assertEquals(afterDisable,f.sql.queryForObject("select metadata_revision from td_ai_control",Long.class));
+            Policy newerDisabled=new Policy(false,3,0,0,4,1,Duration.ofSeconds(60));
+            f.ledger.configure(newerDisabled,null,NOW.plusSeconds(2));
+            assertEquals(afterDisable+1,f.sql.queryForObject("select metadata_revision from td_ai_control",Long.class));
+        }
+    }
+
+    @Test void newMetadataRevisionMustBeAllocatedBeforeCatalogBackedPublication() throws Exception {
+        try (Fixture f=new Fixture()) {
+            String approval="d".repeat(64);
+            f.ledger.publishPolicy(POLICY,NOW);
+            f.ledger.prepareEnablement(POLICY,"synthetic-model",1,1,approval,NOW.plusSeconds(1800),NOW);
+            Metadata unallocated=new Metadata("synthetic-model",2,NOW.plusSeconds(900),1,approval,NOW.plusSeconds(1800));
+            assertCode(AI_UNAVAILABLE,()->f.ledger.configure(POLICY,unallocated,NOW));
+            assertFalse(f.sql.queryForObject("select metadata_available from td_ai_control",Boolean.class));
+        }
+    }
+
+    @Test void newerEnabledPolicyWithNoMetadataFencesOldAdmissionBeforeCatalogRefresh() throws Exception {
+        try (Fixture f=new Fixture()) {
+            f.ledger.configure(POLICY,metadata(NOW),NOW);
+            Policy newer=new Policy(true,2,1000,800,4,1,Duration.ofSeconds(60));
+            f.ledger.publishPolicy(newer,NOW); // startup is fail-closed until a new catalog snapshot is published
+            assertFalse(f.sql.queryForObject("select metadata_available from td_ai_control",Boolean.class));
+            assertCode(AI_UNAVAILABLE,()->f.ledger.reserve(f.other,f.request,POLICY,metadata(NOW),10,NOW));
+        }
+    }
+
+    @Test void sponsorshipAndModelRevisionsAreImmutableAndSharedSnapshotsAreAdopted() throws Exception {
+        try (Fixture f=new Fixture()) {
+            String approval="a".repeat(64);
+            f.ledger.publishPolicy(POLICY,NOW);
+            f.ledger.prepareEnablement(POLICY,"synthetic-model",1,1,approval,NOW.plusSeconds(1800),NOW);
+            assertCode(AI_UNAVAILABLE,()->f.ledger.configure(POLICY,
+                    new Metadata("synthetic-model",2,NOW.plusSeconds(900),1,approval,NOW.plusSeconds(1800)),NOW));
+            long rev=f.ledger.nextMetadataRevision(POLICY,"synthetic-model",1,1,approval,NOW.plusSeconds(1800),NOW);
+            Metadata published=new Metadata("synthetic-model",rev,NOW.plusSeconds(900),1,approval,NOW.plusSeconds(1800));
+            f.ledger.configure(POLICY,published,NOW);
+            assertEquals(published,f.ledger.readCurrentMetadata(POLICY,"synthetic-model",1,1,approval,NOW.plusSeconds(1800),NOW));
+            assertCode(AI_UNAVAILABLE,()->f.ledger.prepareEnablement(POLICY,"other-model",1,1,approval,NOW.plusSeconds(1800),NOW));
+            assertCode(AI_UNAVAILABLE,()->f.ledger.prepareEnablement(POLICY,"synthetic-model",1,1,"b".repeat(64),NOW.plusSeconds(1800),NOW));
+            assertCode(AI_UNAVAILABLE,()->f.ledger.nextMetadataRevision(new Policy(true,0,1000,800,4,1,Duration.ofSeconds(60)),"synthetic-model",1,1,approval,NOW.plusSeconds(1800),NOW));
+            assertEquals(published,f.ledger.readCurrentMetadata(POLICY,"synthetic-model",1,1,approval,NOW.plusSeconds(1800),NOW));
+        }
+    }
+
+    @Test void staleRefreshCannotInvalidateNewerPublishedProfileAndSharedReadersAdoptIt() throws Exception {
+        try (Fixture f=new Fixture()) {
+            String approval="c".repeat(64); Policy active=new Policy(true,2,1000,800,4,1,Duration.ofSeconds(60));
+            f.ledger.publishPolicy(active,NOW);
+            f.ledger.prepareEnablement(active,"model-v2",2,3,approval,NOW.plusSeconds(1800),NOW);
+            long rev=f.ledger.nextMetadataRevision(active,"model-v2",2,3,approval,NOW.plusSeconds(1800),NOW);
+            Metadata published=new Metadata("model-v2",rev,NOW.plusSeconds(900),3,approval,NOW.plusSeconds(1800));
+            f.ledger.configure(active,published,NOW);
+            assertEquals(published,new JdbcAiLedger(f.sql).readCurrentMetadata(active,"model-v2",2,3,approval,NOW.plusSeconds(1800),NOW));
+            Policy stale=new Policy(true,1,1000,800,4,1,Duration.ofSeconds(60));
+            assertCode(AI_UNAVAILABLE,()->new JdbcAiLedger(f.sql).nextMetadataRevision(stale,"model-v2",2,3,approval,NOW.plusSeconds(1800),NOW));
+            assertEquals(published,f.ledger.readCurrentMetadata(active,"model-v2",2,3,approval,NOW.plusSeconds(1800),NOW));
+            Policy disabled=new Policy(false,3,0,0,4,1,Duration.ofSeconds(60));
+            f.ledger.publishPolicy(disabled,NOW);
+            assertNull(f.ledger.readCurrentMetadata(active,"model-v2",2,3,approval,NOW.plusSeconds(1800),NOW));
+        }
+    }
+
     @Test void metadataValidityCannotBeExtendedOrShortenedWithinTheSameRevision() throws Exception {
         try (Fixture f=new Fixture()) {
             f.ledger.configure(POLICY,metadata(NOW),NOW);
             for (long delta:new long[]{-1,1}) {
-                Metadata changed=new Metadata("synthetic-model",1,NOW.plusSeconds(900+delta),1);
+                Metadata changed=new Metadata("synthetic-model",1,NOW.plusSeconds(900+delta),1,APPROVAL,NOW.plusSeconds(1800));
                 Instant publication=NOW.plusSeconds(1);
                 assertCode(AI_UNAVAILABLE,()->f.ledger.configure(POLICY,changed,publication));
             }
-            f.ledger.configure(POLICY,new Metadata("synthetic-model",2,NOW.plusSeconds(901),1),NOW.plusSeconds(1));
+            f.ledger.configure(POLICY,new Metadata("synthetic-model",2,NOW.plusSeconds(901),1,APPROVAL,NOW.plusSeconds(1800)),NOW.plusSeconds(1));
             assertCode(AI_UNAVAILABLE,()->f.ledger.configure(POLICY,metadata(NOW),NOW.plusSeconds(1)));
         }
     }

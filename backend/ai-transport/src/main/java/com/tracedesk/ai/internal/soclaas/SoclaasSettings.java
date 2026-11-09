@@ -2,6 +2,9 @@ package com.tracedesk.ai.internal.soclaas;
 
 import java.net.URI;
 import java.time.Duration;
+import java.time.Instant;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 
@@ -12,11 +15,36 @@ public final class SoclaasSettings {
     private final String apiKey;
     private final String model;
     private final Map<String, Integer> limits;
+    private final com.tracedesk.ai.gateway.GatewayTypes.Policy policy;
+    private final long approvalRevision;
+    private final long modelRevision;
+    private final Instant approvalValidUntil;
+    private final String approvalFingerprint;
 
-    private SoclaasSettings(boolean enabled, String apiKey, String model, Map<String, String> environment) {
+    private SoclaasSettings(boolean enabled, String apiKey, String model, Map<String, String> environment, long disabledRevision) {
         this.enabled = enabled;
         this.apiKey = apiKey;
         this.model = model;
+        if (!enabled) {
+            this.policy = new com.tracedesk.ai.gateway.GatewayTypes.Policy(false, disabledRevision, 0, 0, 4, 1, Duration.ofSeconds(60));
+            this.approvalRevision = 0;
+            this.modelRevision = 0;
+            this.approvalValidUntil = null;
+            this.approvalFingerprint = null;
+        } else {
+            long revision = readLong(environment, "AI_POLICY_REVISION", 1, 1_000_000_000L);
+            long global = readRequiredLong(environment, "AI_GLOBAL_DAILY_UNITS", 1_000_000_000_000L);
+            long actor = readRequiredLong(environment, "AI_ACTOR_DAILY_UNITS", global);
+            this.policy = new com.tracedesk.ai.gateway.GatewayTypes.Policy(true, revision, global, actor, 4, 1, Duration.ofSeconds(60));
+            String ack = environment.getOrDefault("AI_SPONSORED_ACCESS_ACKNOWLEDGED", "false");
+            if (!"true".equals(ack)) throw invalid("AI_SPONSORED_ACCESS_ACKNOWLEDGED");
+            String reference = required(environment, "AI_SPONSORED_APPROVAL_REFERENCE");
+            this.approvalRevision = readLong(environment, "AI_SPONSORED_APPROVAL_REVISION", 1, 1_000_000_000L);
+            this.modelRevision = readLong(environment, "AI_MODEL_REVISION", 1, 1_000_000_000L);
+            try { this.approvalValidUntil = Instant.parse(required(environment, "AI_SPONSORED_APPROVAL_EXPIRES_AT")); }
+            catch (RuntimeException invalid) { throw invalid("AI_SPONSORED_APPROVAL_EXPIRES_AT"); }
+            this.approvalFingerprint = fingerprint(reference);
+        }
         // Validated values so later environment mutation cannot alter an active client.
         this.limits = Map.of("AI_CONNECT_TIMEOUT_MS", readLimit(environment, "AI_CONNECT_TIMEOUT_MS", 3000),
                 "AI_REQUEST_TIMEOUT_MS", readLimit(environment, "AI_REQUEST_TIMEOUT_MS", 30000),
@@ -34,14 +62,15 @@ public final class SoclaasSettings {
             throw invalid("AI_ENABLED");
         }
         if (flag.equals("false")) {
-            return new SoclaasSettings(false, "", "", environment);
+            return new SoclaasSettings(false, "", "", environment,
+                    readLong(environment, "AI_POLICY_REVISION", 1, 1_000_000_000L));
         }
         String origin = environment.getOrDefault("SOCLAAS_BASE_URL", ORIGIN.toString());
         if (!origin.equals(ORIGIN.toString())) {
             throw invalid("SOCLAAS_BASE_URL");
         }
         return new SoclaasSettings(true, required(environment, "SOCLAAS_API_KEY"),
-                required(environment, "SOCLAAS_MODEL"), environment);
+                required(environment, "SOCLAAS_MODEL"), environment, 0);
     }
 
     public boolean enabled() {
@@ -83,6 +112,32 @@ public final class SoclaasSettings {
 
     public int maxOutputTokens() {
         return limits.get("AI_MAX_OUTPUT_TOKENS");
+    }
+
+    public com.tracedesk.ai.gateway.GatewayTypes.Policy policy() { return policy; }
+    public long approvalRevision() { return approvalRevision; }
+    public long modelRevision() { return modelRevision; }
+    public Instant approvalValidUntil() { return approvalValidUntil; }
+    public String approvalFingerprint() { return approvalFingerprint; }
+
+    private static long readLong(Map<String,String> environment, String name, long fallback, long maximum) {
+        try {
+            long value = Long.parseLong(environment.getOrDefault(name, Long.toString(fallback)));
+            if (value > 0 && value <= maximum) return value;
+        } catch (RuntimeException ignored) { }
+        throw invalid(name);
+    }
+
+    private static long readRequiredLong(Map<String,String> environment, String name, long maximum) {
+        if (!environment.containsKey(name)) throw invalid(name);
+        return readLong(environment, name, 0, maximum);
+    }
+
+    private static String fingerprint(String reference) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(reference.getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException impossible) { throw new IllegalStateException(); }
     }
 
     private int readLimit(Map<String, String> environment, String name, int maximum) {

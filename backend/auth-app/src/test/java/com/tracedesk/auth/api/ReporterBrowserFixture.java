@@ -154,8 +154,18 @@ public final class ReporterBrowserFixture {
     /** Test-only provider behind the real secured gateway, ledger, HTTP/session and UI. */
     @TestConfiguration(proxyBeanMethods=false)
     public static class AiFixtureConfiguration {
-        @Bean @Primary ReportAiService browserReportAiService(ReportRepository reports, JdbcTemplate sql, Clock clock) {
-            var metadata = new Metadata("synthetic-java-model", 1, clock.instant().plusSeconds(900), 1);
+        @Bean @Primary
+        @org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization
+        ReportAiService browserReportAiService(ReportRepository reports, JdbcTemplate sql, Clock clock) {
+            var ledger = new JdbcAiLedger(sql);
+            var policy = new Policy(true, 100, 1_000_000, 500_000, 4, 1, Duration.ofSeconds(60));
+            var now = clock.instant();
+            var expiry = now.plusSeconds(900);
+            var approval = "0".repeat(64); // Explicit synthetic approval; never used by production transport.
+            ledger.publishPolicy(policy, now);
+            ledger.prepareEnablement(policy, "synthetic-java-model", 1, 1, approval, expiry, now);
+            long revision = ledger.nextMetadataRevision(policy, "synthetic-java-model", 1, 1, approval, expiry, now);
+            var metadata = new Metadata("synthetic-java-model", revision, expiry, 1, approval, expiry);
             Provider provider = new Provider() {
                 public Metadata metadata() { return metadata; }
                 public Completion complete(Context context) {
@@ -168,8 +178,7 @@ public final class ReporterBrowserFixture {
                         """, new Usage(300, 80));
                 }
             };
-            return new ReportAiService(reports, clock, provider, new JdbcAiLedger(sql),
-                    new Policy(true, 100, 1_000_000, 500_000, 4, 1, Duration.ofSeconds(60)));
+            return new ReportAiService(reports, clock, provider, ledger, policy);
         }
     }
 
