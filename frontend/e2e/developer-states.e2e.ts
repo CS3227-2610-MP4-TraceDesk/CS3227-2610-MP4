@@ -60,6 +60,20 @@ test('Developer workspace is safe, keyboard reachable, responsive and reduced-mo
   const desktopAxe = await new AxeBuilder({ page }).analyze()
   expect(desktopAxe.violations.map(({ id, impact }) => `${id}:${impact}`)).toEqual([])
 
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'Dark theme' }).click()
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark')
+  const signOutColours = await page.getByRole('button', { name: 'Sign out' }).evaluate((button) => ({
+    actual: getComputedStyle(button).color,
+    token: getComputedStyle(document.body).color,
+  }))
+  expect(signOutColours.actual).toBe(signOutColours.token)
+  const settingsAxe = await new AxeBuilder({ page }).analyze()
+  expect(settingsAxe.violations.map(({ id, impact }) => `${id}:${impact}`)).toEqual([])
+  await page.getByRole('button', { name: 'My work' }).click()
+  await page.getByRole('button', { name: report.title }).click()
+  await expect(page.getByRole('heading', { name: report.title })).toBeVisible()
+
   await page.getByRole('button', { name: 'Start investigation' }).focus()
   await page.keyboard.press('Enter')
   await expect(page.getByText(/server confirmed the change/i)).toBeVisible()

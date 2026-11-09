@@ -61,12 +61,18 @@ public final class ReporterBrowserFixture {
             UUID projectId = UUID.randomUUID();
             UUID deniedProjectId = UUID.randomUUID();
             UUID reporterId = UUID.randomUUID();
+            UUID developerFixtureReporterId = UUID.randomUUID();
             UUID nonmemberId = UUID.randomUUID();
             UUID developerId = UUID.randomUUID();
+            UUID successorId = UUID.randomUUID();
+            UUID assignedReportId = UUID.randomUUID();
+            UUID unassignedReportId = UUID.randomUUID();
             String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
             String login = "reporter-" + suffix + "@example.test";
+            String developerFixtureReporterLogin = "developer-fixture-reporter-" + suffix + "@example.test";
             String nonmemberLogin = "nonmember-" + suffix + "@example.test";
             String developerLogin = "developer-" + suffix + "@example.test";
+            String successorLogin = "developer-successor-" + suffix + "@example.test";
 
             SpringApplication app = new SpringApplication(AuthApplication.class);
             app.addPrimarySources(Set.of(AiFixtureConfiguration.class));
@@ -105,17 +111,27 @@ public final class ReporterBrowserFixture {
                 sql.update("insert into td_projects(id,name) values(?,?)", deniedProjectId, "Synthetic Unavailable Project");
                 Argon2PasswordEncoder encoder = new Argon2PasswordEncoder(16, 32, 1, 19456, 2);
                 seedUser(sql, encoder, reporterId, login);
+                seedUser(sql, encoder, developerFixtureReporterId, developerFixtureReporterLogin);
                 seedUser(sql, encoder, nonmemberId, nonmemberLogin);
                 seedUser(sql, encoder, developerId, developerLogin);
+                seedUser(sql, encoder, successorId, successorLogin);
                 sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'REPORTER','ACTIVE')",
                         projectId, reporterId);
                 sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'DEVELOPER','ACTIVE')",
                         projectId, developerId);
+                sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'DEVELOPER','ACTIVE')",
+                        projectId, successorId);
+                seedDeveloperReport(sql, assignedReportId, projectId, developerFixtureReporterId, developerId,
+                        "Assigned browser report <img src=x onerror=window.__developerInjected=true>");
+                seedDeveloperReport(sql, unassignedReportId, projectId, developerFixtureReporterId, null,
+                        "Unassigned browser report");
                 Path metadataTemp = workDirectory.resolve("fixture.json.tmp");
                 Files.writeString(metadataTemp, "{\"projectId\":\"" + projectId + "\",\"deniedProjectId\":\"" +
                         deniedProjectId + "\",\"reporterId\":\"" + reporterId + "\",\"login\":\"" + login +
                         "\",\"nonmemberLogin\":\"" + nonmemberLogin + "\",\"developerLogin\":\"" +
-                        developerLogin + "\"}");
+                        developerLogin + "\",\"developerId\":\"" + developerId +
+                        "\",\"assignedReportId\":\"" + assignedReportId +
+                        "\",\"unassignedReportId\":\"" + unassignedReportId + "\"}");
                 Files.move(metadataTemp, metadata, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
 
                 AuthStore store = context.getBean(AuthStore.class);
@@ -127,6 +143,16 @@ public final class ReporterBrowserFixture {
                         if ("invalidate-reporter-session".equals(command)) {
                             store.setUserEnabled(reporterId, false);
                             store.setUserEnabled(reporterId, true);
+                            Files.writeString(ackFile, "done");
+                        } else if ("invalidate-developer-session".equals(command)) {
+                            store.setUserEnabled(developerId, false);
+                            store.setUserEnabled(developerId, true);
+                            Files.writeString(ackFile, "done");
+                        } else if ("advance-developer-report-version".equals(command)) {
+                            sql.update("update td_reports set version=version+1 where id=?", assignedReportId);
+                            Files.writeString(ackFile, "done");
+                        } else if ("reassign-developer-report".equals(command)) {
+                            sql.update("update td_reports set assigned_developer_id=? where id=?", successorId, assignedReportId);
                             Files.writeString(ackFile, "done");
                         } else if ("audit-off".equals(command) && !auditUnavailable) {
                             sql.execute("alter table td_business_audit_events rename to td_business_audit_events_fixture_off");
@@ -185,6 +211,19 @@ public final class ReporterBrowserFixture {
     private static void seedUser(JdbcTemplate sql, Argon2PasswordEncoder encoder, UUID id, String login) {
         sql.update("insert into td_users(id,login_normalized,password_hash) values(?,?,?)",
                 id, login, encoder.encode(PASSWORD));
+    }
+
+    private static void seedDeveloperReport(JdbcTemplate sql, UUID id, UUID projectId, UUID reporterId,
+                                            UUID developerId, String title) {
+        sql.update("""
+                insert into td_reports(id,project_id,reporter_user_id,title,description,environment,reproduction_steps,
+                  expected_behavior,actual_behavior,text_logs,status,assigned_developer_id,created_at,updated_at,version)
+                values(?,?,?,?,?,?,?,?,?,?,'OPEN',?,now(),now(),1)
+                """, id, projectId, reporterId, title,
+                "Untrusted description <script>window.__developerInjected=true</script>",
+                "Synthetic isolated PostgreSQL", "1. Open the Developer workspace",
+                "The report remains inert text", "The real backend returns the assigned report",
+                "<b>plain synthetic log text</b>", developerId);
     }
 
     private static void createKeyStore(Path path, String password) throws Exception {
