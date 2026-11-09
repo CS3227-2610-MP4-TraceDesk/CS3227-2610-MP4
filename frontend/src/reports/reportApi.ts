@@ -89,7 +89,7 @@ function isReportSummary(value: unknown, expectedProjectId: string): value is Re
     Number.isInteger(value.version) && Number(value.version) > 0
 }
 
-function isReportDetail(value: unknown, expectedProjectId: string): value is ReportDetail {
+export function isReportDetail(value: unknown, expectedProjectId: string): value is ReportDetail {
   if (!isObject(value)) return false
   const candidate = value
   if (!isReportSummary(value, expectedProjectId)) return false
@@ -156,10 +156,11 @@ export async function fetchProjectContext(projectId: string, signal?: AbortSigna
   return jsonOrThrow(response, value => isProjectContext(value, projectId))
 }
 
-export async function fetchReports(projectId: string, status: ReportStatus | '', cursor: string | null, signal?: AbortSignal): Promise<ReportPage> {
+export async function fetchReports(projectId: string, status: ReportStatus | '', cursor: string | null, signal?: AbortSignal, assignedToMe?: boolean): Promise<ReportPage> {
   const params = new URLSearchParams({ limit: '25' })
   if (status) params.set('status', status)
   if (cursor) params.set('cursor', cursor)
+  if (assignedToMe !== undefined) params.set('assignedToMe', String(assignedToMe))
   const response = await request(`/api/projects/${projectId}/reports?${params.toString()}`, signal)
   return jsonOrThrow(response, (value): value is ReportPage => isReportPage(value, projectId))
 }

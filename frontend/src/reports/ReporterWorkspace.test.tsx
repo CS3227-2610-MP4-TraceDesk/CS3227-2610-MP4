@@ -87,6 +87,32 @@ describe('Reporter workspace request isolation', () => {
     expect(screen.getByText('No reports yet')).toBeInTheDocument()
   })
 
+  it('keeps the unsaved-work warning when project change returns to discovery', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path === `/api/projects/${projectOne}/reporter-context`) return Promise.resolve(response(200, projectContext(projectOne, 'First project')))
+      return Promise.resolve(response(200, { items: [], nextCursor: null }))
+    }))
+    const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true)
+    vi.stubGlobal('confirm', confirm)
+    window.history.replaceState(null, '', `/?project=${projectOne}`)
+    const onChooseWorkspace = vi.fn()
+    render(<ReporterWorkspace {...workspaceProps()} onChooseWorkspace={onChooseWorkspace} />)
+
+    await screen.findByText('Reports for First project')
+    fireEvent.click(screen.getAllByRole('button', { name: 'New report' })[0])
+    await screen.findByLabelText(/Title/)
+    fillValidReport()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change project' }))
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(onChooseWorkspace).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(/Title/)).toHaveValue('Cannot save report')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change project' }))
+    expect(onChooseWorkspace).toHaveBeenCalledTimes(1)
+  })
+
   it('aborts protected list work when the signed-in workspace unmounts', async () => {
     let resolveList!: (value: Response) => void
     const delayedList = new Promise<Response>(resolve => { resolveList = resolve })
