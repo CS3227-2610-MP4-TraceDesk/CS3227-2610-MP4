@@ -38,7 +38,7 @@
 | TD-DEV-12 | **Candidate pass for frontend/API contract**. My work uses the named `assigned-to-me` scope and sends `assignedToMe=true`; All bugs uses the named `all` scope and omits the assignment parameter so the backend returns the complete same-project list. Notes are requested only when the trusted session user UUID equals the detail assignment and are absent for another assignee. |
 | TD-DEV-13 | **Candidate pass**. Start and note create/edit/delete update UI only after success. Unit tests cover confirmed start/create/edit/delete and reassignment removal. The corrected real-backend journey passed its explicit requirement that the prior private-note body and denied unsaved edit disappear immediately after reassignment denial, before session invalidation. Draft text and note-create idempotency attempt stay stable for retry in unit coverage. |
 | TD-DEV-14 | **Candidate pass at unit/component level**. React text rendering is tested with HTML/script-like report, log and note values; DOM injection is absent. Cross-report note responses are rejected. A shared mutation scope aborts requests and discards late results when report/project/account context changes; a delayed create-response regression test switches reports before resolution. CSRF retry preserves body and idempotency key. Current browser rerun remains unavailable as recorded above. |
-| TD-DEV-15 | **Candidate pass locally**. The corrected same-candidate isolated run covers assigned/unassigned access, stale start, confirmed start/notes, immediate protected-content removal after reassignment denial, session expiry, safe rendering, keyboard focus return, 1440/390/320 layouts, light/dark Axe scans and reduced motion. Its digest manifest includes the untracked Developer test. CI confirmation remains pending. |
+| TD-DEV-15 | **Candidate pass locally and in CI**. The corrected same-candidate isolated run covers assigned/unassigned access, stale start, confirmed start/notes, immediate protected-content removal after reassignment denial, session expiry, safe rendering, keyboard focus return, 1440/390/320 layouts, light/dark Axe scans and reduced motion. Its digest manifest includes the untracked Developer test. CI passed the same journey on the committed candidate; see [CI confirmation](#ci-confirmation-2026-11-09). |
 
 Allowed/denied coverage includes Developer context, assigned versus another-assignee
 note visibility, opaque project/report failure handling, reassignment removal and
@@ -153,8 +153,8 @@ overflow. The corrected helper records a deterministic manifest
 of the tracked source/test/config diff plus every untracked, non-ignored candidate
 file; workflow records are excluded so recording a result does not change
 the measured candidate. Screenshots accompany the JSON metadata. The CI real-backend project
-and artifact upload now include the Developer journey, but no CI run on this
-working tree is claimed.
+and artifact upload now include the Developer journey. The local captures above
+are not themselves a CI result; the CI result is recorded separately below.
 
 ## Independent real-backend follow-up review resolution (2026-11-09)
 
@@ -176,10 +176,27 @@ reported three findings. All three are resolved in the current working tree:
 Post-review `npm run check`, `npm run build`, the routed browser journey and the
 corrected real-backend journey passed as recorded above.
 
+## CI confirmation (2026-11-09)
+
+The candidate was committed as `2993bfac4d26f3dea588891bb271051a461e65a4` on a
+branch whose base tree matched `237db2a`, immediately after its working-tree digest
+was recomputed and matched `8dd40629…70a8`. It was delivered by
+[PR #46](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/pull/46) and
+merged to `main` as `9f4f28e0d26b2093ee558df0e6bcc5d8390e753a`.
+
+| Check | Outcome |
+| --- | --- |
+| [GitHub Actions run 42592225392](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/actions/runs/42592225392) (`pull_request`, head `2993bfa`) | **PASS**: run conclusion `success`. |
+| `Reporter browser against isolated backend` job in that run | **PASS**: `real-backend` project passed 3 of 3 in 1.2m, including `e2e/developer-real.e2e.ts` (7.0s). The job name predates the Developer journey. |
+| All PR status checks on `2993bfa` | **PASS**: 12 passing, 0 failing, 0 pending, 0 skipped. |
+
+This records the pull-request CI run only. CI on the `main` merge commit was not
+inspected for this record.
+
 ## Limitations and completion gates
 
-- TD-DEV-15 has a corrected local isolated-PostgreSQL pass. CI confirmation remains
-  pending; no deployment or production acceptance is claimed.
+- TD-DEV-15 has corrected local isolated-PostgreSQL and CI passes. No deployment
+  or production acceptance is claimed.
 - QA assignment/reassignment UI is issue #32; the current candidate can react to
   backend assignment state but cannot create that production state.
 - Clarification, proposed resolution, QA controls, AI, repository ingestion and
