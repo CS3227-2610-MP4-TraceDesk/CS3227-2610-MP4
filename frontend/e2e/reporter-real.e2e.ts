@@ -224,7 +224,7 @@ test('real HTTPS session creates, lists, reads, denies and restores a Reporter r
   await page.goto(`/?project=${accounts.deniedProjectId}`)
   await expect(page.getByRole('heading', { name: 'Choose a project' })).toBeVisible()
   await expect(page.getByText(/not available to your account/i)).toBeVisible()
-  await expect(page.getByText('Synthetic Reporter Project')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Synthetic Reporter Project' })).toBeVisible()
   await expect(page.getByText(reportTitle)).toHaveCount(0)
   await expect(page.getByText(outageTitle)).toHaveCount(0)
   await expect(page.getByText('Synthetic Unavailable Project')).toHaveCount(0)
