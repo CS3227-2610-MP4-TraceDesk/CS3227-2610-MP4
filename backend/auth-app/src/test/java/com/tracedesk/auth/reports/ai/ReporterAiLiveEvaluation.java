@@ -27,7 +27,8 @@ public final class ReporterAiLiveEvaluation {
     private static final JsonMapper JSON = JsonMapper.builder(JsonFactory.builder()
             .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build())
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
-    private static final String FIXTURE_SHA256 = "b61431b630c562c67d7a1f375ca3e3d57ee71fa21d61c6769fea35bfe792c0bf";
+    static final String FIXTURE_PATH = "../../workflow/reporter/experiments/reporter-ai/fixture-cases-v2.json";
+    static final String FIXTURE_SHA256 = "49ba74abf137004141ebfcfe8a5c50e77a447f71aa122dea7fd2df63b7389164";
     private static final List<String> CASE_IDS = List.of("RAI-01", "RAI-02", "RAI-03", "RAI-04");
 
     private ReporterAiLiveEvaluation() { }
@@ -90,7 +91,7 @@ public final class ReporterAiLiveEvaluation {
         String approvalJson = Files.readString(approvalPath);
         Instant runExpiry = requireApproval(approvalJson, settings.model(), settings.approvalValidUntil(),
                 settings.policy().actorDailyUnits(), settings.policy().globalDailyUnits(), clock);
-        byte[] fixtureBytes = Files.readAllBytes(Path.of("../../workflow/reporter/experiments/reporter-ai/fixture-cases.json"));
+        byte[] fixtureBytes = Files.readAllBytes(Path.of(FIXTURE_PATH));
         var fixtures = JSON.readTree(new String(fixtureBytes, StandardCharsets.UTF_8));
         String fixtureHash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(fixtureBytes));
         if (!FIXTURE_SHA256.equals(fixtureHash)) throw new IllegalStateException("Fixture changed; review required before live execution");

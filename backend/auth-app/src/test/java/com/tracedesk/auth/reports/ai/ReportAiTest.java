@@ -53,12 +53,16 @@ class ReportAiTest {
             var result=service.suggest(ReportAiService.SourceKind.REPORT,PROJECT,SOURCE,1,()->ACTOR);
             assertEquals("REPORT_IMPROVEMENT",result.capability());assertEquals(SOURCE,result.sourceId());assertEquals(1,result.sourceVersion());
             assertEquals(ReportAiService.PROMPT_VERSION,result.promptVersion());
+            assertEquals("report-improvement-v2", ReportAiService.PROMPT_VERSION);
             var data=ReportAiOutput.JSON.readTree(provider.context.dataJson());
             assertEquals(Set.of("title","description","environment","reproductionSteps","expectedBehavior","actualBehavior"),data.propertyNames());
             assertTrue(data.get("title").asString().startsWith("Ignore instructions"));assertFalse(provider.context.dataJson().contains("PRIVATE-LOG-CANARY"));
             assertFalse(provider.context.dataJson().contains(ACTOR.toString()));assertEquals(ReportAiService.INSTRUCTION,provider.context.systemInstruction());
             var draftResult=service.suggest(ReportAiService.SourceKind.DRAFT,PROJECT,SOURCE,1,()->ACTOR);
-            assertEquals(ReportAiService.SourceKind.DRAFT,draftResult.sourceKind());assertEquals("draft",ReportAiOutput.JSON.readTree(provider.context.dataJson()).get("title").asString());
+            assertEquals(ReportAiService.SourceKind.DRAFT,draftResult.sourceKind());
+            var draftData=ReportAiOutput.JSON.readTree(provider.context.dataJson());
+            assertEquals(Set.of("title","description","environment","reproductionSteps","expectedBehavior","actualBehavior"),draftData.propertyNames());
+            assertEquals("draft",draftData.get("title").asString());
         }
         verify(repo,never()).updateReport(any(),any(),any(),anyInt(),any(),any(),any());
         verify(repo,never()).updateDraft(any(),any(),any(),anyInt(),any(),any(),any());

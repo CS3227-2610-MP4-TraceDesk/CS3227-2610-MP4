@@ -171,6 +171,13 @@ excluded. Any failed attempt stops the run; do not rerun without reviewing and
 renewing the remaining allowance. Catalog GETs are separate from the24 completion
 attempt cap. Console output contains fixed case IDs/status only.
 
+The current candidate uses `report-improvement-v2` and the separately pinned
+`fixture-cases-v2.json` under `workflow/reporter/experiments/reporter-ai/`.
+The original `fixture-cases.json` and its v1 observations are historical baseline
+evidence. V2 retains the same four six-field inputs. Prompt corrections have not
+yet been evaluated live; the v1 approval cannot authorize a v2 retest. Obtain a
+fresh bounded approval before creating a new one-use record or running this task.
+
 Local synthetic results are JSONL under ignored `workflow/reporter/runs/`.
 They include validated model text for assessment, elapsed time, input data bytes,
 validated suggestion bytes, fixture hash and numeric ledger outcomes/revisions.

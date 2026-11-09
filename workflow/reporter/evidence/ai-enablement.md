@@ -214,3 +214,11 @@ invented-facts/requirements rule after separate model-assisted review and
 reconciliation. Concise and redundant expanded context each fail6/12. Initial and
 reconciled ratings, judge disagreements, hashes and limits are retained. Quality
 defects remain unresolved; this does not establish release readiness or close#42.
+
+## Prompt correction after assessment
+
+The [v2 correction](reporter-ai-prompt-v2.md) preserves Reporter intent and facts
+more explicitly, with matching browser version validation and separately pinned
+fixtures. Deterministic verification is recorded there. Its live quality is not
+yet measured; the 12/24 v1 semantic failures remain the observed baseline. No
+new live requests are authorized by this implementation.
