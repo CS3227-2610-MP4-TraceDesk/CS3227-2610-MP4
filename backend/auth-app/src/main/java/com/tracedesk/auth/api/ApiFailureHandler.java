@@ -50,10 +50,11 @@ public class ApiFailureHandler {
     ResponseEntity<?> unexpected(Exception ignored) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); }
 
     private static boolean isReportRoute(String path) { return path.matches("/api/projects/[^/]+/(reports(?:/[^/]+)?|reporter-context)"); }
-    private static boolean isInvestigationRoute(String path) { return path.matches("/api/projects/[^/]+/(developer-context|reports/[^/]+/(investigation/start|notes(?:/[^/]+)?))"); }
+    private static boolean isInvestigationRoute(String path) { return path.matches("/api/projects/[^/]+/(developer-context|reports/[^/]+/(investigation/start|resolutions|notes(?:/[^/]+)?))"); }
     private static String investigationRoute(String path) {
         if(path.endsWith("/developer-context")) return "/api/projects/{projectId}/developer-context";
         if(path.endsWith("/investigation/start")) return "/api/projects/{projectId}/reports/{reportId}/investigation/start";
+        if(path.matches(".*/reports/[^/]+/resolutions$")) return "/api/projects/{projectId}/reports/{reportId}/resolutions";
         if(path.matches(".*/notes/[^/]+$")) return "/api/projects/{projectId}/reports/{reportId}/notes/{noteId}";
         return "/api/projects/{projectId}/reports/{reportId}/notes";
     }

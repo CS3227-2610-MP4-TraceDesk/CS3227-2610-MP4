@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 const mocks = vi.hoisted(() => ({
@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   fetchDeveloperReports: vi.fn(),
   fetchDeveloperReport: vi.fn(),
   fetchNotes: vi.fn(),
+  fetchResolutions: vi.fn(),
+  proposeResolution: vi.fn(),
   startInvestigation: vi.fn(),
   createNote: vi.fn(),
   updateNote: vi.fn(),
@@ -37,6 +39,10 @@ function deferred<T>() {
   const promise = new Promise<T>(next => { resolve = next })
   return { promise, resolve }
 }
+
+beforeEach(() => {
+  mocks.fetchResolutions.mockResolvedValue({ items: [], nextCursor: null })
+})
 
 afterEach(() => {
   cleanup()
@@ -165,6 +171,133 @@ describe('Developer workspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
     await waitFor(() => expect(mocks.deleteNote).toHaveBeenCalledWith(project, reportId, note.id, 2, expect.any(AbortSignal)))
     expect(screen.queryByText(editedNote.body)).not.toBeInTheDocument()
+  })
+
+  describe('proposed resolution', () => {
+    const workingReport = { ...report, status: 'IN_PROGRESS' as const, version: 2 }
+    const fields = { rootCause: '<script>cause</script>', changeSummary: 'Changed', verificationSteps: 'Verify', fixReference: '' }
+    const revision = { ...fields, id: '88888888-8888-4888-8888-888888888888', reportId, authorUserId: actor, revision: 1, createdAt: '2026-11-08T00:03:00Z' }
+
+    function setUp(detail: typeof report | typeof workingReport = workingReport) {
+      window.history.replaceState(null, '', `/?workspace=developer&project=${project}`)
+      mocks.fetchDeveloperContext.mockResolvedValue({ project: { id: project, name: 'Developer Project' }, role: 'DEVELOPER' })
+      mocks.fetchDeveloperReports.mockResolvedValue({ items: [detail], nextCursor: null })
+      mocks.fetchDeveloperReport.mockResolvedValue(detail)
+      mocks.fetchNotes.mockResolvedValue({ items: [], nextCursor: null })
+      render(<DeveloperWorkspace {...props()} />)
+    }
+
+    async function openAndFill() {
+      fireEvent.click((await screen.findByText(report.title, { exact: true })).closest('button')!)
+      fireEvent.change(await screen.findByLabelText('Root cause'), { target: { value: fields.rootCause } })
+      fireEvent.change(screen.getByLabelText('Change summary'), { target: { value: fields.changeSummary } })
+      fireEvent.change(screen.getByLabelText('Verification steps'), { target: { value: fields.verificationSteps } })
+    }
+
+    it('shows the handoff only after the server confirms it and renders it as text', async () => {
+      setUp()
+      mocks.proposeResolution.mockResolvedValue({ report: { ...workingReport, status: 'READY_FOR_QA', version: 3 }, resolution: revision })
+      await openAndFill()
+      fireEvent.click(screen.getByRole('button', { name: 'Send to QA' }))
+      await waitFor(() => expect(mocks.proposeResolution).toHaveBeenCalledWith(project, reportId, fields, 2, expect.any(AbortSignal)))
+      expect(await screen.findByText('Proposed resolution sent to QA after server confirmation.')).toBeInTheDocument()
+      expect(screen.getByText(fields.rootCause, { exact: true })).toBeInTheDocument()
+      expect(document.querySelector('.developer-detail script')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Send to QA' })).not.toBeInTheDocument()
+      expect(screen.getByText('Version 3')).toBeInTheDocument()
+    })
+
+    it('preserves the text and offers a refresh when the report version is stale', async () => {
+      setUp()
+      mocks.proposeResolution.mockRejectedValue(new DeveloperApiError(409, 'STALE_VERSION'))
+      await openAndFill()
+      fireEvent.click(screen.getByRole('button', { name: 'Send to QA' }))
+      expect(await screen.findByText(/was not confirmed. Your text is preserved/)).toBeInTheDocument()
+      expect(screen.getByLabelText('Root cause')).toHaveValue(fields.rootCause)
+      fireEvent.click(screen.getByRole('button', { name: 'Refresh bug' }))
+      await waitFor(() => expect(mocks.fetchDeveloperReport).toHaveBeenCalledTimes(2))
+      expect(await screen.findByLabelText('Root cause')).toHaveValue(fields.rootCause)
+    })
+
+    it.each([
+      [new DeveloperApiError(409, 'INVALID_STATE'), /was not confirmed. Your text is preserved/],
+      [new DeveloperApiError(503, 'SERVICE_UNAVAILABLE'), /was not confirmed. Your text is preserved/],
+      [new DeveloperApiError(0, 'NETWORK_ERROR'), /was not confirmed. Your text is preserved/],
+      [new DeveloperApiError(400, 'VALIDATION_ERROR'), /rejected these fields/],
+      [new DeveloperApiError(409, 'RESOLUTION_LIMIT'), /limit of 50/],
+    ])('preserves the text on recoverable failure %#', async (failure, message) => {
+      setUp()
+      mocks.proposeResolution.mockRejectedValue(failure)
+      await openAndFill()
+      fireEvent.click(screen.getByRole('button', { name: 'Send to QA' }))
+      expect(await screen.findByText(message)).toBeInTheDocument()
+      expect(screen.getByLabelText('Root cause')).toHaveValue(fields.rootCause)
+    })
+
+    it('keeps a confirmed handoff when an older history response lands after it', async () => {
+      const history = deferred<{ items: typeof revision[]; nextCursor: null }>()
+      mocks.fetchResolutions.mockReturnValue(history.promise)
+      setUp()
+      mocks.proposeResolution.mockResolvedValue({ report: { ...workingReport, status: 'READY_FOR_QA', version: 3 }, resolution: revision })
+      await openAndFill()
+      fireEvent.click(screen.getByRole('button', { name: 'Send to QA' }))
+      await screen.findByText('Proposed resolution sent to QA after server confirmation.')
+      expect(screen.getByText(fields.rootCause, { exact: true })).toBeInTheDocument()
+      await act(async () => {
+        history.resolve({ items: [], nextCursor: null })
+        await history.promise
+      })
+      expect(screen.getByText(fields.rootCause, { exact: true })).toBeInTheDocument()
+      expect(screen.queryByText('No resolution has been proposed yet.')).not.toBeInTheDocument()
+    })
+
+    it('does not duplicate a confirmed handoff already present in the history response', async () => {
+      const proposal = deferred<unknown>()
+      mocks.fetchResolutions.mockRejectedValueOnce(new DeveloperApiError(503, 'SERVICE_UNAVAILABLE'))
+      setUp()
+      mocks.proposeResolution.mockReturnValue(proposal.promise)
+      await openAndFill()
+      const retry = await screen.findByRole('button', { name: 'Retry' })
+      fireEvent.click(screen.getByRole('button', { name: 'Send to QA' }))
+      mocks.fetchResolutions.mockResolvedValue({ items: [revision], nextCursor: null })
+      fireEvent.click(retry)
+      await screen.findByText(/^Revision 1/)
+      await act(async () => {
+        proposal.resolve({ report: { ...workingReport, status: 'READY_FOR_QA', version: 3 }, resolution: revision })
+        await proposal.promise
+      })
+      await screen.findByText('Proposed resolution sent to QA after server confirmation.')
+      expect(screen.getAllByText(fields.rootCause, { exact: true })).toHaveLength(1)
+      expect(screen.queryByText(/Earlier revisions/)).not.toBeInTheDocument()
+    })
+
+    it('does not send the handoff when Enter is pressed in the fix reference', async () => {
+      setUp()
+      await openAndFill()
+      const notPrevented = fireEvent.keyDown(screen.getByLabelText('Fix reference (optional)'), { key: 'Enter' })
+      expect(notPrevented).toBe(false)
+      expect(mocks.proposeResolution).not.toHaveBeenCalled()
+    })
+
+    it('removes the form after a reassignment denial', async () => {
+      setUp()
+      mocks.proposeResolution.mockRejectedValue(new DeveloperApiError(403, 'FORBIDDEN'))
+      await openAndFill()
+      fireEvent.click(screen.getByRole('button', { name: 'Send to QA' }))
+      expect(await screen.findByText('Your assignment changed. The proposed resolution was not sent to QA.')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Root cause')).not.toBeInTheDocument()
+    })
+
+    it('keeps the form away from an open report and shows history to another Developer', async () => {
+      const other = { ...workingReport, assignedDeveloperId: '77777777-7777-4777-8777-777777777777' }
+      mocks.fetchResolutions.mockResolvedValue({ items: [revision, { ...revision, id: '99999999-9999-4999-8999-999999999999', revision: 2, rootCause: 'Latest cause' }], nextCursor: null })
+      setUp(other)
+      fireEvent.click(await screen.findByRole('button', { name: 'All bugs' }))
+      fireEvent.click((await screen.findByText(report.title, { exact: true })).closest('button')!)
+      expect(await screen.findByText('Latest cause')).toBeInTheDocument()
+      expect(screen.getByText('Earlier revisions (1)')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Root cause')).not.toBeInTheDocument()
+    })
   })
 
   it('retries unavailable context even when the project ID is unchanged', async () => {

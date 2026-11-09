@@ -16,6 +16,7 @@ test('Developer workspace is safe, keyboard reachable, responsive and reduced-mo
     status: 'OPEN', assignedDeveloperId: actor, createdAt: '2026-11-08T00:00:00Z',
     updatedAt: '2026-11-08T00:01:00Z', version: 1,
   }
+  const resolutions: Record<string, unknown>[] = []
   const notes = [{ id: noteId, reportId, authorUserId: actor, lastEditedByUserId: null, body: '<script>plain private note</script>', createdAt: '2026-11-08T00:02:00Z', updatedAt: '2026-11-08T00:02:00Z', version: 1 }]
 
   await page.route('**/api/**', async route => {
@@ -41,6 +42,14 @@ test('Developer workspace is safe, keyboard reachable, responsive and reduced-mo
       const created = { ...notes[0], id: '66666666-6666-4666-8666-666666666666', body: body.body }
       notes.push(created)
       return reply(201, created)
+    }
+    if (url.pathname.endsWith('/resolutions') && request.method() === 'GET') return reply(200, { items: resolutions, nextCursor: null })
+    if (url.pathname.endsWith('/resolutions') && request.method() === 'POST') {
+      const fields = JSON.parse(request.postData() ?? '{}') as { rootCause: string; changeSummary: string; verificationSteps: string; fixReference: string }
+      const resolution = { rootCause: fields.rootCause, changeSummary: fields.changeSummary, verificationSteps: fields.verificationSteps, fixReference: fields.fixReference, id: '88888888-8888-4888-8888-888888888888', reportId, authorUserId: actor, revision: 1, createdAt: '2026-11-08T00:03:00Z' }
+      resolutions.push(resolution)
+      report = { ...report, status: 'READY_FOR_QA', version: 3 }
+      return reply(201, { report, resolution })
     }
     return reply(404, { error: { code: 'NOT_FOUND' } })
   })
@@ -98,4 +107,17 @@ test('Developer workspace is safe, keyboard reachable, responsive and reduced-mo
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   const mobileAxe = await new AxeBuilder({ page }).analyze()
   expect(mobileAxe.violations.map(({ id, impact }) => `${id}:${impact}`)).toEqual([])
+
+  await page.getByLabel('Root cause').fill('<script>plain root cause</script>')
+  await page.getByLabel('Change summary').fill('Synthetic change summary')
+  await page.getByLabel('Verification steps').fill('Synthetic verification steps')
+  await page.getByRole('button', { name: 'Send to QA' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByText(/sent to QA after server confirmation/i)).toBeVisible()
+  await expect(page.getByText('<script>plain root cause</script>', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Send to QA' })).toHaveCount(0)
+  await expect(page.locator('.developer-detail script')).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  const handoffAxe = await new AxeBuilder({ page }).analyze()
+  expect(handoffAxe.violations.map(({ id, impact }) => `${id}:${impact}`)).toEqual([])
 })

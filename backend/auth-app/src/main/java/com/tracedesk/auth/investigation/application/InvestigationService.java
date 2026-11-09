@@ -1,6 +1,7 @@
 package com.tracedesk.auth.investigation.application;
 
 import com.tracedesk.auth.investigation.domain.InvestigationNoteData;
+import com.tracedesk.auth.investigation.domain.ProposedResolutionData;
 import com.tracedesk.auth.reports.application.ReportRepository;
 import com.tracedesk.auth.reports.application.ReportService;
 import com.tracedesk.auth.reports.domain.ReportCursorSigner;
@@ -10,6 +11,7 @@ import java.util.UUID;
 
 public final class InvestigationService {
     public record NotesResult(java.util.List<InvestigationRepository.Note> items, String nextCursor) { }
+    public record ResolutionsResult(java.util.List<InvestigationRepository.Resolution> items, String nextCursor) { }
     private final InvestigationRepository repository;
     private final ReportCursorSigner cursors;
     private final Clock clock;
@@ -64,12 +66,45 @@ public final class InvestigationService {
         repository.deleteNote(actor, project, report, note, expectedVersion, requestId, clock.instant());
     }
 
+    public InvestigationRepository.Proposal propose(UUID actor, UUID project, UUID report, ProposedResolutionData data,
+                                                    int expectedVersion, UUID requestId) {
+        requireDeveloper(actor, project);
+        return repository.propose(actor, project, report, data, expectedVersion, requestId, clock.instant());
+    }
+
+    public ResolutionsResult resolutions(UUID actor, UUID project, UUID report, Integer requestedLimit, String cursor) {
+        requireStaff(actor, project);
+        if (requestedLimit != null && (requestedLimit < 1 || requestedLimit > 100)) throw failure("INVALID_REQUEST", 400);
+        int limit = requestedLimit == null ? 25 : requestedLimit;
+        UUID afterId = null; String filter = report.toString();
+        if (cursor != null) {
+            var decoded = cursors.verify(cursor, actor, project, "RESOLUTION_LIST", filter, clock.instant());
+            if (decoded == null) throw failure("INVALID_CURSOR", 400);
+            afterId = decoded.lastId();
+        }
+        var page = repository.resolutions(actor, project, report, limit, afterId);
+        String next = null;
+        if (page.hasMore() && !page.items().isEmpty()) {
+            var last = page.items().get(page.items().size() - 1);
+            next = cursors.issue(new ReportCursorSigner.Cursor(actor, project, "RESOLUTION_LIST", filter,
+                    last.createdAt(), last.id(), clock.millis()));
+        }
+        return new ResolutionsResult(page.items(), next);
+    }
+
     private ReportRepository.Membership requireDeveloper(UUID actor, UUID project) {
-        var membership = repository.membership(actor, project)
-                .filter(m -> m.userEnabled() && m.projectEnabled() && m.active())
-                .orElseThrow(() -> failure("NOT_FOUND", 404));
+        var membership = requireActive(actor, project);
         if (!"DEVELOPER".equals(membership.role())) throw failure("FORBIDDEN", 403);
         return membership;
+    }
+    private void requireStaff(UUID actor, UUID project) {
+        var membership = requireActive(actor, project);
+        if (!"DEVELOPER".equals(membership.role()) && !"QA_REVIEWER".equals(membership.role())) throw failure("FORBIDDEN", 403);
+    }
+    private ReportRepository.Membership requireActive(UUID actor, UUID project) {
+        return repository.membership(actor, project)
+                .filter(m -> m.userEnabled() && m.projectEnabled() && m.active())
+                .orElseThrow(() -> failure("NOT_FOUND", 404));
     }
     private static ReportService.Failure failure(String code, int status) { return new ReportService.Failure(code, status); }
 }
