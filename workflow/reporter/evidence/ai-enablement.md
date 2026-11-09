@@ -13,8 +13,9 @@ Operations: [enablement](../../../docs/ai-enablement.md) and
   final browser/integration evidence is recorded below.
 - Live calls/model quality: user ran the approved `default` evaluation privately.
   After the runner correction, all24 newly approved attempts delivered validated
-  suggestions:4 cases,2 context variants and3 repetitions. Independent quality
-  scoring and a live browser journey remain pending. No key was supplied to the coordinator. These
+  suggestions:4 cases,2 context variants and3 repetitions.
+  [Quality assessment](reporter-ai-live-quality.md) is complete:12/24 suggestions
+  fail semantic checks; remediation and a live browser journey remain pending. No key was supplied to the coordinator. These
   observations prove access from this local test target, not an arbitrary host.
 - Deployment: unavailable; user selected a portable guide, hosting undecided.
   No target was provisioned, changed or released. No credentials were accessed.
@@ -35,7 +36,8 @@ record and capped test-only isolated evaluation command, not an executed live ru
 The predefined live comparison uses RAI-01–04, fixed prompt/model, two contexts
 and three repetitions (24 maximum attempts), stopping on first failure. Expanded
 context repeats known facts within the same six fields; it is a redundant-context
-baseline. Rubric scores remain pending assessment; parse success is not quality.
+baseline. The subsequent [rubric assessment](reporter-ai-live-quality.md) records
+12/24 semantic failures; parse success is not quality.
 Ledger resource units are not price or an input/output token breakdown. Missing
 cost/token measurements stay unknown. No model performance/savings are claimed.
 
@@ -150,8 +152,8 @@ Final foundation check passed114 documents/4 skills/21 provenance entries/11
 transport sources; whitespace check passed. The SHA-256 manifest
 `ai-enablement.sha256` identifies the final tested runtime/tests/spec/docs candidate
 without recursively hashing this evidence. No secrets or local approval/results
-files are included. Live account/model access, quality scoring, Developer/QA
-validation and deployed release remain unavailable/pending as stated above.
+files are included. This checkpoint preceded live access and quality assessment;
+the subsequent sections and current gate status supersede its pending status.
 The user-run live setup was prepared only after the actual bounded approval, with
 fixed expiry2026-11-08T20:22:40Z, model `default` and the local isolated test target.
 The approval and launcher remain ignored local artifacts, not source-controlled
@@ -203,3 +205,12 @@ The coordinator selected numeric metadata only for this update. Structured outpu
 acceptance does not establish factual quality, injection resistance or independent
 rubric scores. Live browser preview/apply, Developer/QA evaluations and deployment
 verification remain pending. The key and raw local observations are not committed.
+
+## Subsequent quality assessment
+
+The [2026-11-09 assessment](reporter-ai-live-quality.md) scores all24 saved outputs
+without additional provider calls. Format validation passed24/24;12/24 fail the
+invented-facts/requirements rule after separate model-assisted review and
+reconciliation. Concise and redundant expanded context each fail6/12. Initial and
+reconciled ratings, judge disagreements, hashes and limits are retained. Quality
+defects remain unresolved; this does not establish release readiness or close#42.
