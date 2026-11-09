@@ -9,6 +9,7 @@ import { SidebarGroup, SidebarItem } from '../shell/Sidebar'
 import type { TrayItem } from '../shell/IconTray'
 import { ReportApiError, isCanonicalUuid, type ReportDetail, type ReportStatus, type ReportSummary } from '../reports/reportApi'
 import { reportFieldRules, reportFields } from '../reports/reportValidation'
+import { Disclosure } from '../shared/Disclosure'
 import {
   createNote,
   deleteNote,
@@ -17,10 +18,14 @@ import {
   fetchDeveloperReport,
   fetchDeveloperReports,
   fetchNotes,
+  fetchResolutions,
+  proposeResolution,
   startInvestigation,
   updateNote,
   type DeveloperContext,
   type InvestigationNote,
+  type ProposedResolution,
+  type ResolutionFields,
 } from './developerApi'
 import './developer-workspace.css'
 
@@ -37,6 +42,18 @@ const statuses: { value: ReportStatus | ''; label: string }[] = [
 ]
 
 const trayItems: readonly TrayItem[] = [{ id: 'bugs', label: 'Bugs', icon: <Bug /> }]
+
+const emptyResolution: ResolutionFields = { rootCause: '', changeSummary: '', verificationSteps: '', fixReference: '' }
+const resolutionTextFields: { field: Exclude<keyof ResolutionFields, 'fixReference'>; label: string }[] = [
+  { field: 'rootCause', label: 'Root cause' },
+  { field: 'changeSummary', label: 'Change summary' },
+  { field: 'verificationSteps', label: 'Verification steps' },
+]
+
+function mergeResolutions(current: ProposedResolution[], incoming: ProposedResolution[]) {
+  const byId = new Map([...current, ...incoming].map(resolution => [resolution.id, resolution]))
+  return [...byId.values()].sort((left, right) => left.revision - right.revision)
+}
 
 function routeProject(): string {
   return new URLSearchParams(window.location.search).get('project') ?? ''
@@ -102,12 +119,17 @@ export function DeveloperWorkspace({
   const [noteAttempts, setNoteAttempts] = useState<Record<string, { body: string; key: string }>>({})
   const [editDrafts, setEditDrafts] = useState<Record<string, string>>({})
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [resolutions, setResolutions] = useState<ProposedResolution[]>([])
+  const [resolutionsState, setResolutionsState] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle')
+  const [resolutionDrafts, setResolutionDrafts] = useState<Record<string, ResolutionFields>>({})
+  const [resolutionNeedsRefresh, setResolutionNeedsRefresh] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
   const contextAbort = useRef<AbortController | null>(null)
   const listAbort = useRef<AbortController | null>(null)
   const detailAbort = useRef<AbortController | null>(null)
   const notesAbort = useRef<AbortController | null>(null)
+  const resolutionsAbort = useRef<AbortController | null>(null)
   const mutationAbort = useRef<AbortController | null>(null)
   const mutationScope = useRef(0)
   const projectInputRef = useRef<HTMLInputElement>(null)
@@ -116,6 +138,8 @@ export function DeveloperWorkspace({
   const noteDraft = draftKey ? noteDrafts[draftKey] ?? '' : ''
   const assigned = Boolean(detail && detail.assignedDeveloperId === sessionUserId)
   const canWriteNotes = Boolean(assigned && detail && (detail.status === 'IN_PROGRESS' || detail.status === 'READY_FOR_QA'))
+  const canPropose = Boolean(assigned && detail?.status === 'IN_PROGRESS' && notesState !== 'denied')
+  const resolutionDraft = draftKey ? resolutionDrafts[draftKey] ?? emptyResolution : emptyResolution
 
   const invalidateMutations = useCallback(() => {
     mutationScope.current += 1
@@ -128,7 +152,12 @@ export function DeveloperWorkspace({
     listAbort.current?.abort()
     detailAbort.current?.abort()
     notesAbort.current?.abort()
+    resolutionsAbort.current?.abort()
     invalidateMutations()
+    setResolutions([])
+    setResolutionsState('idle')
+    setResolutionDrafts({})
+    setResolutionNeedsRefresh(false)
     setReports([])
     setNextCursor(null)
     setListState('idle')
@@ -161,6 +190,7 @@ export function DeveloperWorkspace({
     listAbort.current?.abort()
     detailAbort.current?.abort()
     notesAbort.current?.abort()
+    resolutionsAbort.current?.abort()
     mutationAbort.current?.abort()
   }, [])
 
@@ -226,10 +256,29 @@ export function DeveloperWorkspace({
       setNoteDrafts({})
       setNoteAttempts({})
       setEditDrafts({})
+      setResolutions([])
+      setResolutionDrafts({})
       void loadReports()
     })
     return () => { active = false }
   }, [context, destination, loadReports, statusFilter])
+
+  const loadResolutions = useCallback(async (reportId: string) => {
+    resolutionsAbort.current?.abort()
+    const controller = new AbortController()
+    resolutionsAbort.current = controller
+    setResolutions([])
+    setResolutionsState('loading')
+    try {
+      const page = await fetchResolutions(projectId, reportId, controller.signal)
+      if (controller.signal.aborted) return
+      setResolutions(previous => mergeResolutions(previous, page.items))
+      setResolutionsState('ready')
+    } catch (error) {
+      if (controller.signal.aborted) return
+      if (handleAuthFailure(error) !== 'session') setResolutionsState('unavailable')
+    }
+  }, [handleAuthFailure, projectId])
 
   const loadDetail = useCallback(async (reportId: string) => {
     detailAbort.current?.abort()
@@ -238,11 +287,13 @@ export function DeveloperWorkspace({
     detailAbort.current = controller
     setDetailState('loading')
     setActionMessage(null)
+    setResolutionNeedsRefresh(false)
     try {
       const result = await fetchDeveloperReport(projectId, reportId, controller.signal)
       if (controller.signal.aborted || reportId !== selectedId) return
       setDetail(result)
       setDetailState('ready')
+      void loadResolutions(reportId)
       setNotes([])
       setNotesNextCursor(null)
       setEditingNoteId(null)
@@ -273,7 +324,7 @@ export function DeveloperWorkspace({
       const outcome = handleAuthFailure(error)
       if (outcome !== 'session') setDetailState(outcome)
     }
-  }, [handleAuthFailure, projectId, selectedId, sessionUserId])
+  }, [handleAuthFailure, loadResolutions, projectId, selectedId, sessionUserId])
 
   useEffect(() => {
     if (!selectedId) return
@@ -332,10 +383,15 @@ export function DeveloperWorkspace({
   const selectReport = useCallback((reportId: string | null) => {
     detailAbort.current?.abort()
     notesAbort.current?.abort()
+    resolutionsAbort.current?.abort()
     invalidateMutations()
     setNoteDrafts({})
     setNoteAttempts({})
     setEditDrafts({})
+    setResolutions([])
+    setResolutionsState('idle')
+    setResolutionDrafts({})
+    setResolutionNeedsRefresh(false)
     setSelectedId(reportId)
   }, [invalidateMutations])
 
@@ -505,6 +561,45 @@ export function DeveloperWorkspace({
     }
   }
 
+  async function submitResolution() {
+    if (!detail || !draftKey || !canPropose || actionBusy) return
+    const fields = resolutionDraft
+    const textValid = resolutionTextFields.every(({ field }) => fields[field].trim() && Array.from(fields[field]).length <= 4_000)
+    if (!textValid || Array.from(fields.fixReference).length > 200) {
+      setActionMessage('Complete root cause, change summary and verification steps (up to 4,000 characters each). The fix reference can be up to 200 characters.')
+      return
+    }
+    setActionBusy(true)
+    setActionMessage(null)
+    setResolutionNeedsRefresh(false)
+    const { controller, scope } = beginMutation()
+    try {
+      const result = await proposeResolution(projectId, detail.id, fields, detail.version, controller.signal)
+      if (!mutationIsCurrent(controller, scope)) return
+      setDetail(result.report)
+      setResolutions(previous => mergeResolutions(previous, [result.resolution]))
+      setResolutionDrafts(previous => { const next = { ...previous }; delete next[draftKey]; return next })
+      setActionMessage('Proposed resolution sent to QA after server confirmation.')
+      await loadReports()
+    } catch (error) {
+      if (!mutationIsCurrent(controller, scope)) return
+      const failure = apiError(error)
+      const outcome = handleAuthFailure(error)
+      if (outcome === 'denied') await recoverAfterDenied('Your assignment changed. The proposed resolution was not sent to QA.', () => mutationIsCurrent(controller, scope))
+      else if (failure?.code === 'VALIDATION_ERROR') setActionMessage('The server rejected these fields. Your text is preserved; check it and try again.')
+      else if (failure?.code === 'RESOLUTION_LIMIT') setActionMessage('This bug has reached its limit of 50 proposed resolutions. Your text is preserved.')
+      else if (outcome === 'unavailable') {
+        setResolutionNeedsRefresh(true)
+        setActionMessage('The proposed resolution was not confirmed. Your text is preserved; refresh this bug before sending it again.')
+      }
+    } finally {
+      if (mutationIsCurrent(controller, scope)) {
+        mutationAbort.current = null
+        setActionBusy(false)
+      }
+    }
+  }
+
   const sidebar = {
     title: 'Developer',
     renderItems: (dismiss: () => void) => <SidebarGroup title="Investigation">
@@ -563,6 +658,37 @@ export function DeveloperWorkspace({
     </section>
   }
 
+  function renderResolutionRevision(resolution: ProposedResolution) {
+    return <div className="developer-note">
+      <p className="developer-note-byline">Revision {resolution.revision} · Proposed by {userLabel(resolution.authorUserId, sessionUserId)}</p>
+      <dl className="developer-resolution-fields">
+        {resolutionTextFields.map(({ field, label }) => <div key={field}><dt>{label}</dt><dd>{resolution[field]}</dd></div>)}
+        {resolution.fixReference && <div><dt>Fix reference</dt><dd>{resolution.fixReference}</dd></div>}
+      </dl>
+    </div>
+  }
+
+  function updateResolutionDraft(field: keyof ResolutionFields, value: string) {
+    setResolutionDrafts(previous => ({ ...previous, [draftKey]: { ...(previous[draftKey] ?? emptyResolution), [field]: value } }))
+  }
+
+  function renderResolutions() {
+    const current = resolutions[resolutions.length - 1]
+    const earlier = resolutions.slice(0, -1).reverse()
+    return <section className="developer-notes" aria-labelledby="proposed-resolution-title"><div className="developer-section-heading"><div><h2 id="proposed-resolution-title">Proposed resolution</h2><p>Visible to Developers and QA reviewers in this project.</p></div></div>
+      {resolutionsState === 'loading' && <p role="status">Loading proposed resolutions…</p>}
+      {resolutionsState === 'unavailable' && <div className="developer-inline-notice" role="alert"><p>Proposed resolutions are temporarily unavailable.</p><Button color="secondary" variant="outline" onClick={() => selectedId && void loadResolutions(selectedId)}>Retry</Button></div>}
+      {resolutionsState === 'ready' && !current && <p className="muted">No resolution has been proposed yet.</p>}
+      {current && renderResolutionRevision(current)}
+      {earlier.length > 0 && <Disclosure label={`Earlier revisions (${earlier.length})`}><ol className="developer-note-list">{earlier.map(resolution => <li key={resolution.id}>{renderResolutionRevision(resolution)}</li>)}</ol></Disclosure>}
+      {canPropose && <form className="developer-resolution-form" onSubmit={event => { event.preventDefault(); void submitResolution() }}>
+        {resolutionTextFields.map(({ field, label }) => <div key={field} className="developer-note-composer"><label htmlFor={`resolution-${field}`}>{label}</label><Textarea id={`resolution-${field}`} rows={4} value={resolutionDraft[field]} disabled={actionBusy} onChange={event => updateResolutionDraft(field, event.target.value)} /><div className="developer-composer-foot"><span>{Array.from(resolutionDraft[field]).length.toLocaleString()} / 4,000</span></div></div>)}
+        <div className="developer-note-composer"><label htmlFor="resolution-fixReference">Fix reference (optional)</label><Input id="resolution-fixReference" value={resolutionDraft.fixReference} disabled={actionBusy} onChange={event => updateResolutionDraft('fixReference', event.target.value)} onKeyDown={event => { if (event.key === 'Enter') event.preventDefault() }} /></div>
+        <div className="developer-note-actions">{resolutionNeedsRefresh && <Button color="secondary" variant="outline" type="button" disabled={actionBusy} onClick={retryDetail}>Refresh bug</Button>}<Button color="primary" type="submit" disabled={actionBusy || resolutionTextFields.some(({ field }) => !resolutionDraft[field].trim())} loading={actionBusy}>Send to QA</Button></div>
+      </form>}
+    </section>
+  }
+
   function renderDetail() {
     if (detailState === 'loading') return <p className="developer-status" role="status">Loading bug…</p>
     if (detailState === 'denied' || detailState === 'unavailable') return <section className="developer-notice" role="alert"><h1>{detailState === 'denied' ? 'Bug unavailable' : 'Bug temporarily unavailable'}</h1><p>{detailState === 'denied' ? 'This bug is unavailable to your account.' : 'TraceDesk could not load this bug.'}</p><Button color="secondary" variant="outline" onClick={retryDetail}>Retry</Button><Button color="secondary" variant="ghost" onClick={() => selectReport(null)}>Back to bugs</Button></section>
@@ -571,6 +697,7 @@ export function DeveloperWorkspace({
       <div className="developer-title-row"><div><h1>{detail.title}</h1><p className="developer-detail-meta">Bug {detail.id} · {assigned ? 'Assigned to you' : detail.assignedDeveloperId ? 'Assigned to another Developer' : 'Unassigned'}</p></div>{assigned && notesState !== 'denied' && detail.status === 'OPEN' && <Button color="primary" disabled={actionBusy} loading={actionBusy} onClick={() => void start()}>Start investigation</Button>}</div>
       {actionMessage && <p className="developer-action-message" role="status">{actionMessage}</p>}
       <dl className="developer-detail-fields">{reportFields.map(field => <div key={field} className={field === 'textLogs' ? 'developer-detail-field developer-detail-logs' : 'developer-detail-field'}><dt>{reportFieldRules[field].label}</dt><dd>{detail[field] || <span className="muted">No text provided</span>}</dd></div>)}</dl>
+      {renderResolutions()}
       {renderNotes()}
     </article>
   }

@@ -35,7 +35,8 @@ only Developer-owned behavior:
 | Assignment, reassignment, clear and invalid-assignment recovery | TD-RPT rules; implementation in QA-ASSIGN #32 (TD-ASG) |
 | Clarification request/reply data, caps, versions and endpoints | TD-RPT; Developer request UI and tests here (TD-DEV-16–20) |
 | Developer context read, investigation notes, proposed resolutions | **This contract** |
-| QA close/reject, rejection-reason representation, QA checklists | Future QA verification specification (not yet written) |
+| QA rejection-reason representation | **This contract** (see [QA rejection representation](#qa-rejection-representation)) |
+| QA close/reject commands and endpoints, QA checklists | Later QA verification slice (not yet written) |
 | Developer AI suggestions | DEV-AI #31, blocked on a separate secured-gateway specification |
 
 Excluded: QA close/reject UI or endpoints, Reporter editing, file/repository/diff
@@ -169,6 +170,23 @@ identifier) that the server never resolves. At most 50 revisions may exist per
 report; a 51st proposal returns `409 RESOLUTION_LIMIT` and commits nothing.
 `(report_id, revision)` is unique. Revision list order is fixed by
 `revision ASC`.
+
+### QA rejection representation
+
+Decided by the Developer contributor on 2026-11-09 so that DEV-RESOLUTION does not
+wait for a separate QA specification. A rejection is its own record, because
+resolution revisions are immutable. Exactly one rejection may exist per resolution
+revision, and it persists `id UUID`, `project_id UUID`, `report_id UUID`,
+`resolution_id UUID`, `reviewer_user_id UUID`, `reason` and `created_at`. `reason`
+follows TD-RPT: required, nonblank, at most 500 code points and 2,000 UTF-8 bytes.
+
+Rejections are readable by all staff, like resolutions, and are not shown to the
+Reporter. When the reject command ships, each resolution list item gains a nullable
+`rejection` object of `{reason, reviewerUserId, createdAt}`. The assignment does not
+change on rejection, and the audit event carries no reason text.
+
+DEV-RESOLUTION #30 records this decision only. The table, the reject command and
+the rendering of the reason ship together with the QA reject slice.
 
 ### Request bodies
 
@@ -413,6 +431,20 @@ synthetic pre-assigned reports.
 | **TD-DEV-09** | Anonymous, wrong-role, unassigned/former Developer, cross-project, disabled membership, reassignment, forged fields, invalid state, stale version, malformed/oversized content and persistence/event failure produce no forbidden read/write, content disclosure or partial audit. |
 | **TD-DEV-10** | Pure policy and validation, direct API, isolated PostgreSQL, revocation/reassignment race, concurrent cap/version and audit-rollback tests pass on a recorded candidate. The required database suite fails rather than skips when isolated settings are unavailable; evidence distinguishes that unavailable environment from a passing runtime check. |
 
+### DEV-RESOLUTION (#30) executable acceptance criteria
+
+These criteria own the propose endpoint, the staff-readable revision history and
+the Developer handoff UI. They do not add QA close/reject behavior; isolated tests
+simulate a rejection by moving a report back to `IN_PROGRESS`.
+
+| Criterion | Observable requirement |
+| --- | --- |
+| **TD-DEV-21** | A fresh migration and validator enforce the resolution field, Unicode and byte bounds, the 50-revision cap, `(report_id, revision)` uniqueness, UUID/UTC rules and the composite report/project key. The representation is the allowlist above and excludes private notes. |
+| **TD-DEV-22** | Propose derives the actor from the trusted session and, in the mutation transaction, rechecks active membership, Developer role, current assignment, `IN_PROGRESS` status, required fields and expected report version. |
+| **TD-DEV-23** | The revision insert, the `IN_PROGRESS → READY_FOR_QA` transition, the report version increment and one `REPORT_RESOLUTION_PROPOSED` audit event commit atomically; stale, concurrent or failed attempts commit none. |
+| **TD-DEV-24** | Reassignment, revocation, wrong role/project/report, forged fields, duplicate submission, a simulated QA rejection race and persistence or audit failure return the safe outcomes in this contract with no forbidden mutation. |
+| **TD-DEV-25** | API, isolated PostgreSQL and browser tests prove Developer submission, QA-role read of the handoff, private-note exclusion, concurrent behavior, safe rendering and confirmed-state UI with preserved text on recoverable failure. |
+
 ### DEV-UI (#28) executable acceptance criteria
 
 These criteria own the authenticated Developer workspace. They reuse the DEV-DATA
@@ -433,8 +465,8 @@ behavior.
 | --- | --- | --- | --- |
 | #27 DEV-DATA | TD-DEV-06–10 | `developer-context`, start investigation, notes, migrations and audit | #26; #32 for the production journey |
 | #28 DEV-UI | TD-DEV-11–15 | My work, All bugs, detail, start and notes UI | #27 |
-| #29 DEV-CLARIFY | TD-DEV-16–20 | Shared TD-RPT clarification migration and API (single owner), Developer question UI, interoperability with Reporter replies | #27; #16 depends on this for Reporter replies |
-| #30 DEV-RESOLUTION | TD-DEV-21–25 | Resolution schema, propose endpoint and handoff UI | #27; QA verification specification for the rejection loop |
+| #29 DEV-CLARIFY | TD-DEV-16–20 | **Descoped on 2026-11-09**; see the open decisions below. Clarification text elsewhere in this contract is not current delivery scope. | Not scheduled; #16 depended on this for Reporter replies |
+| #30 DEV-RESOLUTION | TD-DEV-21–25 | Resolution schema, propose endpoint and handoff UI | #27 |
 | #31 DEV-AI | TD-DEV-26–30 | Advisory hypotheses and next steps | #27, #28, secured gateway specification and verification |
 | #32 QA-ASSIGN | TD-ASG-01–05 | QA assignment, reassignment and clear (QA contributor) | Prerequisite for the production Developer journey |
 
@@ -453,6 +485,15 @@ Ownership decided by the Developer contributor (`Izn432`) on 2026-11-08:
    rejection-reason representation the Developer sees after
    `READY_FOR_QA → IN_PROGRESS`.
 3. The QA contributor owns QA-ASSIGN #32.
+
+On 2026-11-09 the Developer contributor changed two of these:
+
+- Item 1 is withdrawn. Developer clarification requests (#29) are left out as
+  unnecessary, so no clarification migration or API lands from the Developer side.
+  REPORT-PROGRESS #16 still needs a decision on its reply scope.
+- Item 2 is replaced for the rejection representation, which is now decided in
+  [QA rejection representation](#qa-rejection-representation). The QA close/reject
+  commands remain unimplemented.
 
 On 2026-11-08 the Developer contributor reviewed the whole contract and approved
 its design choices. They kept: notes visible to the current assignee including

@@ -21,7 +21,7 @@ public final class InvestigationBodyLimitFilter extends OncePerRequestFilter {
     public InvestigationBodyLimitFilter(AuthStore store) { this.store = store; }
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
         if (!("POST".equals(request.getMethod()) || "PATCH".equals(request.getMethod()) || "DELETE".equals(request.getMethod()))) return true;
-        return !request.getRequestURI().matches("/api/projects/[^/]+/reports/[^/]+/(investigation/start|notes(?:/[^/]+)?)");
+        return !request.getRequestURI().matches("/api/projects/[^/]+/reports/[^/]+/(investigation/start|resolutions|notes(?:/[^/]+)?)");
     }
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
@@ -37,6 +37,7 @@ public final class InvestigationBodyLimitFilter extends OncePerRequestFilter {
     }
     private static String route(String path) {
         if (path.endsWith("/investigation/start")) return "/api/projects/{projectId}/reports/{reportId}/investigation/start";
+        if (path.matches(".*/reports/[^/]+/resolutions$")) return "/api/projects/{projectId}/reports/{reportId}/resolutions";
         if (path.matches(".*/notes/[^/]+$")) return "/api/projects/{projectId}/reports/{reportId}/notes/{noteId}";
         return "/api/projects/{projectId}/reports/{reportId}/notes";
     }

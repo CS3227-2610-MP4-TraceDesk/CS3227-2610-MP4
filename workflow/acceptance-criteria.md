@@ -21,6 +21,7 @@
 | [Developer investigation and QA handoff](specs/developer-investigation.md) | TD-DEV-01 through TD-DEV-05 (contract); TD-DEV-06 through TD-DEV-30 in delivery issues #27–31 | DEV-DATA #27 candidate and verification status recorded in [evidence](developer/evidence/developer-data.md); no runtime acceptance claimed |
 | [Reporter report improvement](specs/reporter-ai.md) | TD-RPT-26 through TD-RPT-30 | Implemented for issue #17 with [verification and independent review](reporter/evidence/reporter-ai.md); production remains disabled pending verified funding/enablement; live quality and deployment remain separate gates |
 | [Developer investigation workspace](specs/developer-investigation.md#dev-ui-28-executable-acceptance-criteria) | TD-DEV-11 through TD-DEV-15 | Candidate unit/build, routed-browser and corrected same-candidate isolated real-backend checks recorded in [evidence](developer/evidence/developer-ui.md); CI confirmation remains pending |
+| [Developer proposed resolution and QA handoff](specs/developer-investigation.md#dev-resolution-30-executable-acceptance-criteria) | TD-DEV-21 through TD-DEV-25 | Candidate checks and independent agent review for issue #30 recorded in [evidence](developer/evidence/developer-resolution.md); CI remains pending; no runtime acceptance claimed. Clarification criteria TD-DEV-16 through TD-DEV-20 were descoped on 2026-11-09 |
 
 Add Reporter, Developer, QA and shared gateway specifications as their implementation
 begins. Do not declare unimplemented features accepted because their design is approved.

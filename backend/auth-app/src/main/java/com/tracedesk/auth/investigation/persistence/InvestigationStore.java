@@ -2,6 +2,7 @@ package com.tracedesk.auth.investigation.persistence;
 
 import com.tracedesk.auth.investigation.application.InvestigationRepository;
 import com.tracedesk.auth.investigation.domain.InvestigationNoteData;
+import com.tracedesk.auth.investigation.domain.ProposedResolutionData;
 import com.tracedesk.auth.reports.application.ReportRepository;
 import com.tracedesk.auth.reports.application.ReportService;
 import com.tracedesk.auth.reports.domain.ReportData;
@@ -156,6 +157,54 @@ public class InvestigationStore implements InvestigationRepository {
         });
     }
 
+    @Override public Proposal propose(UUID actor, UUID project, UUID report, ProposedResolutionData data,
+                                      int expectedVersion, UUID requestId, Instant now) {
+        return transactions.execute(tx -> {
+            requireDeveloperLocked(actor, project);
+            ReportRepository.Report current = lockReport(project, report, "for update");
+            requireAssigned(current, actor);
+            if (!"IN_PROGRESS".equals(current.status())) throw failure("INVALID_STATE", 409);
+            if (!ProposedResolutionData.valid(data)) throw failure("VALIDATION_ERROR", 400);
+            if (expectedVersion < 1) throw failure("INVALID_REQUEST", 400);
+            Integer latest = jdbc.queryForObject("select coalesce(max(revision),0) from td_report_resolutions where project_id=? and report_id=?",
+                    Integer.class, project, report);
+            if (latest != null && latest >= 50) throw failure("RESOLUTION_LIMIT", 409);
+            if (current.version() != expectedVersion) throw failure("STALE_VERSION", 409);
+            int revision = (latest == null ? 0 : latest) + 1, nextVersion = current.version() + 1;
+            UUID resolutionId = UUID.randomUUID();
+            jdbc.update("""
+                    insert into td_report_resolutions
+                      (id,project_id,report_id,author_user_id,revision,root_cause,change_summary,verification_steps,fix_reference,created_at)
+                    values(?,?,?,?,?,?,?,?,?,?)
+                    """, resolutionId, project, report, actor, revision, data.rootCause(), data.changeSummary(),
+                    data.verificationSteps(), data.fixReference(), timestamp(now));
+            jdbc.update("update td_reports set status='READY_FOR_QA',updated_at=?,version=? where project_id=? and id=?",
+                    timestamp(now), nextVersion, project, report);
+            audit("REPORT_RESOLUTION_PROPOSED", requestId, actor, project, report, "RESOLUTION", resolutionId,
+                    "IN_PROGRESS", "READY_FOR_QA", current.version(), nextVersion, revision);
+            Resolution resolution = jdbc.query(resolutionSelect() + " where project_id=? and report_id=? and id=?",
+                    rs -> rs.next() ? mapResolution(rs, 0) : null, project, report, resolutionId);
+            return new Proposal(loadReport(project, report).orElseThrow(), resolution);
+        });
+    }
+
+    @Override public ResolutionPage resolutions(UUID actor, UUID project, UUID report, int limit, UUID afterId) {
+        ReportRepository.Membership membership = membership(actor, project)
+                .filter(m -> m.userEnabled() && m.projectEnabled() && m.active())
+                .orElseThrow(() -> failure("NOT_FOUND", 404));
+        if (!List.of("DEVELOPER", "QA_REVIEWER").contains(membership.role())) throw failure("FORBIDDEN", 403);
+        loadReport(project, report).orElseThrow(() -> failure("NOT_FOUND", 404));
+        List<Resolution> rows = jdbc.query(resolutionSelect() + """
+                 where project_id=? and report_id=?
+                  and (cast(? as uuid) is null or revision > (
+                    select prior.revision from td_report_resolutions prior
+                    where prior.project_id=? and prior.report_id=? and prior.id=cast(? as uuid)))
+                order by revision asc limit ?
+                """, this::mapResolution, project, report, afterId, project, report, afterId, limit + 1);
+        boolean more = rows.size() > limit;
+        return new ResolutionPage(more ? rows.subList(0, limit) : rows, more);
+    }
+
     private ReportRepository.Membership requireDeveloper(UUID actor, UUID project) {
         ReportRepository.Membership membership = membership(actor, project)
                 .filter(m -> m.userEnabled() && m.projectEnabled() && m.active())
@@ -267,6 +316,18 @@ public class InvestigationStore implements InvestigationRepository {
                   expected_behavior,actual_behavior,text_logs,status,assigned_developer_id,created_at,updated_at,version
                 from td_reports
                 """;
+    }
+    private static String resolutionSelect() {
+        return """
+                select id,report_id,author_user_id,revision,root_cause,change_summary,verification_steps,fix_reference,created_at
+                from td_report_resolutions
+                """;
+    }
+    private Resolution mapResolution(ResultSet rs, int ignored) throws SQLException {
+        return new Resolution(rs.getObject("id", UUID.class), rs.getObject("report_id", UUID.class),
+                rs.getObject("author_user_id", UUID.class), rs.getInt("revision"), rs.getString("root_cause"),
+                rs.getString("change_summary"), rs.getString("verification_steps"), rs.getString("fix_reference"),
+                rs.getTimestamp("created_at").toInstant());
     }
     private static ReportRepository.Membership mapMembership(ResultSet rs) throws SQLException {
         return new ReportRepository.Membership(rs.getObject(1, UUID.class), rs.getString(2), rs.getBoolean(3),

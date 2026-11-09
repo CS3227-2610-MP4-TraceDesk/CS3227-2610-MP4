@@ -13,6 +13,21 @@ export type InvestigationNote = {
   version: number
 }
 export type NotePage = { items: InvestigationNote[]; nextCursor: string | null }
+export type ResolutionFields = {
+  rootCause: string
+  changeSummary: string
+  verificationSteps: string
+  fixReference: string
+}
+export type ProposedResolution = ResolutionFields & {
+  id: string
+  reportId: string
+  authorUserId: string
+  revision: number
+  createdAt: string
+}
+export type ResolutionPage = { items: ProposedResolution[]; nextCursor: string | null }
+export type ResolutionProposal = { report: ReportDetail; resolution: ProposedResolution }
 export type DeveloperReportScope = 'assigned-to-me' | 'all'
 
 export class DeveloperApiError extends Error {
@@ -108,6 +123,18 @@ function isNote(value: unknown, projectId: string): value is InvestigationNote {
     Number.isInteger(value.version) && Number(value.version) > 0 && Boolean(projectId)
 }
 
+function isBoundedText(value: unknown, maximum: number): value is string {
+  return typeof value === 'string' && Array.from(value).length <= maximum
+}
+
+function isResolution(value: unknown, reportId: string): value is ProposedResolution {
+  return object(value) && isCanonicalUuid(String(value.id)) && value.reportId === reportId &&
+    isCanonicalUuid(String(value.authorUserId)) && Number.isInteger(value.revision) && Number(value.revision) > 0 &&
+    isBoundedText(value.rootCause, 4_000) && isBoundedText(value.changeSummary, 4_000) &&
+    isBoundedText(value.verificationSteps, 4_000) && isBoundedText(value.fixReference, 200) &&
+    typeof value.createdAt === 'string' && Number.isFinite(Date.parse(value.createdAt))
+}
+
 export async function fetchDeveloperContext(projectId: string, signal?: AbortSignal): Promise<DeveloperContext> {
   if (!isCanonicalUuid(projectId)) throw new DeveloperApiError(400, 'INVALID_REQUEST')
   return json(await read(`/api/projects/${projectId}/developer-context`, signal), value => isContext(value, projectId))
@@ -142,6 +169,19 @@ export async function createNote(projectId: string, reportId: string, body: stri
 export async function updateNote(projectId: string, reportId: string, noteId: string, body: string, expectedVersion: number, signal?: AbortSignal): Promise<InvestigationNote> {
   return json(await mutate(`/api/projects/${projectId}/reports/${reportId}/notes/${noteId}`, 'PATCH', JSON.stringify({ body, expectedVersion }), undefined, signal),
     (value): value is InvestigationNote => isNote(value, projectId) && value.reportId === reportId && value.id === noteId)
+}
+
+export async function fetchResolutions(projectId: string, reportId: string, signal?: AbortSignal): Promise<ResolutionPage> {
+  return json(await read(`/api/projects/${projectId}/reports/${reportId}/resolutions?limit=100`, signal), (value): value is ResolutionPage =>
+    object(value) && Array.isArray(value.items) && value.items.every(item => isResolution(item, reportId)) &&
+    (value.nextCursor === null || typeof value.nextCursor === 'string'))
+}
+
+export async function proposeResolution(projectId: string, reportId: string, fields: ResolutionFields, expectedVersion: number, signal?: AbortSignal): Promise<ResolutionProposal> {
+  const response = await mutate(`/api/projects/${projectId}/reports/${reportId}/resolutions`, 'POST', JSON.stringify({ ...fields, expectedVersion }), undefined, signal)
+  return json(response, (value): value is ResolutionProposal =>
+    object(value) && isReportDetail(value.report, projectId) && value.report.id === reportId && value.report.status === 'READY_FOR_QA' &&
+    isResolution(value.resolution, reportId), 201)
 }
 
 export async function deleteNote(projectId: string, reportId: string, noteId: string, expectedVersion: number, signal?: AbortSignal): Promise<void> {
