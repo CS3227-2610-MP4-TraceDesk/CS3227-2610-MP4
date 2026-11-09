@@ -346,6 +346,10 @@ or authorization; DEV-UI replaces the Developer preview path with real API calls
   history, read from their own endpoints; it is never derived from business
   audit, which would expose note events. Action availability (start, note, clarify, propose) is a UI
   hint derived from status and assignee; the server remains the authority.
+  DEV-UI #28 delivers the shared fields and private-notes portion only. The
+  clarification-backed activity portion lands with DEV-CLARIFY #29 and the
+  resolution-backed activity portion with DEV-RESOLUTION #30; their absence from
+  the #28 candidate is not an empty activity response or completed activity UI.
 - **Confirmed state**: every action waits for the server result before showing
   success. Recoverable failures (`STALE_VERSION`, `INVALID_STATE`, `503`, network)
   preserve unsent note, clarification and resolution text and offer refresh.
@@ -408,6 +412,20 @@ synthetic pre-assigned reports.
 | **TD-DEV-08** | Private notes follow the current-assignee read and mutation rules, stay absent from shared report representations, use their own versions without changing report version or `updated_at`, and commit create/edit/delete atomically with exactly one metadata-only audit event. |
 | **TD-DEV-09** | Anonymous, wrong-role, unassigned/former Developer, cross-project, disabled membership, reassignment, forged fields, invalid state, stale version, malformed/oversized content and persistence/event failure produce no forbidden read/write, content disclosure or partial audit. |
 | **TD-DEV-10** | Pure policy and validation, direct API, isolated PostgreSQL, revocation/reassignment race, concurrent cap/version and audit-rollback tests pass on a recorded candidate. The required database suite fails rather than skips when isolated settings are unavailable; evidence distinguishes that unavailable environment from a passing runtime check. |
+
+### DEV-UI (#28) executable acceptance criteria
+
+These criteria own the authenticated Developer workspace. They reuse the DEV-DATA
+endpoints and shared shell; they do not add clarification, resolution, QA or AI
+behavior.
+
+| Criterion | Observable requirement |
+| --- | --- |
+| **TD-DEV-11** | Developer navigation and context render only after trusted session and `developer-context` responses; a route hint, preview role selection or fixture cannot establish production identity or authorization. |
+| **TD-DEV-12** | My work requests `assignedToMe=true`, All bugs follows the canonical same-project read policy, and detail renders only shared report fields plus private notes selected through their separately authorized endpoint for the current assignee. |
+| **TD-DEV-13** | Start-investigation and note create/edit/delete wait for confirmed backend results; recoverable failures preserve unsent text and expose refresh/retry, while denied, reassigned, stale, session-expired, empty, loading and unavailable outcomes remove or retain protected UI as specified above. |
+| **TD-DEV-14** | User/report/model-like text renders as inert plain text; selection, drafts, attempts and results are isolated by account, project and report and are discarded when their owning context changes. Unknown-outcome note-create retry reuses the same body and idempotency key. |
+| **TD-DEV-15** | Same-candidate browser-to-real-backend evidence covers assigned versus unassigned access, start investigation, notes, stale/reassigned behavior, keyboard use, 320/390px and desktop layout, contrast and reduced motion; any unavailable real-backend environment is recorded as pending rather than replaced by mocked-browser evidence. |
 
 ## Delivery issues
 
