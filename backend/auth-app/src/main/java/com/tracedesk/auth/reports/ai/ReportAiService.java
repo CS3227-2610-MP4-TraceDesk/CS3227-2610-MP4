@@ -6,6 +6,7 @@ import com.tracedesk.auth.reports.domain.ReportData;
 import java.time.Clock;
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.function.Consumer;
 import static com.tracedesk.ai.gateway.GatewayTypes.*;
 import static com.tracedesk.ai.gateway.GatewayPorts.*;
 
@@ -27,6 +28,7 @@ public final class ReportAiService implements AutoCloseable {
             + "Use empty arrays when the report is already complete. Do not include markdown, extra keys or provenance.";
     private final ReportRepository repository;
     private final Clock clock;
+    private final Consumer<ReportAiOutput.Diagnostic> diagnosticSink;
     private final ThreadLocal<Invocation> current = new ThreadLocal<>();
     private final EnumMap<SourceKind, SecuredAiGateway> gateways = new EnumMap<>(SourceKind.class);
     private static final class Invocation {
@@ -38,10 +40,15 @@ public final class ReportAiService implements AutoCloseable {
     }
     /** Trusted test/backend wiring seam; never supplied by a request. */
     public ReportAiService(ReportRepository repository, Clock clock, Provider provider, Ledger ledger, Policy policy) {
-        this(repository,clock,(actors,authorizer,contexts)->new SecuredAiGateway(actors,authorizer,contexts,provider,ledger,policy,clock));
+        this(repository,clock,(actors,authorizer,contexts)->new SecuredAiGateway(actors,authorizer,contexts,provider,ledger,policy,clock), ignored -> { });
     }
     public ReportAiService(ReportRepository repository, Clock clock, Factory factory) {
+        this(repository,clock,factory, ignored -> { });
+    }
+    /** Package-private local-evaluation seam; the callback receives only fixed enums. */
+    ReportAiService(ReportRepository repository, Clock clock, Factory factory, Consumer<ReportAiOutput.Diagnostic> diagnosticSink) {
         this.repository=repository; this.clock=clock;
+        this.diagnosticSink=diagnosticSink == null ? ignored -> { } : diagnosticSink;
         for(var kind:SourceKind.values()) gateways.put(kind,factory.create(
                 () -> guarded(() -> { UUID id=invocation().actor.get(); if(id==null) throw new ReportService.Failure("UNAUTHENTICATED",401); return new Actor(id); }),
                 (actor,request)->guarded(()->source(kind,actor,request)),
@@ -55,15 +62,19 @@ public final class ReportAiService implements AutoCloseable {
             UUID actor=liveActor.get(); if(actor==null) throw new ReportService.Failure("UNAUTHENTICATED",401);
             source(kind,new Actor(actor),new Request(project,source,Capability.REPORT_IMPROVEMENT,version));
             var generated=gateways.get(kind).suggest(new Request(project,source,Capability.REPORT_IMPROVEMENT,version));
-            return ReportAiOutput.parse(generated.text(),kind,source,version);
+            return ReportAiOutput.parse(generated.text(),kind,source,version,this::recordDiagnostic);
         } catch(GatewayFailure failure) {
             if(invocation.failure!=null) throw invocation.failure;
-            throw switch(failure.code()) {
-                case STALE_SOURCE -> new ReportService.Failure("STALE_VERSION",409);
-                case AI_INVALID_RESPONSE, AI_OUTPUT_TOO_LARGE -> new ReportService.Failure("AI_INVALID_OUTPUT",502);
-                default -> new ReportService.Failure("AI_UNAVAILABLE",503);
-            };
+            switch(failure.code()) {
+                case STALE_SOURCE -> throw new ReportService.Failure("STALE_VERSION",409);
+                case AI_OUTPUT_TOO_LARGE -> { recordDiagnostic(new ReportAiOutput.Diagnostic(ReportAiOutput.Stage.GATEWAY_OUTPUT_REJECTED,ReportAiOutput.Reason.OUTPUT_LIMIT_EXCEEDED)); throw ReportAiOutput.publicInvalid(); }
+                case AI_INVALID_RESPONSE -> { recordDiagnostic(new ReportAiOutput.Diagnostic(ReportAiOutput.Stage.GATEWAY_OUTPUT_REJECTED,ReportAiOutput.Reason.GATEWAY_FORMAT_REJECTED)); throw ReportAiOutput.publicInvalid(); }
+                default -> throw new ReportService.Failure("AI_UNAVAILABLE",503);
+            }
         } finally { current.remove(); }
+    }
+    private void recordDiagnostic(ReportAiOutput.Diagnostic diagnostic) {
+        try { diagnosticSink.accept(diagnostic); } catch(RuntimeException ignored) { }
     }
     private Invocation invocation() {
         var value=current.get(); if(value==null) throw new GatewayFailure(GatewayFailure.Code.FORBIDDEN); return value;

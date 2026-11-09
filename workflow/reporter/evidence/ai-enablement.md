@@ -222,3 +222,8 @@ more explicitly, with matching browser version validation and separately pinned
 fixtures. Deterministic verification is recorded there. Its live quality is not
 yet measured; the 12/24 v1 semantic failures remain the observed baseline. No
 new live requests are authorized by this implementation.
+
+The first approved v2 live run subsequently stopped at attempt1 with
+`AI_INVALID_OUTPUT` (501 charged units); no v2 suggestion was delivered. See
+[the recorded failure and diagnostic limitation](reporter-ai-prompt-v2.md#first-v2-live-attempt--stopped-as-required).
+No automatic retry or balanced quality comparison occurred.

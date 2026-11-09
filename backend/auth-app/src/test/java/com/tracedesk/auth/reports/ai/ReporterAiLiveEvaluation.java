@@ -112,8 +112,9 @@ public final class ReporterAiLiveEvaluation {
             sql.update("insert into td_users(id,login_normalized,password_hash) values(?,'live-synthetic@example.test','unusable-synthetic-hash')", actor);
             sql.update("insert into td_projects(id,name) values(?,'Synthetic live evaluation')", project);
             sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'REPORTER','ACTIVE')", project, actor);
+            var diagnostic = new java.util.concurrent.atomic.AtomicReference<ReportAiOutput.Diagnostic>();
             try (var manager = LiveEvaluationManager.open(settings, ledger, clock);
-                 var service = new ReportAiService(new ReportStore(sql), clock, manager::createGateway)) {
+                 var service = new ReportAiService(new ReportStore(sql), clock, manager::createGateway, diagnostic::set)) {
                 manager.refreshNow();
                 if (manager.status() != SoclaasEnablementManager.Status.AVAILABLE) throw new IllegalStateException("AI not available");
                 int calls = 0;
@@ -138,6 +139,7 @@ public final class ReporterAiLiveEvaluation {
                                     source, project, actor, fields.get("title"), fields.get("description"), fields.get("environment"), fields.get("reproductionSteps"), fields.get("expectedBehavior"), fields.get("actualBehavior"),
                                     Timestamp.from(now), Timestamp.from(now), Timestamp.from(now.plusSeconds(2592000)));
                             var observation = new LinkedHashMap<String, Object>();
+                            diagnostic.set(null); // one diagnostic slot per explicit attempt
                             observation.put("case", fixture.path("id").asString());
                             observation.put("variant", variant); observation.put("repetition", repetition);
                             observation.put("model", settings.model()); observation.put("promptVersion", ReportAiService.PROMPT_VERSION);
@@ -156,6 +158,10 @@ public final class ReporterAiLiveEvaluation {
                                 observation.put("validatedSuggestionBytes", JSON.writeValueAsString(result).getBytes(StandardCharsets.UTF_8).length);
                             } catch (ReportService.Failure safe) {
                                 observation.put("outcome", safe.code()); failed = true;
+                            }
+                            var outputDiagnostic = diagnostic.get();
+                            if (outputDiagnostic != null) {
+                                observation.put("outputDiagnostic", Map.of("stage", outputDiagnostic.stage().name(), "reason", outputDiagnostic.reason().name()));
                             }
                             observation.put("elapsedMillis", (System.nanoTime() - started) / 1_000_000);
                             observation.put("accounting", sql.queryForList("select policy_revision,metadata_revision,funding_revision,reserved_units,actual_units,charged_units,outcome from td_ai_tickets where actor_id=? and created_at>=? order by created_at desc,id desc limit 1", actor, Timestamp.from(now)));

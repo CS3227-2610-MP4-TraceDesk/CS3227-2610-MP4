@@ -4,7 +4,7 @@ Candidate: branch `codex/shared-ai-enablement`, base `3541f11`, plus the source
 files bound by [the current manifest](ai-enablement.sha256). Contract:
 [TD-RPT-28/30 and post-live correction](../../specs/reporter-ai.md).
 The [v1 assessment](reporter-ai-live-quality.md) remains unchanged: 12 of 24
-suggestions failed semantic checks. **V2 live quality is not yet measured.**
+suggestions failed semantic checks. **V2 live evaluation stopped on its first invalid output; no v2 suggestion was delivered for semantic scoring.**
 
 ## Change and boundaries
 
@@ -93,3 +93,37 @@ Final portable checks: `python3 tools/check_foundation.py` passed (119 documents
 4 skills, 21 provenance entries, 11 transport Java sources); `git diff --check`
 passed. The v1 assessment verification still reproduces all 24 hashes, scores
 and aggregate totals. Final independent delta review reported no material findings.
+
+## First v2 live attempt — stopped as required
+
+The user ran the fresh approved launcher against candidate
+`afe413d01b81946bd633f20be26eff95bee5e0ec`, model `default`, prompt
+`report-improvement-v2`, at approximately 2026-11-09 15:34 Singapore time.
+The pasted console and local JSONL agree: RAI-01 / concise / repetition 1
+returned **AI_INVALID_OUTPUT**, after 2,556 ms. One ledger completion settled
+SUCCESS, charged **501 resource units** (3,174 reserved). Provider settlement
+success does not mean the role suggestion passed validation. No suggestion was
+delivered or applied; the runner stopped immediately without retry. Thus the
+observed structural invalid rate for this interrupted run is 1/1, not a full
+24-case quality result. No balanced v1/v2 quality comparison can be made.
+
+Local ignored source: `workflow/reporter/runs/ai-live-7d4a810a-3011-43c1-a570-8716a8be9051.jsonl`,
+SHA-256 `3d41f92f61334b2c143e14f55070ca1c382bdf39ce4c77f64cac1f051a1da94c`. Its one-use approval was consumed; the remaining
+attempt allowance cannot be silently reused. No agent accessed the key or made
+provider calls. Including all earlier batches, observed attempts total 28,
+delivered suggestions 26, charged resource units 13,012. Missing token breakdown
+and monetary cost remain unknown.
+
+The current parser exposes only a fixed safe invalid-output error. The runner
+does not retain rejected raw text or a content-free validation category, so the
+exact failing rule (JSON shape, field/replacement limits, Unicode or another
+role validation rule) is unavailable. Do not infer it from the generic code.
+The Java native-access warning did not cause this failure: execution reached
+the provider and role validation. Next diagnostic work should preserve strict
+validation and add safe bounded validation categories with synthetic tests,
+then obtain fresh bounded approval before any new live request. No new model
+quality score is assigned to an unavailable suggestion.
+
+The subsequent [content-free diagnostic change](reporter-ai-output-diagnostics.md)
+adds safe categories for future attempts. It cannot recover this rejected response
+or establish its exact cause; no new live run is implied.

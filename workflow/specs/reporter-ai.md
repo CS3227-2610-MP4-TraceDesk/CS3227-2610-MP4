@@ -95,6 +95,43 @@ structured output; `503 SERVICE_UNAVAILABLE` for session/storage failures.
 Apply normal CSRF/error precedence. Fixed messages must not echo payloads,
 exception text, provider bodies, credentials or accounting internals.
 
+### Content-free invalid-output diagnostics
+
+When a completion is rejected, a trusted local test or live-evaluation record
+may retain exactly one diagnostic pair: a fixed stage and a fixed reason enum.
+This record is available only to the trusted local evaluation harness; it is
+never returned over HTTP or written to application, provider, or general-purpose
+logs. The stage distinguishes `GATEWAY_OUTPUT_REJECTED` (the shared gateway
+rejected the completion before Reporter parsing) from `ROLE_RESPONSE_SHAPE`,
+`ROLE_CHANGE_VALIDATION`, and `ROLE_QUESTION_VALIDATION` (Reporter parsing found
+an invalid top-level response, change entry/replacement, or question,
+respectively). The complete reason enums are fixed as follows:
+
+- `GATEWAY_OUTPUT_REJECTED`: `OUTPUT_LIMIT_EXCEEDED`, `GATEWAY_FORMAT_REJECTED`. A generic gateway
+  rejection does not establish whether tool calls, Unicode or provider format
+  caused it; do not infer a narrower reason.
+- `ROLE_RESPONSE_SHAPE`: `RESPONSE_INVALID`, `OUTPUT_LIMIT_EXCEEDED` (direct parser guards),
+  `MALFORMED_JSON` (including duplicates/trailing content), `TOP_LEVEL_KEYS_INVALID`, `CHANGES_CONTAINER_INVALID`,
+  `QUESTIONS_CONTAINER_INVALID`.
+- `ROLE_CHANGE_VALIDATION`: `CHANGE_ENTRY_INVALID`, `CHANGE_FIELD_INVALID`,
+  `CHANGE_FIELD_DUPLICATE`, `REPLACEMENT_INVALID`.
+- `ROLE_QUESTION_VALIDATION`: `QUESTION_INVALID`, `QUESTION_LIMIT_EXCEEDED`.
+
+These enums describe broad failure classes and contain no dynamic data. Record
+only the first rejection for an attempt.
+
+Diagnostics contain no response text, source content, credentials, arbitrary
+field names, indexes, parser exception/message, or other provider/user-derived
+value. They do not change the accepted response set, strict parser, prompt,
+authorization, gateway admission/accounting, or retry behavior. Every such
+failure keeps the public response `502 AI_INVALID_OUTPUT` with no cause or
+diagnostic detail. Failure to write the optional local diagnostic is swallowed
+and cannot replace or mask that public error. Verification must exercise each
+diagnostic stage/reason mapping, confirm successful and denied requests produce
+no diagnostic, confirm a diagnostic-sink failure preserves the public error,
+and use secret canaries to show that no content or canary reaches the local
+record or public response.
+
 ## Authorization, integration and atomicity
 
 Resolve identity from the trusted current session. Authorize enabled user/project,
