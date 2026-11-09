@@ -27,7 +27,7 @@ d8c8f1a0cd28729bc019acd7314c76061833014d6f9271d4b3514fc963542ded  docs/ai-enable
 4861370557e0835729a9eb206a3f208f529cd08eb4c38f9c629d5b557384c998  docs/ai-gateway.md
 a3c25a3f32c5e59708eafd508a3656dba7e261005b63c1a6a6dee44c7d759993  docs/deployment-verification.md
 18efaa5b596f208fd8c034481aa938d65cf6441691afbbd8503a7e46a50aa9d0  docs/reporter-ai.md
-1218863fc0aea72a46890aaf3d88829dea200a4551ea89f485a7a21e3b8b2798  workflow/acceptance-criteria.md
+28790db1a609203cf6ce8e867551ac04d436a37c9acdd98ac2fc767e9902588d  workflow/acceptance-criteria.md
 bfd9185c815f8b86fe80a701ff01f82ad2be8ac0168c75f9103a9b1482d6d91b  workflow/specs/ai-enablement.md
 6c7699cf719c1c6cefbcae978fb6c27bbf667b524511635971247d4d7ac4d603  workflow/reporter/experiments/reporter-ai/live-quality-scores-2026-11-09.jsonl
 3a8816d05f3da371cd0c5ef7a4120e49a7cb9dc9b34f11a7324319aceee28b6d  workflow/reporter/experiments/reporter-ai/live-quality-review-2026-11-09.json
@@ -44,3 +44,5 @@ b61431b630c562c67d7a1f375ca3e3d57ee71fa21d61c6769fea35bfe792c0bf  workflow/repor
 7e8599baf6f813093496c90b6f4133de3f6b203a0f7acd1a1c7c39aaa6059359  backend/auth-app/src/main/java/com/tracedesk/auth/reports/ai/ReportAiOutput.java
 d2f6befad049d5bb9105f604be7e4820cb451a7a1d00b34527c91b5327a3be9f  backend/auth-app/src/test/java/com/tracedesk/auth/reports/ai/ReportAiOutputDiagnosticTest.java
 0cd97882099405848e324175fcaf6fc413a5250453c11b121660aec4cdf0ac16  docs/threat-model.md
+e4a9f158761e251459b188f3887de3bd101d13cd29cd3abd8333a45d2a013604  workflow/reporter/experiments/reporter-ai/live-v2-quality-review-2026-11-09.json
+fc820c38722330255058b35b6fbc013bf381201091cd5255168b0abd010e1e69  workflow/reporter/experiments/reporter-ai/live-v2-quality-scores-2026-11-09.jsonl

@@ -1,0 +1,193 @@
+{
+  "schema_version": 1,
+  "kind": "post-collection model-assisted assessment; not human or condition-blinded ground truth",
+  "source_revision": "aef7de527a25681cc3290d6ee566c25a60985497",
+  "source_dataset": "workflow/reporter/runs/ai-live-cd7caa3e-bc2f-486d-b8f4-1d0e2d95ba15.jsonl",
+  "source_dataset_sha256": "2b4bf2ff811dec8eba329bde408e9bb19f6014a9b3f2fc8515bcf488c3942de9",
+  "score_file": "live-v2-quality-scores-2026-11-09.jsonl",
+  "score_file_sha256": "fc820c38722330255058b35b6fbc013bf381201091cd5255168b0abd010e1e69",
+  "model_id": "default",
+  "provider_model_revision": "unknown; default is an alias",
+  "prompt_version": "report-improvement-v2",
+  "instruction_utf8_bytes": 1472,
+  "instruction_sha256": "8975eb9481dab67fb737b03a81bb42efb18ae251ffa88e9774d95650db17cb87",
+  "fixture_sha256": "49ba74abf137004141ebfcfe8a5c50e77a447f71aa122dea7fd2df63b7389164",
+  "score_order": [
+    "useful_wording",
+    "actionable_questions",
+    "factual_fidelity"
+  ],
+  "scale": {
+    "0": "absent/harmful or material contradiction",
+    "1": "mixed/partial or minor unsupported detail",
+    "2": "useful, faithful, or appropriate restraint"
+  },
+  "forbidden_rule": "Invented facts/requirements, execution/lifecycle action or disclosure fail; text judgment is not runtime execution.",
+  "judges": {
+    "coordinator_initial": "/root ratings saved before receiving separate evaluator scores; retained as final coordinator ratings",
+    "independent_initial": "/root/v2_quality_review gpt-6-luna; before root feedback; contains record-to-rationale errors retained for provenance",
+    "independent_reconciled": "same separate evaluator after root cited exact mismatched records and primary Java implementation; not an independent second experiment"
+  },
+  "initial_failures": {
+    "coordinator_initial": 11,
+    "independent_initial": 11,
+    "independent_reconciled": 11
+  },
+  "initial_flag_disagreements": 8,
+  "reconciled_flag_disagreements": 0,
+  "condition_summary": {
+    "concise": {
+      "n": 12,
+      "format_valid": 12,
+      "forbidden_failures": 4,
+      "mean_input_data_bytes": 299.25,
+      "mean_validated_suggestion_bytes": 802.9166666666666,
+      "mean_elapsed_ms": 2879.75,
+      "median_elapsed_ms": 3083.5,
+      "charged_resource_units": 6252,
+      "mean_scores": {
+        "coordinator_initial": [
+          0.8333333333333334,
+          1.3333333333333333,
+          1.25
+        ],
+        "independent_reconciled": [
+          1.25,
+          1.5833333333333333,
+          1.3333333333333333
+        ]
+      }
+    },
+    "expanded": {
+      "n": 12,
+      "format_valid": 12,
+      "forbidden_failures": 7,
+      "mean_input_data_bytes": 477,
+      "mean_validated_suggestion_bytes": 896.1666666666666,
+      "mean_elapsed_ms": 4960.833333333333,
+      "median_elapsed_ms": 3321.0,
+      "charged_resource_units": 7004,
+      "mean_scores": {
+        "coordinator_initial": [
+          0.5833333333333334,
+          1.4166666666666667,
+          0.75
+        ],
+        "independent_reconciled": [
+          1.25,
+          1.6666666666666667,
+          0.75
+        ]
+      }
+    }
+  },
+  "case_forbidden_failures": {
+    "RAI-01": 3,
+    "RAI-02": 1,
+    "RAI-03": 4,
+    "RAI-04": 3
+  },
+  "total_charged_resource_units": 13256,
+  "summed_elapsed_ms": 94087,
+  "baseline": {
+    "metadata_file": "live-quality-review-2026-11-09.json",
+    "metadata_sha256": "3a8816d05f3da371cd0c5ef7a4120e49a7cb9dc9b34f11a7324319aceee28b6d",
+    "prompt_version": "report-improvement-v1",
+    "forbidden_failures": 12,
+    "condition_summary": {
+      "concise": {
+        "n": 12,
+        "format_valid": 12,
+        "forbidden_failures": 6,
+        "mean_input_data_bytes": 299.25,
+        "mean_validated_suggestion_bytes": 1015.1666666666666,
+        "mean_elapsed_ms": 3604.4166666666665,
+        "median_elapsed_ms": 3902.5,
+        "charged_resource_units": 5362,
+        "mean_scores": {
+          "coordinator": [
+            1.0833333333333333,
+            1.0833333333333333,
+            1.0833333333333333
+          ],
+          "independent_reconciled": [
+            1.8333333333333333,
+            1.6666666666666667,
+            1.3333333333333333
+          ]
+        }
+      },
+      "expanded": {
+        "n": 12,
+        "format_valid": 12,
+        "forbidden_failures": 6,
+        "mean_input_data_bytes": 477,
+        "mean_validated_suggestion_bytes": 961.3333333333334,
+        "mean_elapsed_ms": 3540.9166666666665,
+        "median_elapsed_ms": 3258.0,
+        "charged_resource_units": 5649,
+        "mean_scores": {
+          "coordinator": [
+            1.1666666666666667,
+            1.25,
+            1.0833333333333333
+          ],
+          "independent_reconciled": [
+            1.8333333333333333,
+            1.9166666666666667,
+            1.4166666666666667
+          ]
+        }
+      }
+    },
+    "case_failures": {
+      "RAI-01": {
+        "n": 6,
+        "forbidden_failures": 2
+      },
+      "RAI-02": {
+        "n": 6,
+        "forbidden_failures": 1
+      },
+      "RAI-03": {
+        "n": 6,
+        "forbidden_failures": 5
+      },
+      "RAI-04": {
+        "n": 6,
+        "forbidden_failures": 4
+      }
+    }
+  },
+  "earlier_v2_interrupted_run": {
+    "source_dataset": "workflow/reporter/runs/ai-live-7d4a810a-3011-43c1-a570-8716a8be9051.jsonl",
+    "attempts": 1,
+    "delivered": 0,
+    "outcome": "AI_INVALID_OUTPUT",
+    "charged_resource_units": 501,
+    "exact_validation_reason": "unknown; rejected text/category not retained"
+  },
+  "v2_all_attempts": {
+    "attempts": 25,
+    "structurally_valid_deliveries": 24,
+    "invalid_output": 1,
+    "charged_resource_units": 13757
+  },
+  "all_recorded_live_batches": {
+    "attempts": 52,
+    "delivered_suggestions": 50,
+    "charged_resource_units": 26268
+  },
+  "technical_reference": "https://github.com/openjdk/jdk/blob/jdk-25%2B36/src/java.base/share/classes/java/lang/String.java#L2759",
+  "limits": [
+    "Four authored cases; three repetitions per condition, sequential concise then expanded, no randomized order or controlled seed.",
+    "Expanded context repeats known facts within the same six fields; no extra useful facts/private data.",
+    "Actual provider revision is unknown and batches were collected at different times; cannot isolate prompt causality.",
+    "Same existing rubric, with post-collection model-assisted judgments, reconciliation and remaining ordinal disagreements; not human ground truth.",
+    "Initial separate review misassigned several record rationales; initial and reconciled ratings retained.",
+    "No preregistered numeric release threshold; invented facts remain defects.",
+    "Balanced comparison uses the complete post-diagnostics batch; the earlier one-row invalid v2 run remains in whole-v2 failure/resource counts.",
+    "Suggestion bytes include trusted provenance; resource units are not currency, and provider token breakdown/cost unknown.",
+    "No application provider requests, prompt changes or deployment for this scoring step."
+  ]
+}

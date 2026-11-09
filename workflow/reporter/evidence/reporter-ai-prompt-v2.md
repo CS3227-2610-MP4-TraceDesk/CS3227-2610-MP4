@@ -127,3 +127,9 @@ quality score is assigned to an unavailable suggestion.
 The subsequent [content-free diagnostic change](reporter-ai-output-diagnostics.md)
 adds safe categories for future attempts. It cannot recover this rejected response
 or establish its exact cause; no new live run is implied.
+
+A subsequent freshly approved full v2 batch completed24/24 structurally valid
+suggestions. Its [separate assessment](reporter-ai-live-v2-quality.md) records
+11/24 semantic failures; the earlier invalid attempt above remains part of whole-v2
+failure/usage totals. The completed batch does not erase that failure or prove
+the quality defects resolved.
