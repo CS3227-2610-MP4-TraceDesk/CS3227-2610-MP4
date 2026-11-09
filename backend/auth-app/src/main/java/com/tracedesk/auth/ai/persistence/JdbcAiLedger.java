@@ -42,18 +42,135 @@ public final class JdbcAiLedger implements GatewayPorts.Ledger {
         safe(() -> {
             validatePolicyShape(policy);
             if (now == null) throw new GatewayFailure(INVALID_REQUEST);
-            if (policy.enabled() || metadata != null) validateMetadata(metadata, now);
+            if (metadata != null) validateMetadata(metadata, now);
             transactions.executeWithoutResult(tx -> {
                 Control c = lock();
                 fence(policy, metadata, c);
                 if (metadata == null) {
-                    sql.update("update td_ai_control set policy_revision=?,policy_fingerprint=? where singleton=true",policy.revision(),fingerprint(policy));
+                    boolean policyAdvanced = policy.revision() > c.policy;
+                    boolean snapshotRevoked = c.available || c.pending;
+                    if (policyAdvanced || snapshotRevoked) {
+                        sql.update("update td_ai_control set policy_revision=?,policy_fingerprint=?,metadata_revision=?,metadata_available=false,metadata_pending=false where singleton=true",
+                                policy.revision(),fingerprint(policy),Math.addExact(c.metadata,1));
+                    }
                 } else {
-                    sql.update("update td_ai_control set policy_revision=?,policy_fingerprint=?,metadata_revision=?,funding_revision=?,model=?,metadata_valid_until=? where singleton=true",
-                            policy.revision(),fingerprint(policy),metadata.revision(),metadata.fundingRevision(),metadata.model(),metadata.validUntil().toString());
+                    sql.update("update td_ai_control set policy_revision=?,policy_fingerprint=?,metadata_revision=?,funding_revision=?,model_revision=?,expected_model=?,model=?,metadata_valid_until=?,approval_fingerprint=?,approval_valid_until=?,metadata_available=true,metadata_pending=false where singleton=true",
+                            policy.revision(),fingerprint(policy),metadata.revision(),metadata.fundingRevision(),c.modelRevision,c.expectedModel,metadata.model(),metadata.validUntil().toString(),metadata.approvalFingerprint(),metadata.approvalValidUntil().toString());
                 }
             });
             return null;
+        });
+    }
+
+    /** Publish/fence the immutable startup policy without ever doing provider I/O. */
+    public void publishPolicy(Policy policy, Instant now) {
+        safe(() -> {
+            validatePolicyShape(policy);
+            if (now == null) throw new GatewayFailure(INVALID_REQUEST);
+            transactions.executeWithoutResult(tx -> {
+                Control c = lock(); String fp = fingerprint(policy);
+                if (policy.revision() < c.policy || (policy.revision() == c.policy && c.fingerprint != null && !fp.equals(c.fingerprint)))
+                    throw new GatewayFailure(AI_UNAVAILABLE);
+                if (policy.revision() > c.policy) sql.update("update td_ai_control set policy_revision=?,policy_fingerprint=?,metadata_revision=?,metadata_available=false,metadata_pending=false where singleton=true",
+                        policy.revision(),fp,Math.addExact(c.metadata,1));
+                else if (c.fingerprint == null) sql.update("update td_ai_control set policy_fingerprint=? where singleton=true",fp);
+            });
+            return null;
+        });
+    }
+
+    /** Establish the expected model/sponsorship generation and revoke incompatible snapshots. */
+    public void prepareEnablement(Policy policy, String model, long modelRevision, long approvalRevision,
+                                  String approvalFingerprint, Instant approvalValidUntil, Instant now) {
+        safe(() -> {
+            if (model == null || !model.matches("[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}") || modelRevision < 1
+                    || approvalRevision < 1 || approvalFingerprint == null || !approvalFingerprint.matches("[A-Fa-f0-9]{64}")
+                    || approvalValidUntil == null || now == null) throw new GatewayFailure(AI_UNAVAILABLE);
+            transactions.executeWithoutResult(tx -> {
+                Control c = lock(); requireCurrentPolicy(policy,c);
+                if (modelRevision < c.modelRevision || approvalRevision < c.funding
+                        || (modelRevision == c.modelRevision && c.expectedModel != null && !model.equals(c.expectedModel))
+                        || (approvalRevision == c.funding && c.approvalFingerprint != null
+                            && (!approvalFingerprint.equals(c.approvalFingerprint) || !approvalValidUntil.toString().equals(c.approvalValidUntil))))
+                    throw new GatewayFailure(AI_UNAVAILABLE);
+                boolean same = modelRevision == c.modelRevision && model.equals(c.expectedModel)
+                        && approvalRevision == c.funding && approvalFingerprint.equals(c.approvalFingerprint)
+                        && approvalValidUntil.toString().equals(c.approvalValidUntil);
+                if (!same || !c.available || c.metadataValidUntil == null || !Instant.parse(c.metadataValidUntil).isAfter(now)) {
+                    long next = same ? c.metadata : Math.addExact(c.metadata,1);
+                    sql.update("update td_ai_control set metadata_revision=?,funding_revision=?,model_revision=?,expected_model=?,approval_fingerprint=?,approval_valid_until=?,model=null,metadata_valid_until=null,metadata_available=false,metadata_pending=false where singleton=true",
+                            next,approvalRevision,modelRevision,model,approvalFingerprint,approvalValidUntil.toString());
+                }
+            });
+            return null;
+        });
+    }
+
+    /** Read-only shared readiness/snapshot query; bounded to two seconds and never opens a provider connection. */
+    public Metadata readCurrentMetadata(Policy policy, String model, long modelRevision, long approvalRevision,
+                                       String approvalFingerprint, Instant approvalValidUntil, Instant now) {
+        try {
+            if (policy == null || now == null || !policy.enabled()) return null;
+            JdbcTemplate bounded = new JdbcTemplate(sql.getDataSource()); bounded.setQueryTimeout(2);
+            List<Metadata> values = bounded.query("select policy_revision,policy_fingerprint,metadata_revision,funding_revision,model_revision,expected_model,model,metadata_valid_until,approval_fingerprint,approval_valid_until,metadata_available,metadata_pending from td_ai_control where singleton=true",
+                    (rs,n) -> {
+                        if (rs.getLong("policy_revision") != policy.revision() || !fingerprint(policy).equals(rs.getString("policy_fingerprint"))
+                                || !rs.getBoolean("metadata_available") || rs.getBoolean("metadata_pending")
+                                || rs.getLong("model_revision") != modelRevision || rs.getLong("funding_revision") != approvalRevision
+                                || !Objects.equals(rs.getString("expected_model"),model) || !Objects.equals(rs.getString("model"),model)
+                                || !Objects.equals(rs.getString("approval_fingerprint"),approvalFingerprint)
+                                || !Objects.equals(rs.getString("approval_valid_until"),approvalValidUntil == null ? null : approvalValidUntil.toString())) return null;
+                        String validText=rs.getString("metadata_valid_until");
+                        if (validText == null) return null;
+                        Instant valid=Instant.parse(validText);
+                        if (!valid.isAfter(now) || valid.isAfter(now.plusSeconds(900)) || approvalValidUntil == null || !approvalValidUntil.isAfter(now)) return null;
+                        return new Metadata(model,rs.getLong("metadata_revision"),valid,approvalRevision,approvalFingerprint,approvalValidUntil);
+                    });
+            return values.isEmpty() ? null : values.get(0);
+        } catch (RuntimeException unavailable) { return null; }
+    }
+
+    public boolean isCurrentPolicy(Policy policy) {
+        try {
+            JdbcTemplate bounded=new JdbcTemplate(sql.getDataSource()); bounded.setQueryTimeout(2);
+            Boolean current=bounded.queryForObject("select policy_revision=? and policy_fingerprint=? from td_ai_control where singleton=true",
+                    Boolean.class,policy.revision(),fingerprint(policy));
+            return Boolean.TRUE.equals(current);
+        } catch (RuntimeException unavailable) { return false; }
+    }
+
+    /** Allocate a database-owned metadata revision; gaps after failed refreshes are intentional. */
+    public long nextMetadataRevision(Policy policy, String model, long modelRevision, long approvalRevision, String approvalFingerprint, Instant approvalValidUntil, Instant now) {
+        return safe(() -> transactions.execute(tx -> {
+            Control c = lock();
+            requireCurrentPolicy(policy, c);
+            if (model == null || !model.matches("[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}") || modelRevision != c.modelRevision
+                    || !model.equals(c.expectedModel) || approvalRevision < 1 || approvalFingerprint == null || !approvalFingerprint.matches("[A-Fa-f0-9]{64}")
+                    || approvalValidUntil == null || now == null) throw new GatewayFailure(AI_UNAVAILABLE);
+            if (approvalRevision != c.funding || (c.approvalFingerprint != null
+                    && (!approvalFingerprint.equals(c.approvalFingerprint)
+                        || !approvalValidUntil.toString().equals(c.approvalValidUntil)))) throw new GatewayFailure(AI_UNAVAILABLE);
+            long next = Math.addExact(c.metadata, 1);
+            sql.update("update td_ai_control set metadata_revision=?,metadata_available=false,metadata_pending=true where singleton=true",next);
+            return next;
+        }));
+    }
+
+    @Override public void assertCurrent(Policy policy, Metadata metadata, Instant now) {
+        safe(() -> {
+            if (policy == null || metadata == null || now == null) throw new GatewayFailure(AI_UNAVAILABLE);
+            return transactions.execute(tx -> {
+                Control c = lock();
+                fence(policy, metadata, c);
+                if (!policy.enabled() || !c.available || c.pending || c.metadata != metadata.revision()
+                        || c.funding != metadata.fundingRevision() || !Objects.equals(c.model, metadata.model())
+                        || (c.expectedModel!=null && !Objects.equals(c.expectedModel,metadata.model()))
+                        || !Objects.equals(c.approvalFingerprint, metadata.approvalFingerprint())
+                        || !Objects.equals(c.approvalValidUntil, metadata.approvalValidUntil().toString())
+                        || c.metadataValidUntil == null || !Instant.parse(c.metadataValidUntil).isAfter(now)
+                        || !metadata.validUntil().isAfter(now)) throw new GatewayFailure(AI_UNAVAILABLE);
+                return null;
+            });
         });
     }
 
@@ -171,16 +288,28 @@ public final class JdbcAiLedger implements GatewayPorts.Ledger {
     }
 
     private Control lock() {
-        return sql.queryForObject("select * from td_ai_control where singleton=true for update", (rs,n) -> new Control(rs.getLong("policy_revision"),rs.getLong("metadata_revision"),rs.getLong("funding_revision"),rs.getLong("circuit_revision"),rs.getInt("failures"),rs.getTimestamp("open_until")==null?null:rs.getTimestamp("open_until").toInstant(),rs.getBoolean("probe_active"),rs.getString("policy_fingerprint"),rs.getString("model"),rs.getString("metadata_valid_until")));
+        return sql.queryForObject("select * from td_ai_control where singleton=true for update", (rs,n) -> new Control(rs.getLong("policy_revision"),rs.getLong("metadata_revision"),rs.getLong("funding_revision"),rs.getLong("circuit_revision"),rs.getInt("failures"),rs.getTimestamp("open_until")==null?null:rs.getTimestamp("open_until").toInstant(),rs.getBoolean("probe_active"),rs.getString("policy_fingerprint"),rs.getString("model"),rs.getString("metadata_valid_until"),rs.getString("approval_fingerprint"),rs.getString("approval_valid_until"),rs.getBoolean("metadata_available"),rs.getBoolean("metadata_pending"),rs.getLong("model_revision"),rs.getString("expected_model")));
     }
     private static String fingerprint(Policy p) {
         return p.enabled()+":"+p.globalDailyUnits()+":"+p.actorDailyUnits()+":"+p.globalConcurrency()+":"+p.actorConcurrency()+":"+p.reservationTtl().toNanos();
     }
+    private static void requireCurrentPolicy(Policy policy, Control control) {
+        if (policy == null || policy.revision() != control.policy || !fingerprint(policy).equals(control.fingerprint))
+            throw new GatewayFailure(AI_UNAVAILABLE);
+    }
     private void fence(Policy p, Metadata m, Control c) {
         if (p.revision()<c.policy || (p.revision()==c.policy && !fingerprint(p).equals(c.fingerprint))) throw new GatewayFailure(AI_UNAVAILABLE);
         if (m != null && (m.revision()<c.metadata || m.fundingRevision()<c.funding
-                || (m.revision()==c.metadata && (!m.model().equals(c.model) || m.fundingRevision()!=c.funding
-                    || !m.validUntil().toString().equals(c.metadataValidUntil))))) throw new GatewayFailure(AI_UNAVAILABLE);
+                || (m.fundingRevision()==c.funding && c.approvalFingerprint != null
+                    && (!Objects.equals(m.approvalFingerprint(), c.approvalFingerprint)
+                        || !Objects.equals(m.approvalValidUntil().toString(), c.approvalValidUntil)))
+                || (c.expectedModel!=null && !Objects.equals(m.model(),c.expectedModel))
+                || (c.expectedModel!=null && (m.revision()!=c.metadata || (!c.pending && !c.available)))
+                || (m.revision()==c.metadata && !c.available && !c.pending)
+                || (m.revision()==c.metadata && c.available && (!m.model().equals(c.model) || m.fundingRevision()!=c.funding
+                    || !m.validUntil().toString().equals(c.metadataValidUntil)
+                    || !Objects.equals(m.approvalFingerprint(),c.approvalFingerprint)
+                    || !Objects.equals(m.approvalValidUntil().toString(),c.approvalValidUntil))))) throw new GatewayFailure(AI_UNAVAILABLE);
     }
     private Row row(UUID id) {
         List<Row> rows=sql.query("select * from td_ai_tickets where id=?", (rs,n) -> new Row(rs.getObject("id",UUID.class),rs.getObject("actor_id",UUID.class),rs.getDate("window_day"),rs.getString("model"),rs.getLong("policy_revision"),rs.getLong("metadata_revision"),rs.getLong("funding_revision"),rs.getLong("circuit_revision"),rs.getBoolean("probe"),rs.getLong("reserved_units"),rs.getLong("revision"),rs.getString("state"),rs.getTimestamp("expires_at").toInstant(),rs.getString("outcome"),(Long)rs.getObject("actual_units")),id);
@@ -201,6 +330,6 @@ public final class JdbcAiLedger implements GatewayPorts.Ledger {
         catch(GatewayFailure failure) { throw failure; }
         catch(RuntimeException failure) { throw new GatewayFailure(AI_UNAVAILABLE); }
     }
-    private record Control(long policy,long metadata,long funding,long revision,int failures,Instant openUntil,boolean probeActive,String fingerprint,String model,String metadataValidUntil) { }
+    private record Control(long policy,long metadata,long funding,long revision,int failures,Instant openUntil,boolean probeActive,String fingerprint,String model,String metadataValidUntil,String approvalFingerprint,String approvalValidUntil,boolean available,boolean pending,long modelRevision,String expectedModel) { }
     private record Row(UUID id,UUID actor,Date day,String model,long policy,long metadata,long funding,long circuit,boolean probe,long units,long revision,String state,Instant expires,String outcome,Long actual) { }
 }

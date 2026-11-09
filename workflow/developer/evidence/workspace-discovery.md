@@ -6,11 +6,12 @@
   in the implementation. This is independent agent review, not human approval.
 - Revision / working-tree identity: reviewed on base
   `8bf2d49bcda1b8ad90f6965756bf6dc45c5e2069` plus the 2026-11-09 working tree, then
-  rebased onto `d93d8fb12733863a626d6106a2547ba657eb51e7`. Results below are from the
-  rebased tree. The rebase renumbered the migration to
-  `V8__workspace_discovery_security_route.sql` because `main` already has a V7; the
-  reviewer saw it as V7. Rebase conflict resolution and the `reporter-ai` and
-  `reporter-real` browser test updates were not independently reviewed.
+  rebased onto `d93d8fb12733863a626d6106a2547ba657eb51e7` and merged with
+  `c7369504d769f561106584240e3b8de596c09494`. Results below are from the merged tree.
+  The migration is now `V9__workspace_discovery_security_route.sql` because `main`
+  took V7 and V8; the reviewer saw it as V7. Rebase and merge conflict resolution and
+  the `reporter-ai` and `reporter-real` browser test updates were not independently
+  reviewed.
 - Environment: Windows, Java/Gradle project toolchain, Vitest 5.0.5, Vite 8.3.4,
   Playwright Chromium, local disposable PostgreSQL with a database name ending
   `_test`. `IsolatedPostgres` created and dropped its own random schema. The
@@ -21,12 +22,12 @@
 
 | Command | Outcome |
 | --- | --- |
-| `cd frontend; npm run check` | **PASS** on the rebased tree: typecheck and lint passed; 9 Vitest files, 75 tests, zero failures. |
+| `cd frontend; npm run check` | **PASS** on the merged tree: typecheck and lint passed; 9 Vitest files, 75 tests, zero failures. |
 | `cd frontend; npm run build` | **PASS**: 936 modules transformed. |
 | `cd frontend; npm run test:e2e -- --project=production` | **PASS**: 21 passed, using routed synthetic API data, after `reporter-ai.e2e.ts` was updated for the picker. |
 | `cd frontend; npm run test:e2e -- --project=development` | **PASS**: 23 passed. |
-| `cd frontend; npm run test:e2e -- --project=real-backend` with `TRACEDESK_REAL_BACKEND_TEST=true` | **UNAVAILABLE on this Windows host**: the fixture spawns `./gradlew` and reported that it could not launch, before any browser journey ran. Not counted as a pass; the CI `reporter-real-browser` job runs this project. |
-| `.\gradlew.bat --no-daemon --console=plain :backend:auth-app:test --rerun-tasks` with `TRACEDESK_TEST_*` set | **PASS**: 64 tests, 0 failures, 0 errors, 0 skipped, including V1–V8 migration and PostgreSQL integration tests. No backend file changed after this run. |
+| `cd frontend; npm run test:e2e -- --project=real-backend` with `TRACEDESK_REAL_BACKEND_TEST=true` | **UNAVAILABLE on this Windows host**: the fixture spawns `./gradlew` and reported that it could not launch, before any browser journey ran. Not counted as a local pass. The CI `reporter-real-browser` job passed this project at `bc0336cc2d8cf004963d88968699543dda9828f9`, before the merge with `c736950`. |
+| `.\gradlew.bat --no-daemon --console=plain :backend:auth-app:test --rerun-tasks` with `TRACEDESK_TEST_*` set | **PASS**: 75 tests, 0 failures, 0 errors, 0 skipped, including V1–V9 migration and PostgreSQL integration tests. No backend file changed after this run. |
 | `python -X utf8 tools/check_foundation.py` | **PASS**. |
 | Same Gradle suite without `TRACEDESK_TEST_*` (earlier run, focused classes) | **Failed closed as designed**: `IsolatedPostgres.open` rejected the missing settings. Not counted as a pass. |
 | `git diff --check` | **PASS**. |
@@ -40,7 +41,7 @@ source was restored.
 | Criterion | Evidence and current result |
 | --- | --- |
 | TD-WS-01 | **Candidate pass.** Actor comes only from session attributes; forged role query and header are ignored in `AuthControllerTest`. PostgreSQL test covers enabled-user, enabled-project and active-membership filtering, role ordering, and the bound at exactly 100 and at 101 rows. |
-| TD-WS-02 | **Candidate pass.** Anonymous and expired requests return 401 with no items and a recorded event; persistence and event-sink failures return 503 with no items. Disabled membership, disabled project, disabled user and other-user rows are excluded on real PostgreSQL. V8 allows the `/api/workspaces` event route, and a PostgreSQL test writes that event. |
+| TD-WS-02 | **Candidate pass.** Anonymous and expired requests return 401 with no items and a recorded event; persistence and event-sink failures return 503 with no items. Disabled membership, disabled project, disabled user and other-user rows are excluded on real PostgreSQL. V9 allows the `/api/workspaces` event route, and a PostgreSQL test writes that event. |
 | TD-WS-03 | **Candidate pass at unit level.** Loading, empty, unavailable with retry, server-role grouping and bounded-list states are tested; URL role hints have no effect. |
 | TD-WS-04 | **Candidate pass at unit level.** Reporter and Developer selection reach their context endpoints. Change project returns to discovery, refetches memberships, and keeps the unsaved-work warning. Project, route, memberships and logout errors clear on sign-out, logout 401, discovery 401 and session expiry. QA discovery cannot enter a workspace, and a denied or unavailable selected workspace offers discovery instead of a project-ID form. |
 | TD-WS-05 | **Candidate pass for required focused tests and review**, within the limitations below. |
@@ -50,7 +51,7 @@ source was restored.
 The first review of the working tree reported eight findings:
 
 1. **P1 — resolved:** the V6 route constraint rejected `/api/workspaces`, so every
-   401 became a 503 with no event. Mocked controller tests hid this. Fixed by V8
+   401 became a 503 with no event. Mocked controller tests hid this. Fixed by V9
    plus a PostgreSQL event test.
 2. **P2 — resolved:** an in-flight discovery Retry could outlive sign-out and show
    the previous account's memberships. Retry now runs through the abortable effect.
@@ -81,7 +82,8 @@ The follow-up raised two further P3 items:
 
 ## Limitations
 
-- No same-candidate browser-to-real-backend journey was run for discovery; browser
+- Real-backend browser coverage of discovery comes only from the CI Reporter journey
+  (Reporter selection, denied link, non-member and Developer entry). Local browser
   checks use routed synthetic API data.
 - Authorization inside `reporter-context` and `developer-context` was outside this
   review; those endpoints are mocked in the frontend tests.

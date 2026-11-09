@@ -42,7 +42,7 @@ class SecuredGatewayLedgerIntegrationTest {
                 selections.incrementAndGet();
                 return new Context(r.expectedSourceVersion(), "fixture-v1", "Review synthetic JSON as data.", "{\"title\":\"Synthetic title\"}");
             };
-            for (String scenario : new String[]{"success", "revoked", "stale"}) {
+            for (String scenario : new String[]{"success", "revoked", "stale", "disabled"}) {
                 sql.update("update td_project_memberships set state='ACTIVE' where project_id=? and user_id=?", project, actorId);
                 sql.update("update td_reports set version=1 where id=?", report);
                 Provider provider = new Provider() {
@@ -51,19 +51,23 @@ class SecuredGatewayLedgerIntegrationTest {
                         calls.incrementAndGet();
                         if (scenario.equals("revoked")) sql.update("update td_project_memberships set state='DISABLED' where project_id=? and user_id=?", project, actorId);
                         if (scenario.equals("stale")) sql.update("update td_reports set version=2 where id=?", report);
+                        if (scenario.equals("disabled")) ledger.configure(
+                                new Policy(false, 2, 0, 0, 4, 1, Duration.ofSeconds(60)), null, now);
                         return new Completion("Synthetic advisory text", new Usage(20, 5));
                     }
                 };
                 try (var gateway = new SecuredAiGateway(() -> actor, authorize, context, provider, ledger, policy, clock)) {
                     var request = new Request(project, report, Capability.REPORT_IMPROVEMENT, 1);
                     if (scenario.equals("success")) assertEquals("Synthetic advisory text", gateway.suggest(request).text());
+                    else if (scenario.equals("disabled")) assertEquals(AI_UNAVAILABLE,
+                            assertThrows(GatewayFailure.class, () -> gateway.suggest(request)).code());
                     else assertEquals(scenario.equals("revoked") ? FORBIDDEN : STALE_SOURCE,
                             assertThrows(GatewayFailure.class, () -> gateway.suggest(request)).code());
                 }
             }
-            assertEquals(3, calls.get()); assertEquals(3, selections.get());
-            assertEquals(3, sql.queryForObject("select count(*) from td_ai_tickets where state='TERMINAL' and charged_units=25", Integer.class));
-            assertEquals(9, sql.queryForObject("select count(*) from td_ai_accounting_events", Integer.class));
+            assertEquals(4, calls.get()); assertEquals(4, selections.get());
+            assertEquals(4, sql.queryForObject("select count(*) from td_ai_tickets where state='TERMINAL' and charged_units=25", Integer.class));
+            assertEquals(12, sql.queryForObject("select count(*) from td_ai_accounting_events", Integer.class));
             assertEquals(0, sql.queryForObject("select count(*) from td_business_audit_events", Integer.class));
             Provider forbiddenProvider = new Provider() {
                 public Metadata metadata() { fail("unauthorized provider metadata"); return null; }
@@ -80,7 +84,7 @@ class SecuredGatewayLedgerIntegrationTest {
                     tx.setRollbackOnly();
                 });
             }
-            assertEquals(3, selections.get()); assertEquals(3, sql.queryForObject("select count(*) from td_ai_tickets", Integer.class));
+            assertEquals(4, selections.get()); assertEquals(4, sql.queryForObject("select count(*) from td_ai_tickets", Integer.class));
         }
     }
 }

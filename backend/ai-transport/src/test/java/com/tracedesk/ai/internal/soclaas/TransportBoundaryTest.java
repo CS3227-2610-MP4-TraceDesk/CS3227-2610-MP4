@@ -18,7 +18,7 @@ class TransportBoundaryTest {
         var settings = SoclaasSettings.from(new TestEnvironment()
                 .withProperty("AI_ENABLED", "true")
                 .withProperty("SOCLAAS_API_KEY", "synthetic-key")
-                .withProperty("SOCLAAS_MODEL", "test"));
+                .withProperty("SOCLAAS_MODEL", "test").withSponsoredAccess());
         try (var provider = new AiGatewayFakeProvider();
              var client = new SoclaasClient(settings, provider.origin())) {
             client.validateModel();

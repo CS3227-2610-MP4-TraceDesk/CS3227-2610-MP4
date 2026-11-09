@@ -91,8 +91,8 @@ start its test because web-server startup stalled, so TD-DEV-15 remains pending.
 
 Later workspace-discovery work changed this candidate: when the Developer workspace
 is opened through the picker, its loading, denied and unavailable gates offer
-"Choose another project" instead of the project-ID form. After rebasing onto
-`d93d8fb12733863a626d6106a2547ba657eb51e7`, `npm run check` passed with 9 Vitest files
+"Choose another project" instead of the project-ID form. After merging
+`c7369504d769f561106584240e3b8de596c09494`, `npm run check` passed with 9 Vitest files
 and 75 tests, `npm run build` passed, and
 `npm run test:e2e -- --project=production` passed 21 tests, including the Developer
 journey that had stalled above. That browser run uses routed synthetic API data, so
