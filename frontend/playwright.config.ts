@@ -31,7 +31,7 @@ export default defineConfig({
     },
     ...(process.env.TRACEDESK_REAL_BACKEND_TEST === 'true' ? [{
       name: 'real-backend',
-      testMatch: '**/reporter-real.e2e.ts',
+      testMatch: ['**/reporter-real.e2e.ts', '**/developer-real.e2e.ts'],
       use: {
         baseURL: `https://localhost:${port}`,
         ignoreHTTPSErrors: true,

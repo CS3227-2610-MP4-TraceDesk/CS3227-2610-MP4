@@ -192,7 +192,7 @@ jobs:
       - name: Install Chromium
         working-directory: frontend
         run: npx playwright install --with-deps chromium
-      - name: Run the required real Reporter browser journey
+      - name: Run the required real role browser journeys
         working-directory: frontend
         run: npm run test:e2e -- --project=real-backend
       - name: Preserve real-browser evidence
@@ -202,6 +202,7 @@ jobs:
           name: reporter-real-browser-${{ github.sha }}
           path: |
             frontend/e2e-results/reporter-real/
+            frontend/e2e-results/developer-real/
             frontend/e2e-results/junit.xml
             frontend/e2e-results/html/
           retention-days: 7

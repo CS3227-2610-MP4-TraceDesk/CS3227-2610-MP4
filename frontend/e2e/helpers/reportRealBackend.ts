@@ -13,6 +13,9 @@ export interface ReporterFixtureMetadata {
   login: string
   nonmemberLogin: string
   developerLogin: string
+  developerId: string
+  assignedReportId: string
+  unassignedReportId: string
 }
 
 const fixturePassword = 'Synthetic-browser-password-2026!'
@@ -48,9 +51,10 @@ export class ReportRealBackend {
     this.commandFile = path.join(this.directory, 'command')
     this.ackFile = path.join(this.directory, 'ack')
     try {
-      this.child = spawn('./gradlew', [
-        '--no-daemon', '--console=plain', ':backend:auth-app:reporterBrowserFixture',
-      ], {
+      const gradleArgs = ['--no-daemon', '--console=plain', ':backend:auth-app:reporterBrowserFixture']
+      const executable = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : './gradlew'
+      const args = process.platform === 'win32' ? ['/d', '/s', '/c', 'gradlew.bat', ...gradleArgs] : gradleArgs
+      this.child = spawn(executable, args, {
         cwd: repositoryDirectory,
         detached: process.platform !== 'win32',
         stdio: 'ignore',
@@ -72,7 +76,8 @@ export class ReportRealBackend {
         }
         try {
           this.metadata = JSON.parse(await readFile(metadataFile, 'utf8')) as ReporterFixtureMetadata
-          if (!this.metadata.projectId || !this.metadata.deniedProjectId || !this.metadata.login) {
+          if (!this.metadata.projectId || !this.metadata.deniedProjectId || !this.metadata.login ||
+              !this.metadata.developerId || !this.metadata.assignedReportId || !this.metadata.unassignedReportId) {
             throw new Error('Reporter fixture metadata is incomplete')
           }
           return this.metadata
@@ -95,6 +100,18 @@ export class ReportRealBackend {
 
   async invalidateReporterSessions(): Promise<void> {
     await this.sendFixtureCommand('invalidate-reporter-session')
+  }
+
+  async invalidateDeveloperSessions(): Promise<void> {
+    await this.sendFixtureCommand('invalidate-developer-session')
+  }
+
+  async advanceDeveloperReportVersion(): Promise<void> {
+    await this.sendFixtureCommand('advance-developer-report-version')
+  }
+
+  async reassignDeveloperReport(): Promise<void> {
+    await this.sendFixtureCommand('reassign-developer-report')
   }
 
   async setAuditAvailable(available: boolean): Promise<void> {
@@ -159,7 +176,15 @@ export class ReportRealBackend {
 }
 
 export async function captureReporterEvidence(page: Page, browserVersion: string, name: string) {
-  const evidenceDirectory = path.resolve(frontendDirectory, 'e2e-results/reporter-real')
+  return captureRealBackendEvidence(page, browserVersion, name, 'reporter-real')
+}
+
+export async function captureDeveloperEvidence(page: Page, browserVersion: string, name: string) {
+  return captureRealBackendEvidence(page, browserVersion, name, 'developer-real')
+}
+
+async function captureRealBackendEvidence(page: Page, browserVersion: string, name: string, directory: string) {
+  const evidenceDirectory = path.resolve(frontendDirectory, `e2e-results/${directory}`)
   await mkdir(evidenceDirectory, { recursive: true })
   await page.evaluate(() => {
     window.scrollTo(0, 0)
@@ -212,13 +237,36 @@ export async function captureReporterEvidence(page: Page, browserVersion: string
     }
   })
   const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryDirectory, encoding: 'utf8' }).trim()
-  const trackedDiff = execFileSync('git', ['diff', '--binary', 'HEAD'], { cwd: repositoryDirectory, encoding: 'buffer' })
-  const worktreeDigest = createHash('sha256').update(trackedDiff).digest('hex')
+  const candidatePathspec = ['.', ':(exclude)workflow/**']
+  const trackedDiff = execFileSync(
+    'git',
+    ['diff', '--binary', 'HEAD', '--', ...candidatePathspec],
+    { cwd: repositoryDirectory, encoding: 'buffer' },
+  )
+  const untrackedPaths = execFileSync(
+    'git',
+    ['ls-files', '--others', '--exclude-standard', '-z', '--', ...candidatePathspec],
+    { cwd: repositoryDirectory, encoding: 'buffer' },
+  ).toString('utf8').split('\0').filter(Boolean).sort()
+  const candidateManifest = {
+    version: 1,
+    trackedDiffSha256: createHash('sha256').update(trackedDiff).digest('hex'),
+    untrackedFiles: await Promise.all(untrackedPaths.map(async (relativePath) => ({
+      path: relativePath,
+      sha256: createHash('sha256')
+        .update(await readFile(path.resolve(repositoryDirectory, relativePath)))
+        .digest('hex'),
+    }))),
+  }
+  const candidateDigest = createHash('sha256')
+    .update(JSON.stringify(candidateManifest))
+    .digest('hex')
   const metadata = {
     capturedAtUtc: new Date().toISOString(),
     revision,
-    trackedDiffSha256: worktreeDigest,
-    diffDigestScope: 'tracked files only; untracked files are excluded',
+    candidateSha256: candidateDigest,
+    candidateDigestScope: 'HEAD-relative staged/unstaged source/test/config diff plus untracked, non-ignored candidate files; workflow records excluded to permit recording the result',
+    candidateManifest,
     browser: 'Chromium',
     browserVersion,
     platform: `${os.platform()} ${os.release()}`,
