@@ -38,8 +38,10 @@ API signatures, schema details, and acceptance tests before implementation.
   access, settlement, and accounting. It authorizes before selecting context and
   reauthorizes before delivery. Role features cannot call the raw transport.
 - Each role previews suggestions and applies them only through an explicit user
-  action and a normal authorized, version-checked application command. AI output
-  cannot directly mutate a bug or make a lifecycle decision.
+  action and a normal authorized application command. That command keeps the
+  destination operation's ordinary lifecycle, locking and optimistic-concurrency
+  rules; AI output does not create an additional persistence or provenance path.
+  AI output cannot directly mutate a bug or make a lifecycle decision.
 
 ## Decisions for the first feature specifications
 
