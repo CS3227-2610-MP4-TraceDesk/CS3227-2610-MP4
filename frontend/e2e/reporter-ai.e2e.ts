@@ -9,7 +9,7 @@ const saved = () => ({ id, projectId, reporterUserId: 'f2e29c3e-2b62-4420-a631-b
 const suggestion = () => ({ capability: 'REPORT_IMPROVEMENT', promptVersion: 'report-improvement-v1', sourceKind: 'REPORT', sourceId: id, sourceVersion: 1, changes: [{ field: 'title', replacement: '<img src=x onerror="window.aiExecuted=true">' }, { field: 'description', replacement: 'A Java startup exception appears.' }], missingInformation: ['<script>window.aiExecuted=true</script>Which Java version?'] })
 
 async function setup(page: Page, options: { generate?: (route: Route) => Promise<void>; stale?: boolean } = {}) {
-  await mockAuthApi(page)
+  await mockAuthApi(page, { workspaces: [{ project: { id: projectId, name: 'Synthetic AI project' }, role: 'REPORTER' }] })
   await page.context().addCookies([{ name: 'TDSESSION', value: 'synthetic-session', url: 'https://localhost:4177', secure: true, httpOnly: true, sameSite: 'Lax' }])
   const state = { current: saved(), generations: 0, patches: [] as Record<string, unknown>[] }
   await page.route('**/api/projects/**', async route => {
@@ -133,8 +133,7 @@ for (const action of ['project', 'signout'] as const) test(`pending AI delivery 
   await expect.poll(() => state.generations).toBe(1)
   if (action === 'project') {
     await page.getByRole('button', { name: 'Change project', exact: true }).click()
-    await page.getByLabel('Project ID', { exact: true }).fill('44b10495-a536-4c6e-a410-93bd2d9330fe')
-    await page.getByRole('button', { name: 'Open project', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Choose a project' })).toBeVisible()
   } else {
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
     await page.getByRole('button', { name: 'Sign out', exact: true }).click()

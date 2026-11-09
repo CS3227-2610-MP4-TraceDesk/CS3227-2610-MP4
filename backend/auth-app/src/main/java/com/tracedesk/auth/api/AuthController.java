@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tracedesk.auth.domain.LoginPolicy;
 import com.tracedesk.auth.persistence.AuthStore;
 import com.tracedesk.auth.application.ProjectAuthorization;
+import com.tracedesk.auth.application.WorkspaceDiscovery;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import java.time.Clock;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -20,10 +22,11 @@ public class AuthController {
     static final String USER = "td.actor", AUTH_AT = "td.authAt", CSRF = "td.csrf";
     private final AuthStore store;
     private final ProjectAuthorization authorization;
+    private final WorkspaceDiscovery workspaceDiscovery;
     private final PasswordEncoder encoder;
     private final String dummyHash;
     private final Clock clock;
-    public AuthController(AuthStore store, ProjectAuthorization authorization, PasswordEncoder encoder, Clock clock) { this.store=store; this.authorization=authorization; this.encoder=encoder; this.clock=clock; this.dummyHash=encoder.encode("dummy-password-never-valid"); }
+    public AuthController(AuthStore store, ProjectAuthorization authorization, WorkspaceDiscovery workspaceDiscovery, PasswordEncoder encoder, Clock clock) { this.store=store; this.authorization=authorization; this.workspaceDiscovery=workspaceDiscovery; this.encoder=encoder; this.clock=clock; this.dummyHash=encoder.encode("dummy-password-never-valid"); }
     public static final class LoginRequest {
         private String login;
         private String password;
@@ -44,6 +47,9 @@ public class AuthController {
     record SessionReply(UUID userId) { }
     record CsrfReply(String token) { }
     record ProjectReply(UUID id, String name) { }
+    record WorkspaceProject(UUID id, String name) { }
+    record WorkspaceReply(WorkspaceProject project, String role) { }
+    record WorkspacePage(List<WorkspaceReply> items, boolean hasMore) { }
     record ErrorBody(Error error) { }
     record Error(String code, String message) { }
     ResponseEntity<ErrorBody> error(HttpStatus status, String code) {
@@ -108,5 +114,13 @@ public class AuthController {
         var project=authorization.readableProject(actor,id);
         if(project.isEmpty()){denied("PROJECT_DENIED","/api/projects/{projectId}",404,actor,id);return error(HttpStatus.NOT_FOUND,"NOT_FOUND");}
         return ResponseEntity.ok(new ProjectReply(project.get().projectId(),project.get().projectName()));
+    }
+    @GetMapping("/api/workspaces") public ResponseEntity<?> workspaces(HttpServletRequest req) {
+        UUID actor=actor(req);
+        if(actor==null){denied("UNAUTHENTICATED","/api/workspaces",401,null,null);return error(HttpStatus.UNAUTHORIZED,"UNAUTHENTICATED");}
+        var page=workspaceDiscovery.discover(actor);
+        var items=page.items().stream().map(item -> new WorkspaceReply(
+                new WorkspaceProject(item.projectId(),item.projectName()),item.role())).toList();
+        return ResponseEntity.ok(new WorkspacePage(items,page.hasMore()));
     }
 }

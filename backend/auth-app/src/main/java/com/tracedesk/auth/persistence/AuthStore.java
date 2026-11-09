@@ -5,11 +5,13 @@ import org.springframework.stereotype.Repository;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import com.tracedesk.auth.application.ProjectAccessRepository;
+import com.tracedesk.auth.application.WorkspaceMembershipRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public class AuthStore implements ProjectAccessRepository {
+public class AuthStore implements ProjectAccessRepository, WorkspaceMembershipRepository {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     public AuthStore(JdbcTemplate jdbc) {
@@ -36,6 +38,21 @@ public class AuthStore implements ProjectAccessRepository {
                 ? Optional.of(new ProjectAccessRepository.Snapshot(rs.getObject(1, UUID.class),
                         rs.getString(2), rs.getBoolean(3), rs.getBoolean(4), rs.getBoolean(5)))
                 : Optional.empty(), userId, projectId);
+    }
+    @Override public WorkspaceMembershipRepository.Page activeMemberships(UUID actorId, int limit) {
+        List<WorkspaceMembershipRepository.Membership> rows = jdbc.query("""
+                select p.id, p.name, m.role
+                from td_project_memberships m
+                join td_projects p on p.id = m.project_id
+                join td_users u on u.id = m.user_id
+                where m.user_id = ? and u.enabled and p.enabled and m.state = 'ACTIVE'
+                order by case m.role when 'REPORTER' then 1 when 'DEVELOPER' then 2 else 3 end,
+                         lower(p.name), p.id
+                limit ?
+                """, (rs, row) -> new WorkspaceMembershipRepository.Membership(
+                        rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3)), actorId, limit + 1);
+        boolean hasMore = rows.size() > limit;
+        return new WorkspaceMembershipRepository.Page(hasMore ? List.copyOf(rows.subList(0, limit)) : List.copyOf(rows), hasMore);
     }
     public void event(String code, String route, int status, UUID actor, UUID project) {
         jdbc.update("insert into td_security_events(event_code,request_id,route_template,outcome_status,actor_id,project_id) values(?,?,?,?,?,?)",
