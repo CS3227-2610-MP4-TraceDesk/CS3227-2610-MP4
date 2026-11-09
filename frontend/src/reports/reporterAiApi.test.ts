@@ -3,7 +3,7 @@ import { generateReportSuggestion, isReportSuggestion, type AiSource } from './r
 
 const projectId = '44b10495-a536-4c6e-a410-93bd2d9330fd'
 const source: AiSource = { kind: 'REPORT', id: '76989078-9c82-4ac5-9218-fc2b262f47e9', version: 7 }
-const suggestion = () => ({ capability: 'REPORT_IMPROVEMENT', promptVersion: 'report-improvement-v1', sourceKind: source.kind, sourceId: source.id, sourceVersion: source.version, changes: [{ field: 'title', replacement: '<img src=x onerror=alert(1)>' }], missingInformation: ['Which Java version?'] })
+const suggestion = () => ({ capability: 'REPORT_IMPROVEMENT', promptVersion: 'report-improvement-v2', sourceKind: source.kind, sourceId: source.id, sourceVersion: source.version, changes: [{ field: 'title', replacement: '<img src=x onerror=alert(1)>' }], missingInformation: ['Which Java version?'] })
 function reply(status: number, body: unknown) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }) }
 afterEach(() => vi.unstubAllGlobals())
 
@@ -51,6 +51,8 @@ describe('Reporter AI result validation', () => {
     expect(isReportSuggestion({ ...suggestion(), changes: [], missingInformation: [] }, source)).toBe(true)
   })
   const invalid = [
+    { ...suggestion(), promptVersion: 'report-improvement-v1' },
+    { ...suggestion(), promptVersion: 'report-improvement-v99' },
     { ...suggestion(), extra: 'private' }, { ...suggestion(), sourceKind: 'DRAFT' }, { ...suggestion(), sourceVersion: 8 },
     { ...suggestion(), changes: [{ field: 'textLogs', replacement: 'private' }] },
     { ...suggestion(), changes: [{ field: 'title', replacement: 'x', extra: true }] },

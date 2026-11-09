@@ -171,6 +171,13 @@ excluded. Any failed attempt stops the run; do not rerun without reviewing and
 renewing the remaining allowance. Catalog GETs are separate from the24 completion
 attempt cap. Console output contains fixed case IDs/status only.
 
+The current candidate uses `report-improvement-v2` and the separately pinned
+`fixture-cases-v2.json` under `workflow/reporter/experiments/reporter-ai/`.
+The original `fixture-cases.json` and its v1 observations are historical baseline
+evidence. V2 retains the same four six-field inputs. Prompt corrections have not
+yet been evaluated live; the v1 approval cannot authorize a v2 retest. Obtain a
+fresh bounded approval before creating a new one-use record or running this task.
+
 Local synthetic results are JSONL under ignored `workflow/reporter/runs/`.
 They include validated model text for assessment, elapsed time, input data bytes,
 validated suggestion bytes, fixture hash and numeric ledger outcomes/revisions.
@@ -181,6 +188,14 @@ model text remains untrusted. Retain only sanitized measurements in portable
 evidence. Score useful wording, actionable questions and factual fidelity0–2
 each, plus pass/fail forbidden behavior; never auto-award a quality score merely
 because output parses. No independent rating is implied by the runner.
+
+For invalid output, the local evaluation record may include a fixed diagnostic
+stage/reason pair. It distinguishes gateway rejection from Reporter response,
+change or question validation. These categories contain no rejected text,
+provider keys, field values or parser exception messages. They are not returned
+to browsers or written to application logs. A broad gateway category cannot
+identify a narrower provider defect. The previously rejected v2 response was
+not retained, so adding diagnostics cannot reconstruct its cause retroactively.
 
 This service-level evaluation does not verify login, browser apply or a deployed
 environment. Those need a separate authorized synthetic-account browser journey.

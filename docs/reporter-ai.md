@@ -12,6 +12,14 @@ exceed the AI input budget; an oversized source is rejected without truncation o
 provider dispatch. Model text is untrusted, strictly validated advisory content.
 Already complete reports may return no changes or questions.
 
+The server-owned `report-improvement-v2` prompt asks the model to preserve the
+Reporter's requirements, concrete commands, versions and observations. Unknown
+details belong in focused questions; the prompt forbids invented timing,
+execution or safety-test outcomes. This follows the
+[v1 quality assessment](../workflow/reporter/evidence/reporter-ai-live-quality.md).
+These instructions reduce ambiguity but cannot guarantee factual correctness.
+The original v1 results remain the baseline; v2 live quality is not yet measured.
+
 AI defaults to disabled. `ReportAiConfiguration` now delegates to the shared
 [enablement manager](ai-enablement.md), requiring trusted backend configuration,
 explicit sponsored-access approval, finite resource limits and verified expiring

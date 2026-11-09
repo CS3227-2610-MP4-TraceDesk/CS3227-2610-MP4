@@ -6,7 +6,7 @@ export const aiFields = reportFields.filter((field): field is Exclude<typeof fie
 export type AiField = typeof aiFields[number]
 export type AiSource = { kind: 'REPORT' | 'DRAFT'; id: string; version: number }
 export type ReportSuggestion = {
-  capability: 'REPORT_IMPROVEMENT'; promptVersion: 'report-improvement-v1'
+  capability: 'REPORT_IMPROVEMENT'; promptVersion: 'report-improvement-v2'
   sourceKind: AiSource['kind']; sourceId: string; sourceVersion: number
   changes: { field: AiField; replacement: string }[]; missingInformation: string[]
 }
@@ -25,7 +25,7 @@ function safeText(text: unknown, maxPoints: number, maxBytes: number): text is s
 }
 export function isReportSuggestion(value: unknown, source: AiSource): value is ReportSuggestion {
   if (!object(value) || !keys(value, ['capability', 'promptVersion', 'sourceKind', 'sourceId', 'sourceVersion', 'changes', 'missingInformation']) ||
-    value.capability !== 'REPORT_IMPROVEMENT' || value.promptVersion !== 'report-improvement-v1' ||
+    value.capability !== 'REPORT_IMPROVEMENT' || value.promptVersion !== 'report-improvement-v2' ||
     value.sourceKind !== source.kind || value.sourceId !== source.id || value.sourceVersion !== source.version ||
     !Array.isArray(value.changes) || value.changes.length > 6 || !Array.isArray(value.missingInformation) || value.missingInformation.length > 5) return false
   const seen = new Set<string>()
