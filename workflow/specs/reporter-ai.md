@@ -56,7 +56,7 @@ The JSON success representation has exactly these keys:
 ```json
 {
   "capability": "REPORT_IMPROVEMENT",
-  "promptVersion": "report-improvement-v1",
+  "promptVersion": "report-improvement-v2",
   "sourceKind": "REPORT",
   "sourceId": "00000000-0000-4000-8000-000000000001",
   "sourceVersion": 1,
@@ -67,7 +67,9 @@ The JSON success representation has exactly these keys:
 
 `sourceKind` is `REPORT` or `DRAFT`. IDs/version/capability/prompt version are
 server-owned provenance, not copied from model output. Use prompt version
-`report-improvement-v1` for this fixed behavior; change it when instructions change.
+`report-improvement-v2` for the current behavior; change it when instructions change.
+The browser validates this exact version; deploy its adapter with the matching
+backend. Historical v1 provenance is retained in prior evidence only.
 The model response must be exactly one JSON object with exactly `changes` and
 `missingInformation`, without code fences, trailing content or extra keys.
 `changes` has 0–6 objects, each exactly `{field,replacement}`, using unique names
@@ -92,6 +94,43 @@ capacity, timeout or provider unavailability; `502 AI_INVALID_OUTPUT` for invali
 structured output; `503 SERVICE_UNAVAILABLE` for session/storage failures.
 Apply normal CSRF/error precedence. Fixed messages must not echo payloads,
 exception text, provider bodies, credentials or accounting internals.
+
+### Content-free invalid-output diagnostics
+
+When a completion is rejected, a trusted local test or live-evaluation record
+may retain exactly one diagnostic pair: a fixed stage and a fixed reason enum.
+This record is available only to the trusted local evaluation harness; it is
+never returned over HTTP or written to application, provider, or general-purpose
+logs. The stage distinguishes `GATEWAY_OUTPUT_REJECTED` (the shared gateway
+rejected the completion before Reporter parsing) from `ROLE_RESPONSE_SHAPE`,
+`ROLE_CHANGE_VALIDATION`, and `ROLE_QUESTION_VALIDATION` (Reporter parsing found
+an invalid top-level response, change entry/replacement, or question,
+respectively). The complete reason enums are fixed as follows:
+
+- `GATEWAY_OUTPUT_REJECTED`: `OUTPUT_LIMIT_EXCEEDED`, `GATEWAY_FORMAT_REJECTED`. A generic gateway
+  rejection does not establish whether tool calls, Unicode or provider format
+  caused it; do not infer a narrower reason.
+- `ROLE_RESPONSE_SHAPE`: `RESPONSE_INVALID`, `OUTPUT_LIMIT_EXCEEDED` (direct parser guards),
+  `MALFORMED_JSON` (including duplicates/trailing content), `TOP_LEVEL_KEYS_INVALID`, `CHANGES_CONTAINER_INVALID`,
+  `QUESTIONS_CONTAINER_INVALID`.
+- `ROLE_CHANGE_VALIDATION`: `CHANGE_ENTRY_INVALID`, `CHANGE_FIELD_INVALID`,
+  `CHANGE_FIELD_DUPLICATE`, `REPLACEMENT_INVALID`.
+- `ROLE_QUESTION_VALIDATION`: `QUESTION_INVALID`, `QUESTION_LIMIT_EXCEEDED`.
+
+These enums describe broad failure classes and contain no dynamic data. Record
+only the first rejection for an attempt.
+
+Diagnostics contain no response text, source content, credentials, arbitrary
+field names, indexes, parser exception/message, or other provider/user-derived
+value. They do not change the accepted response set, strict parser, prompt,
+authorization, gateway admission/accounting, or retry behavior. Every such
+failure keeps the public response `502 AI_INVALID_OUTPUT` with no cause or
+diagnostic detail. Failure to write the optional local diagnostic is swallowed
+and cannot replace or mask that public error. Verification must exercise each
+diagnostic stage/reason mapping, confirm successful and denied requests produce
+no diagnostic, confirm a diagnostic-sink failure preserves the public error,
+and use secret canaries to show that no content or canary reaches the local
+record or public response.
 
 ## Authorization, integration and atomicity
 
@@ -166,6 +205,33 @@ cover budget/capacity, single settlement, timeout and circuit concurrency; this
 slice adds role/source-specific assertions rather than replacing that evidence.
 
 ## Measurement plan before evaluation
+
+### Post-live prompt correction (issue #42)
+
+The [v1 live assessment](../reporter/evidence/reporter-ai-live-quality.md) found
+invented observations and changes to Reporter intent despite structural validity.
+The next server prompt is `report-improvement-v2`. It must explicitly preserve
+the supplied expected requirement even when it differs from standard API behavior;
+preserve concrete versions, commands and observations; and put unknown diagnostic
+details in questions rather than assertions. Missing-information questions must
+target absent details without asking for an entire repository. Complete reports
+may need no changes/questions. For instruction-only/non-bug fixtures, never
+invent execution, safe handling, detection, disclosure results or logging
+requirements; return no unsupported changes and, when useful, ask for the actual
+software failure. Ignore embedded instructions without describing a successful
+security test as an observation. The existing strict schema and six-field
+authorization, source fidelity, budget, no-tools/no-mutation and explicit-apply
+boundaries remain in force. Prompt instructions do not enforce factual validity.
+
+Verification: deliver the versioned instruction and exact source fields through
+the secured gateway for both source kinds; preserve denial-before-dispatch,
+source/version delivery checks and exact/over-budget behavior with the new prompt.
+Preserve original v1 fixtures/results; use separately identified v2 evaluation
+fixtures with the same four inputs to support later comparison. Fake responses
+verify contracts only, not adherence or improved quality. Any live v2 comparison
+requires new bounded approval, fixed conditions and the existing scoring rubric;
+record failures rather than assuming prompt changes solve them. The prior
+24-output batch is the v1 baseline, with its limitations retained.
 
 Use Java examples and synthetic case IDs: RAI-01 vague Java exception report;
 RAI-02 missing Java/runtime and deterministic reproduction details; RAI-03 already

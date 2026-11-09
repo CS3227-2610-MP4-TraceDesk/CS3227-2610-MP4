@@ -5,6 +5,8 @@ import {
   fetchDeveloperContext,
   fetchDeveloperReports,
   fetchNotes,
+  fetchResolutions,
+  proposeResolution,
   startInvestigation,
   updateNote,
 } from './developerApi'
@@ -30,6 +32,37 @@ const noteValue = {
 }
 
 afterEach(() => vi.unstubAllGlobals())
+
+describe('proposed resolution API', () => {
+  const fields = { rootCause: 'Cause', changeSummary: 'Change', verificationSteps: 'Verify', fixReference: '' }
+  const resolution = { ...fields, id: note, reportId: report, authorUserId: actor, revision: 1, createdAt: '2026-11-08T00:03:00Z' }
+
+  it('posts the expected report version under CSRF and accepts only a confirmed QA handoff', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(200, { token: 'csrf' }))
+      .mockResolvedValueOnce(response(201, { report: { ...detail, status: 'READY_FOR_QA', version: 3 }, resolution }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(proposeResolution(project, report, fields, 2)).resolves.toMatchObject({ report: { status: 'READY_FOR_QA' }, resolution: { revision: 1 } })
+    const [path, init] = fetchMock.mock.calls[1]
+    expect(path).toBe(`/api/projects/${project}/reports/${report}/resolutions`)
+    expect(JSON.parse(init.body)).toEqual({ ...fields, expectedVersion: 2 })
+    expect(init.headers['X-CSRF-TOKEN']).toBe('csrf')
+
+    fetchMock.mockResolvedValueOnce(response(200, { token: 'csrf' }))
+      .mockResolvedValueOnce(response(201, { report: detail, resolution }))
+    await expect(proposeResolution(project, report, fields, 2)).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+  })
+
+  it('reports conflicts and rejects a revision that belongs to another report', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(200, { token: 'csrf' }))
+      .mockResolvedValueOnce(response(409, { error: { code: 'STALE_VERSION' } }))
+      .mockResolvedValueOnce(response(200, { items: [{ ...resolution, reportId: note }], nextCursor: null }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(proposeResolution(project, report, fields, 2)).rejects.toMatchObject({ status: 409, code: 'STALE_VERSION' })
+    await expect(fetchResolutions(project, report)).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+  })
+})
 
 describe('developer API', () => {
   it('loads only server-validated Developer context and sends an assignment filter only for My work', async () => {

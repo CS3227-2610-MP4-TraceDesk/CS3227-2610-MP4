@@ -3,6 +3,7 @@ package com.tracedesk.auth.investigation.api;
 import com.tracedesk.auth.investigation.application.InvestigationRepository;
 import com.tracedesk.auth.investigation.application.InvestigationService;
 import com.tracedesk.auth.investigation.domain.InvestigationNoteData;
+import com.tracedesk.auth.investigation.domain.ProposedResolutionData;
 import com.tracedesk.auth.persistence.AuthStore;
 import com.tracedesk.auth.reports.application.ReportRepository;
 import com.tracedesk.auth.reports.application.ReportService;
@@ -23,6 +24,7 @@ public class InvestigationController {
     private static final String START = "/api/projects/{projectId}/reports/{reportId}/investigation/start";
     private static final String NOTES = "/api/projects/{projectId}/reports/{reportId}/notes";
     private static final String NOTE = "/api/projects/{projectId}/reports/{reportId}/notes/{noteId}";
+    private static final String RESOLUTIONS = "/api/projects/{projectId}/reports/{reportId}/resolutions";
     private static final String CSRF = "td.csrf";
     private final InvestigationService service;
     private final AuthStore events;
@@ -118,6 +120,55 @@ public class InvestigationController {
         catch (ReportService.Failure failure) { return failure(failure, NOTE, actor, project); }
     }
 
+    @PostMapping(RESOLUTIONS)
+    public ResponseEntity<?> propose(@PathVariable String projectId, @PathVariable String reportId,
+                                     @RequestBody JsonNode body, HttpServletRequest request) {
+        UUID project = parseUuid(projectId), report = parseUuid(reportId), requestId = UUID.randomUUID();
+        ProposedResolutionData data = proposalData(body);
+        int expectedVersion = body.path("expectedVersion").intValue();
+        if (!csrf(request)) return denied("CSRF_INVALID", RESOLUTIONS, 403, trustedActor(request), project, "CSRF_INVALID");
+        UUID actor = TrustedSessionActor.resolve(request, clock);
+        if (actor == null) return denied("UNAUTHENTICATED", RESOLUTIONS, 401, null, project, "UNAUTHENTICATED");
+        try {
+            var proposal = service.propose(actor, project, report, data, expectedVersion, requestId);
+            Map<String,Object> response = new LinkedHashMap<>();
+            response.put("report", reportView(proposal.report()));
+            response.put("resolution", resolutionView(proposal.resolution()));
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (ReportService.Failure failure) { return failure(failure, RESOLUTIONS, actor, project); }
+    }
+
+    @GetMapping(RESOLUTIONS)
+    public ResponseEntity<?> resolutions(@PathVariable String projectId, @PathVariable String reportId,
+                                         @RequestParam(required=false) String limit, @RequestParam(required=false) String cursor,
+                                         HttpServletRequest request) {
+        UUID project = parseUuid(projectId), report = parseUuid(reportId);
+        validateQuery(request, Set.of("limit", "cursor"));
+        Integer parsedLimit = limit == null ? null : parsePositiveInt(limit);
+        UUID actor = TrustedSessionActor.resolve(request, clock);
+        if (actor == null) return denied("UNAUTHENTICATED", RESOLUTIONS, 401, null, project, "UNAUTHENTICATED");
+        try {
+            var page = service.resolutions(actor, project, report, parsedLimit, cursor);
+            Map<String,Object> response = new LinkedHashMap<>();
+            response.put("items", page.items().stream().map(this::resolutionView).toList());
+            response.put("nextCursor", page.nextCursor());
+            return ResponseEntity.ok(response);
+        } catch (ReportService.Failure failure) { return failure(failure, RESOLUTIONS, actor, project); }
+    }
+
+    private ProposedResolutionData proposalData(JsonNode body) {
+        Set<String> required = Set.of("rootCause", "changeSummary", "verificationSteps", "expectedVersion");
+        if (body == null || !body.isObject()) throw fail("INVALID_REQUEST", 400);
+        Set<String> supplied = new HashSet<>(set(body));
+        supplied.remove("fixReference");
+        if (!supplied.equals(required) || !body.path("rootCause").isTextual() || !body.path("changeSummary").isTextual() ||
+                !body.path("verificationSteps").isTextual() || (body.has("fixReference") && !body.path("fixReference").isTextual()) ||
+                !body.path("expectedVersion").isIntegralNumber() || !body.path("expectedVersion").canConvertToInt())
+            throw fail("INVALID_REQUEST", 400);
+        return new ProposedResolutionData(body.path("rootCause").textValue(), body.path("changeSummary").textValue(),
+                body.path("verificationSteps").textValue(), body.has("fixReference") ? body.path("fixReference").textValue() : "");
+    }
+
     private InvestigationNoteData noteCreateBody(JsonNode body) {
         if (body == null || !body.isObject() || !set(body).equals(Set.of("body")) || !body.path("body").isTextual())
             throw fail("INVALID_REQUEST", 400);
@@ -163,6 +214,7 @@ public class InvestigationController {
             case "STALE_VERSION" -> "Stale version";
             case "INVALID_STATE" -> "Invalid state";
             case "NOTE_LIMIT" -> "Note limit reached";
+            case "RESOLUTION_LIMIT" -> "Resolution limit reached";
             case "IDEMPOTENCY_CONFLICT" -> "Idempotency conflict";
             case "SERVICE_UNAVAILABLE" -> "Service unavailable";
             default -> "Invalid request";
@@ -174,6 +226,13 @@ public class InvestigationController {
         out.put("authorUserId", note.authorUserId()); out.put("lastEditedByUserId", note.lastEditedByUserId());
         out.put("body", note.body()); out.put("createdAt", note.createdAt()); out.put("updatedAt", note.updatedAt());
         out.put("version", note.version()); return out;
+    }
+    private Map<String,Object> resolutionView(InvestigationRepository.Resolution resolution) {
+        Map<String,Object> out = new LinkedHashMap<>(); out.put("id", resolution.id()); out.put("reportId", resolution.reportId());
+        out.put("authorUserId", resolution.authorUserId()); out.put("revision", resolution.revision());
+        out.put("rootCause", resolution.rootCause()); out.put("changeSummary", resolution.changeSummary());
+        out.put("verificationSteps", resolution.verificationSteps()); out.put("fixReference", resolution.fixReference());
+        out.put("createdAt", resolution.createdAt()); return out;
     }
     private Map<String,Object> reportView(ReportRepository.Report report) {
         Map<String,Object> out = new LinkedHashMap<>(); out.put("id", report.id()); out.put("projectId", report.projectId());

@@ -6,7 +6,7 @@ const projectId = '44b10495-a536-4c6e-a410-93bd2d9330fd'
 const id = '76989078-9c82-4ac5-9218-fc2b262f47e9'
 const path = `/api/projects/${projectId}/reports/${id}`
 const saved = () => ({ id, projectId, reporterUserId: 'f2e29c3e-2b62-4420-a631-b1300f148328', title: 'Synthetic Java failure', description: 'Java application fails', environment: 'Java synthetic', reproductionSteps: 'Open Java application', expectedBehavior: 'Application starts', actualBehavior: 'An exception appears', textLogs: 'PRIVATE_LOG_CANARY', status: 'OPEN', assignedDeveloperId: null, version: 1, createdAt: '2026-11-08T00:00:00Z', updatedAt: '2026-11-08T00:00:00Z' })
-const suggestion = () => ({ capability: 'REPORT_IMPROVEMENT', promptVersion: 'report-improvement-v1', sourceKind: 'REPORT', sourceId: id, sourceVersion: 1, changes: [{ field: 'title', replacement: '<img src=x onerror="window.aiExecuted=true">' }, { field: 'description', replacement: 'A Java startup exception appears.' }], missingInformation: ['<script>window.aiExecuted=true</script>Which Java version?'] })
+const suggestion = () => ({ capability: 'REPORT_IMPROVEMENT', promptVersion: 'report-improvement-v2', sourceKind: 'REPORT', sourceId: id, sourceVersion: 1, changes: [{ field: 'title', replacement: '<img src=x onerror="window.aiExecuted=true">' }, { field: 'description', replacement: 'A Java startup exception appears.' }], missingInformation: ['<script>window.aiExecuted=true</script>Which Java version?'] })
 
 async function setup(page: Page, options: { generate?: (route: Route) => Promise<void>; stale?: boolean } = {}) {
   await mockAuthApi(page, { workspaces: [{ project: { id: projectId, name: 'Synthetic AI project' }, role: 'REPORTER' }] })
