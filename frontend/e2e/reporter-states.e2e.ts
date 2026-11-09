@@ -10,7 +10,7 @@ type PostResult = number | 'network'
 type RecordedPost = { body: string; key: string | undefined }
 
 async function controlledApi(page: Page, results: PostResult[], forbiddenCode = 'FORBIDDEN') {
-  const authRequests = await mockAuthApi(page)
+  const authRequests = await mockAuthApi(page, { workspaces: [{ project: { id: projectId, name: 'Controlled browser project' }, role: 'REPORTER' }] })
   await page.context().addCookies([{
     name: 'TDSESSION', value: 'synthetic-session', url: 'https://localhost:4177',
     secure: true, httpOnly: true, sameSite: 'Lax',

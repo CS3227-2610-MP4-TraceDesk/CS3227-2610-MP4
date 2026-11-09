@@ -18,6 +18,62 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Required DB test: absent isolation configuration fails instead of skipping. */
 class AuthPersistenceIntegrationTest {
     @Test
+    void workspaceDiscoveryReturnsOnlyCurrentActiveEnabledMembershipsAndIsBounded() throws Exception {
+        try (IsolatedPostgres db = IsolatedPostgres.open(System.getenv())) {
+            Flyway.configure().dataSource(db).locations("classpath:db/migration").load().migrate();
+            JdbcTemplate sql = new JdbcTemplate(db);
+            AuthStore store = new AuthStore(sql);
+            UUID actor = user(sql, "workspace-actor@example.test");
+            UUID other = user(sql, "workspace-other@example.test");
+            UUID reporterProject = UUID.randomUUID(), developerProject = UUID.randomUUID();
+            UUID disabledMembershipProject = UUID.randomUUID(), disabledProject = UUID.randomUUID();
+            sql.update("insert into td_projects(id,name) values(?,?),(?,?),(?,?),(?,?)",
+                    reporterProject, "Zulu Reporter", developerProject, "Alpha Developer",
+                    disabledMembershipProject, "Disabled membership", disabledProject, "Disabled project");
+            membership(sql, reporterProject, actor, "REPORTER", "ACTIVE");
+            membership(sql, developerProject, actor, "DEVELOPER", "ACTIVE");
+            membership(sql, disabledMembershipProject, actor, "QA_REVIEWER", "DISABLED");
+            membership(sql, reporterProject, other, "QA_REVIEWER", "ACTIVE");
+            membership(sql, disabledProject, actor, "QA_REVIEWER", "ACTIVE");
+            sql.update("update td_projects set enabled=false where id=?", disabledProject);
+
+            var full = store.activeMemberships(actor, 100);
+            assertFalse(full.hasMore());
+            assertEquals(List.of(reporterProject, developerProject),
+                    full.items().stream().map(item -> item.projectId()).toList());
+            assertEquals(List.of("REPORTER", "DEVELOPER"),
+                    full.items().stream().map(item -> item.role()).toList());
+
+            var bounded = store.activeMemberships(actor, 1);
+            assertTrue(bounded.hasMore());
+            assertEquals(1, bounded.items().size());
+            store.setUserEnabled(actor, false);
+            assertTrue(store.activeMemberships(actor, 100).items().isEmpty());
+
+            UUID boundedActor = user(sql, "workspace-bounded@example.test");
+            for (int index = 0; index < 100; index++) {
+                UUID project = UUID.randomUUID();
+                sql.update("insert into td_projects(id,name) values(?,?)", project, "Bounded " + index);
+                membership(sql, project, boundedActor, "REPORTER", "ACTIVE");
+            }
+            var exactlyFull = store.activeMemberships(boundedActor, 100);
+            assertEquals(100, exactlyFull.items().size());
+            assertFalse(exactlyFull.hasMore());
+            UUID extraProject = UUID.randomUUID();
+            sql.update("insert into td_projects(id,name) values(?,?)", extraProject, "Bounded extra");
+            membership(sql, extraProject, boundedActor, "REPORTER", "ACTIVE");
+            var overFull = store.activeMemberships(boundedActor, 100);
+            assertEquals(100, overFull.items().size());
+            assertTrue(overFull.hasMore());
+
+            store.event("UNAUTHENTICATED", "/api/workspaces", 401, null, null);
+            assertEquals(1, sql.queryForObject(
+                    "select count(*) from td_security_events where route_template='/api/workspaces' and outcome_status=401",
+                    Integer.class));
+        }
+    }
+
+    @Test
     void migrationConstraintsMembershipFreshnessSessionRevocationAndEvents() throws Exception {
         try (IsolatedPostgres db = IsolatedPostgres.open(System.getenv())) {
             Flyway.configure().dataSource(db).locations("classpath:db/migration").load().migrate();

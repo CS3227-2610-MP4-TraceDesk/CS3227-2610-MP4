@@ -3,6 +3,8 @@ package com.tracedesk.auth.api;
 import com.tracedesk.auth.persistence.AuthStore;
 import com.tracedesk.auth.application.ProjectAuthorization;
 import com.tracedesk.auth.application.ProjectAccessRepository;
+import com.tracedesk.auth.application.WorkspaceDiscovery;
+import com.tracedesk.auth.application.WorkspaceMembershipRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -104,6 +106,79 @@ class AuthControllerTest {
       .andExpect(jsonPath("$.name").doesNotExist());
  }
 
+ @Test void workspaceDiscoveryUsesOnlyTheSessionActorAndStoredRoles() throws Exception {
+  AuthStore store=mock(AuthStore.class);
+  PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
+  UUID actor=UUID.randomUUID(), reporterProject=UUID.randomUUID(), developerProject=UUID.randomUUID();
+  when(store.activeMemberships(actor,WorkspaceDiscovery.MAX_ITEMS)).thenReturn(new WorkspaceMembershipRepository.Page(java.util.List.of(
+      new WorkspaceMembershipRepository.Membership(reporterProject,"Manual Test B","REPORTER"),
+      new WorkspaceMembershipRepository.Membership(developerProject,"Manual Test A","DEVELOPER")
+  ),false));
+  MockMvc mvc=MockMvcBuilders.standaloneSetup(controller(store,encoder)).setControllerAdvice(new ApiFailureHandler(store)).build();
+
+  mvc.perform(get("/api/workspaces").session(authenticatedSession(actor)).param("role","QA_REVIEWER").header("X-Role","QA_REVIEWER"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items[0].project.id").value(reporterProject.toString()))
+      .andExpect(jsonPath("$.items[0].role").value("REPORTER"))
+      .andExpect(jsonPath("$.items[1].project.id").value(developerProject.toString()))
+      .andExpect(jsonPath("$.items[1].role").value("DEVELOPER"))
+      .andExpect(jsonPath("$.hasMore").value(false));
+  verify(store).activeMemberships(actor,WorkspaceDiscovery.MAX_ITEMS);
+ }
+
+ @Test void anonymousWorkspaceDiscoveryRecordsDenialAndReturnsNoItems() throws Exception {
+  AuthStore store=mock(AuthStore.class);
+  PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
+  MockMvc mvc=MockMvcBuilders.standaloneSetup(controller(store,encoder)).setControllerAdvice(new ApiFailureHandler(store)).build();
+
+  mvc.perform(get("/api/workspaces"))
+      .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"))
+      .andExpect(jsonPath("$.items").doesNotExist());
+  verify(store).event("UNAUTHENTICATED","/api/workspaces",401,null,null);
+  verify(store,never()).activeMemberships(any(),anyInt());
+ }
+
+ @Test void expiredSessionWorkspaceDiscoveryRecordsDenialAndReturnsNoItems() throws Exception {
+  AuthStore store=mock(AuthStore.class);
+  PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
+  MockMvc mvc=MockMvcBuilders.standaloneSetup(controller(store,encoder)).setControllerAdvice(new ApiFailureHandler(store)).build();
+  MockHttpSession expired=authenticatedSession(UUID.randomUUID());
+  expired.setAttribute(AuthController.AUTH_AT,System.currentTimeMillis()-8L*60*60*1000);
+
+  mvc.perform(get("/api/workspaces").session(expired))
+      .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"))
+      .andExpect(jsonPath("$.items").doesNotExist());
+  assertTrue(expired.isInvalid());
+  verify(store).event("UNAUTHENTICATED","/api/workspaces",401,null,null);
+  verify(store,never()).activeMemberships(any(),anyInt());
+ }
+
+ @Test void workspaceDiscoveryFailsClosedWhenPersistenceIsUnavailable() throws Exception {
+  AuthStore store=mock(AuthStore.class);
+  PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
+  UUID actor=UUID.randomUUID();
+  when(store.activeMemberships(actor,WorkspaceDiscovery.MAX_ITEMS))
+      .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic persistence failure"));
+  MockMvc mvc=MockMvcBuilders.standaloneSetup(controller(store,encoder)).setControllerAdvice(new ApiFailureHandler(store)).build();
+
+  mvc.perform(get("/api/workspaces").session(authenticatedSession(actor)))
+      .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.error.code").value("SERVICE_UNAVAILABLE"))
+      .andExpect(jsonPath("$.items").doesNotExist());
+ }
+
+ @Test void anonymousWorkspaceDiscoveryFailsClosedWhenSecurityEventStoreIsUnavailable() throws Exception {
+  AuthStore store=mock(AuthStore.class);
+  PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
+  doThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic sink failure"))
+      .when(store).event("UNAUTHENTICATED","/api/workspaces",401,null,null);
+  MockMvc mvc=MockMvcBuilders.standaloneSetup(controller(store,encoder)).setControllerAdvice(new ApiFailureHandler(store)).build();
+
+  mvc.perform(get("/api/workspaces"))
+      .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.error.code").value("SERVICE_UNAVAILABLE"))
+      .andExpect(jsonPath("$.items").doesNotExist());
+  verify(store,never()).activeMemberships(any(),anyInt());
+ }
+
  @Test void logoutRequiresCsrfAndInvalidatesSessionReplay() throws Exception {
   AuthStore store=mock(AuthStore.class);
   PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
@@ -123,7 +198,7 @@ class AuthControllerTest {
   AuthStore store=mock(AuthStore.class);
   PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
   var clock=new MutableClock(Instant.parse("2026-01-01T08:00:00Z"));
-  MockMvc mvc=MockMvcBuilders.standaloneSetup(new AuthController(store,new ProjectAuthorization(store),encoder,clock))
+  MockMvc mvc=MockMvcBuilders.standaloneSetup(new AuthController(store,new ProjectAuthorization(store),new WorkspaceDiscovery(store),encoder,clock))
       .setControllerAdvice(new ApiFailureHandler(store)).build();
 
   MockHttpSession anonymous=new MockHttpSession();
@@ -169,7 +244,7 @@ class AuthControllerTest {
   PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
   UUID actor=UUID.randomUUID();
   var clock=new MutableClock(Instant.parse("2026-01-01T08:00:00Z"));
-  MockMvc mvc=MockMvcBuilders.standaloneSetup(new AuthController(store,new ProjectAuthorization(store),encoder,clock)).build();
+  MockMvc mvc=MockMvcBuilders.standaloneSetup(new AuthController(store,new ProjectAuthorization(store),new WorkspaceDiscovery(store),encoder,clock)).build();
   when(store.enabled(actor)).thenReturn(true);
   MockHttpSession session=authenticatedSession(actor);
   session.setAttribute(AuthController.AUTH_AT,clock.millis()-8L*60*60*1000+1);
@@ -187,7 +262,7 @@ class AuthControllerTest {
   return session;
  }
  private static AuthController controller(AuthStore store, PasswordEncoder encoder) {
-  return new AuthController(store,new ProjectAuthorization(store),encoder,Clock.systemUTC());
+  return new AuthController(store,new ProjectAuthorization(store),new WorkspaceDiscovery(store),encoder,Clock.systemUTC());
  }
 
  private static final class MutableClock extends Clock {
