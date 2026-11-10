@@ -45,7 +45,8 @@ import javax.sql.DataSource;
 
 /** Owned, test-only application process for the same-candidate Reporter browser journey. */
 public final class ReporterBrowserFixture {
-    private static final int PORT = 18089;
+    private static final int PORT = Integer.parseInt(
+            System.getenv().getOrDefault("TRACEDESK_BROWSER_FIXTURE_PORT", "18089"));
     private static final String PASSWORD = "Synthetic-browser-password-2026!";
     private static final AtomicBoolean AI_AVAILABLE = new AtomicBoolean(true);
     private static final JsonMapper JSON = JsonMapper.builder().build();
@@ -290,6 +291,12 @@ public final class ReporterBrowserFixture {
                     if (!AI_AVAILABLE.get()) throw new GatewayFailure(GatewayFailure.Code.AI_UNAVAILABLE);
                     if (context.dataJson().contains("textLogs") || context.dataJson().contains("AI_DO_NOT_SEND_LOG_CANARY"))
                         throw new GatewayFailure(GatewayFailure.Code.AI_REJECTED);
+                    if ("qa-follow-up-v1".equals(context.promptVersion())) {
+                        return new Completion("""
+                            {"answer":"Compare the totals before and after refreshing twice.",
+                             "checks":["Refresh a payment with two distinct refunds."],"evidenceGaps":[]}
+                            """, new Usage(350, 90));
+                    }
                     if ("qa-planning-v1".equals(context.promptVersion())) {
                         if (!context.dataJson().contains("Deduplicate") && !context.dataJson().contains("synthetic change summary"))
                             throw new GatewayFailure(GatewayFailure.Code.AI_REJECTED);
