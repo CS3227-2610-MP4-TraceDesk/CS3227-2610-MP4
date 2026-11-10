@@ -66,6 +66,27 @@ class QaAiTest {
         }
     }
 
+    @Test void followUpUsesBoundedReviewContextAndValidatesTheReply() {
+        try (var service = service()) {
+            var followUp = ReportAiOutput.JSON.readTree("""
+                    {"question":"How do I check a second refund?","plan":{"checks":["Refresh once"],"evidenceGaps":[]},
+                    "history":[{"question":"Which build?","answer":"Record the build number."}]}
+                    """);
+            provider.output = """
+                    {"answer":"Compare both distinct refund IDs after refresh.","checks":["Refresh a payment with two refunds."],"evidenceGaps":[]}
+                    """;
+            var result = service.review(PROJECT, SOURCE, 3, followUp, () -> ACTOR);
+            assertEquals("qa-follow-up-v1", result.promptVersion());
+            assertEquals("Compare both distinct refund IDs after refresh.", result.answer());
+            var data = ReportAiOutput.JSON.readTree(provider.context.dataJson());
+            assertEquals(followUp, data.path("followUp"));
+            assertEquals("Root 2", data.path("resolution").path("rootCause").asString());
+            assertFalse(provider.context.dataJson().contains("CANARY"));
+            provider.output = "{\"answer\":\" \u2002\",\"checks\":[],\"evidenceGaps\":[]}";
+            failure("AI_INVALID_OUTPUT", () -> service.review(PROJECT, SOURCE, 3, followUp, () -> ACTOR));
+        }
+    }
+
     @Test void rechecksVersionBeforeDeliveryAndRejectsMalformedAdvice() {
         try (var service = service()) {
             provider.output = """

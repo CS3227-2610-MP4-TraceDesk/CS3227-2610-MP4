@@ -5,6 +5,10 @@ import com.tracedesk.auth.investigation.domain.ProposedResolutionData;
 import com.tracedesk.auth.reports.application.ReportService;
 import com.tracedesk.auth.reports.domain.ReportData;
 import com.tracedesk.testing.IsolatedPostgres;
+import com.tracedesk.auth.verification.VerificationStore;
+import com.tracedesk.auth.verification.VerificationCommand;
+import static com.tracedesk.auth.verification.VerificationCommand.Decision.*;
+import static com.tracedesk.auth.verification.VerificationCommand.Result.*;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessException;
@@ -26,6 +30,50 @@ import static org.junit.jupiter.api.Assertions.*;
 class ResolutionPersistenceIntegrationTest {
     private static final Instant NOW = Instant.parse("2026-11-09T01:00:00Z");
     private static final ProposedResolutionData VALID = new ProposedResolutionData("cause 🙂", "change", "verify", "branch");
+
+    @Test void qaSavesClosesAndSendsBackWithVersionAndResolutionIsolation() throws Exception {
+        try (IsolatedPostgres db = IsolatedPostgres.open(System.getenv())) {
+            Flyway.configure().dataSource(db).locations("classpath:db/migration").load().migrate();
+            var sql = new JdbcTemplate(db);
+            var developerStore = new InvestigationStore(sql);
+            var qaStore = new VerificationStore(sql, java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC));
+            UUID project = UUID.randomUUID(), foreign = UUID.randomUUID();
+            UUID reporter = user(sql, "qa-rpt@example.test"), developer = user(sql, "qa-dev@example.test"),
+                    qa = user(sql, "qa-review@example.test");
+            sql.update("insert into td_projects(id,name) values(?,?),(?,?)", project, "QA Test", foreign, "Foreign Test");
+            membership(sql, project, reporter, "REPORTER");
+            membership(sql, project, developer, "DEVELOPER");
+            membership(sql, project, qa, "QA_REVIEWER");
+            UUID report = report(sql, project, reporter, developer, "IN_PROGRESS", 2);
+            developerStore.propose(developer, project, report, VALID, 2, UUID.randomUUID(), NOW);
+
+            var pending = new VerificationCommand.Check("Refresh the payment", Pending, "");
+            var passed = new VerificationCommand.Check(pending.title(), Pass, "Observed once");
+            var save = new VerificationCommand(3, List.of(pending), "Staging", SAVE, "");
+            assertEquals("FORBIDDEN", failure(() -> qaStore.write(developer, project, report, save)).code());
+            assertEquals("NOT_FOUND", failure(() -> qaStore.read(qa, foreign, report)).code());
+            assertEquals("CHECKS_NOT_PASSED", failure(() -> new VerificationCommand(3, List.of(pending), "", CLOSE, "")).code());
+            assertEquals(4, qaStore.write(qa, project, report, save).version());
+            assertEquals(List.of(pending), qaStore.read(qa, project, report).checks());
+            assertEquals("STALE_VERSION", failure(() -> qaStore.write(qa, project, report, save)).code());
+
+            var back = qaStore.write(qa, project, report, new VerificationCommand(4, List.of(pending), "Staging", SEND_BACK, "Still duplicated"));
+            assertEquals("IN_PROGRESS", back.status());
+            assertEquals("Still duplicated", qaStore.read(qa, project, report).reason());
+            developerStore.propose(developer, project, report, VALID, back.version(), UUID.randomUUID(), NOW);
+            var next = qaStore.read(qa, project, report);
+            assertEquals(2, next.revision());
+            assertTrue(next.checks().isEmpty());
+
+            var close = new VerificationCommand(next.version(), List.of(passed), "", CLOSE, "");
+            sql.execute("alter table td_business_audit_events rename to qa_test_audit_unavailable");
+            try { assertThrows(DataAccessException.class, () -> qaStore.write(qa, project, report, close)); }
+            finally { sql.execute("alter table qa_test_audit_unavailable rename to td_business_audit_events"); }
+            assertEquals(next, qaStore.read(qa, project, report));
+            assertEquals("CLOSED", qaStore.write(qa, project, report, close).status());
+            assertEquals(3, sql.queryForObject("select count(*) from td_business_audit_events where event_code like 'QA_%'", Integer.class));
+        }
+    }
 
     @Test void proposalTransitionsAtomicallyAndEnforcesAccessStateVersionCapsAndRaces() throws Exception {
         try (IsolatedPostgres db = IsolatedPostgres.open(System.getenv())) {
