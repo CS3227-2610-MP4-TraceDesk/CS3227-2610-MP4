@@ -45,3 +45,6 @@ env.local
 
 # Contributor-local agent run logs; durable summaries live in Reporter evidence.
 workflow/reporter/runs/
+
+# Generated local-only Reporter setup credentials.
+/.local/
