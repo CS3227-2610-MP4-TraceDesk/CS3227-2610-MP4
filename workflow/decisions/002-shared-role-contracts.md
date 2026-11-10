@@ -8,9 +8,23 @@ API signatures, schema details, and acceptance tests before implementation.
 
 - Use server-side sessions. Resolve the authenticated user ID from trusted
   server-side session context, never from a request body or browser-supplied role.
-- Store project membership and role per user and project. Every role operation
-  checks project membership and the applicable object-level permission on the
-  server; a role name alone does not grant access to every bug.
+- Store one operator-assigned role (`REPORTER`, `DEVELOPER`, or `QA_REVIEWER`)
+  on each account, before project selection. The same account role applies in
+  every project. Project membership records project access and state, not a
+  source of role authority. For compatibility during migration, an old
+  membership role snapshot may remain stored but no authorization or workspace
+  routing may read it.
+- Every role operation checks the enabled account's fresh role, active project
+  membership, and applicable object-level permission on the server. A role
+  name alone does not grant project or bug access. Role assignment is an
+  operator provisioning responsibility; browser values never assign or change
+  it. A committed role change invalidates all sessions for that user in the
+  same transaction.
+- Any enabled authenticated role may create a project and explicitly join an
+  enabled project. Creation gives only the creator's ordinary active
+  membership; it grants no owner powers. Directory visibility alone grants no
+  access to reports, drafts, notes, or other private role data. See the
+  [shared project discovery and joining specification](../specs/project-discovery-joining.md).
 - Use the session and CSRF protections described in
   [security](../../docs/security.md). Role feature code consumes a trusted actor
   and authorization service rather than implementing its own identity source.
