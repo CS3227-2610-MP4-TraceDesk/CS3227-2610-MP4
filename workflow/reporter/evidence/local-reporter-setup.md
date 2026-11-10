@@ -134,5 +134,21 @@ Both integration defects were corrected without relaxing assertions.
 - The initial failing runs remain recorded as failures; the backend-startup
   failure was caused by the absent cursor key, and the subsequent browser timeout
   was caused by the obsolete button name. The temporary database container was
-  stopped after verification. The remote PR check has not yet rerun on these
-  corrections; no remote CI pass, deployment or independent review is claimed.
+  stopped after verification.
+
+The next PR run exposed stale static browser fixtures in the same frontend
+workflow: mocked sessions omitted the now-required account role, and mocked
+project discovery omitted `GET /api/projects`. The shared auth fixture now returns
+the account role and active project-directory entries; the Developer-specific
+fixture does the same. The test behavior was kept intact.
+
+- Revision: `07e3503` plus uncommitted changes to
+  `frontend/e2e/helpers/authApi.ts`, `frontend/e2e/developer-states.e2e.ts` and
+  this evidence record.
+- Checks: `npm run check` passed (typecheck, lint, 97 unit tests); `npm run build`
+  passed; `npm run test:e2e -- --retries=0` passed all 44 production and
+  development browser/accessibility tests. The previously failing Developer and
+  Reporter AI subset passed all 13 tests separately.
+- These are local checks. A fresh remote CI run after pushing the fixture update
+  remains necessary; no remote CI pass, deployment or independent review is
+  claimed here.

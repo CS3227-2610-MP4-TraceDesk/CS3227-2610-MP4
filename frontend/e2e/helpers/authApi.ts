@@ -27,7 +27,8 @@ export async function mockAuthApi(page: Page, options: {
       if (configured && configured !== 200 && configured !== 401) {
         await route.fulfill({ status: configured, contentType: 'application/json', body: '{"error":{"code":"SERVICE_UNAVAILABLE","message":"Service unavailable"}}' })
       } else if (headers.cookie?.includes('TDSESSION=synthetic-session')) {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: '{"userId":"synthetic-user"}' })
+        const role = options.workspaces?.[0]?.role ?? 'REPORTER'
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ userId: 'synthetic-user', role }) })
       } else {
         await route.fulfill({ status: 401, contentType: 'application/json', body: '{"error":{"code":"UNAUTHENTICATED","message":"Authentication required"}}' })
       }
@@ -41,6 +42,12 @@ export async function mockAuthApi(page: Page, options: {
 
     if (path === '/api/workspaces' && request.method() === 'GET') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: options.workspaces ?? [], hasMore: false }) })
+      return
+    }
+
+    if (path === '/api/projects' && request.method() === 'GET') {
+      const items = (options.workspaces ?? []).map(({ project }) => ({ ...project, membership: 'ACTIVE' }))
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items, nextCursor: null, hasMore: false }) })
       return
     }
 

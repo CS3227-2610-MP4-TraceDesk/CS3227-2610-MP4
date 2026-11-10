@@ -23,8 +23,9 @@ test('Developer workspace is safe, keyboard reachable, responsive and reduced-mo
     const request = route.request()
     const url = new URL(request.url())
     const reply = (status: number, body?: unknown) => route.fulfill({ status, contentType: 'application/json', body: body === undefined ? '' : JSON.stringify(body) })
-    if (url.pathname === '/api/session') return reply(200, { userId: actor })
+    if (url.pathname === '/api/session') return reply(200, { userId: actor, role: 'DEVELOPER' })
     if (url.pathname === '/api/workspaces') return reply(200, { items: [{ project: { id: project, name: 'Synthetic Developer Project' }, role: 'DEVELOPER' }], hasMore: false })
+    if (url.pathname === '/api/projects' && request.method() === 'GET') return reply(200, { items: [{ id: project, name: 'Synthetic Developer Project', membership: 'ACTIVE' }], nextCursor: null, hasMore: false })
     if (url.pathname === '/api/csrf') return reply(200, { token: 'synthetic-csrf' })
     if (url.pathname.endsWith('/developer-context')) return reply(200, { project: { id: project, name: 'Synthetic Developer Project' }, role: 'DEVELOPER' })
     if (url.pathname.endsWith('/reports') && request.method() === 'GET') {
