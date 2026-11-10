@@ -4,6 +4,7 @@ import com.tracedesk.ai.internal.soclaas.SoclaasSettings;
 import com.tracedesk.auth.ai.configuration.SoclaasEnablementManager;
 import com.tracedesk.auth.ai.persistence.JdbcAiLedger;
 import com.tracedesk.auth.reports.application.ReportRepository;
+import com.tracedesk.auth.investigation.application.InvestigationRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.context.annotation.*;
@@ -22,5 +23,11 @@ public class ReportAiConfiguration {
     @Bean(destroyMethod="close") @ConditionalOnMissingBean(ReportAiService.class)
     ReportAiService reporterAiService(ReportRepository repository,Clock clock,SoclaasEnablementManager enablement) {
         return new ReportAiService(repository,clock,enablement::createGateway);
+    }
+    @Bean(destroyMethod="close") @ConditionalOnMissingBean(QaAiService.class)
+    QaAiService qaAiService(ReportRepository repository,
+            InvestigationRepository investigations,
+            SoclaasEnablementManager enablement) {
+        return new QaAiService(repository, investigations, enablement::createGateway);
     }
 }

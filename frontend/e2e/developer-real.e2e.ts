@@ -119,6 +119,17 @@ test('real Developer workspace enforces assignment, versions, sessions and respo
     await expect(summary.getByText(noteText, { exact: true })).toHaveCount(0)
     expect(await qa.evaluate(() => (window as Window & { __resolutionInjected?: boolean }).__resolutionInjected)).toBeUndefined()
 
+    const qaReviewRoute = `${baseUrl}/api/projects/${accounts.projectId}/reports/${accounts.assignedReportId}/qa-suggestions`
+    const missingCsrf = await qa.request.post(qaReviewRoute, { data: { expectedVersion: 1 } })
+    expect(missingCsrf.status()).toBe(403)
+    expect(await missingCsrf.json()).toMatchObject({ error: { code: 'CSRF_INVALID' } })
+
+    await qa.getByRole('button', { name: 'Review with AI' }).click()
+    const panel = qa.getByRole('region', { name: 'Review with AI' })
+    await panel.getByRole('button', { name: 'Generate review' }).click()
+    await expect(panel.getByText('Replay the synthetic steps and compare the result.')).toBeVisible()
+    await expect(panel.getByText('Record the build used for verification.')).toBeVisible()
+    await expect(summary.getByRole('heading', { name: assignedTitle })).toBeVisible()
     for (const width of [390, 320]) {
       await qa.setViewportSize({ width, height: 844 })
       expect(await qa.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
@@ -127,6 +138,8 @@ test('real Developer workspace enforces assignment, versions, sessions and respo
     const qaAxe = await new AxeBuilder({ page: qa }).analyze()
     expect(qaAxe.violations.map(({ id, impact }) => `${id}:${impact}`)).toEqual([])
 
+    await panel.getByRole('button', { name: 'Close AI review' }).click()
+    await expect(qa.getByRole('button', { name: 'Review with AI' })).toBeFocused()
     const foreign = await qa.request.get(`${baseUrl}/api/projects/${accounts.deniedProjectId}/reports/${accounts.assignedReportId}/resolutions`)
     expect(foreign.status()).toBe(404)
     await qa.getByRole('button', { name: 'Settings' }).click()

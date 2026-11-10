@@ -6,6 +6,9 @@ import com.tracedesk.auth.ai.persistence.JdbcAiLedger;
 import com.tracedesk.auth.ai.configuration.LiveEvaluationManager;
 import com.tracedesk.auth.ai.configuration.SoclaasEnablementManager;
 import com.tracedesk.auth.reports.ai.ReportAiService;
+import com.tracedesk.auth.reports.ai.QaAiService;
+import com.tracedesk.auth.investigation.application.InvestigationRepository;
+import com.tracedesk.ai.gateway.SecuredAiGateway;
 import com.tracedesk.auth.reports.application.ReportRepository;
 import com.tracedesk.auth.reports.application.ReportService;
 import com.tracedesk.ai.internal.soclaas.SoclaasSettings;
@@ -254,14 +257,24 @@ public final class ReporterBrowserFixture {
     @TestConfiguration(proxyBeanMethods=false)
     public static class AiFixtureConfiguration {
         @Bean @Primary
+        ReportAiService browserReportAiService(ReportRepository reports, Clock clock, ReportAiService.Factory factory) {
+            return new ReportAiService(reports, clock, factory);
+        }
+
+        @Bean @Primary
+        QaAiService browserQaAiService(ReportRepository reports, InvestigationRepository investigations,
+                                      ReportAiService.Factory factory) {
+            return new QaAiService(reports, investigations, factory);
+        }
+
+        @Bean
         @org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization
-        ReportAiService browserReportAiService(ReportRepository reports, JdbcTemplate sql, Clock clock,
-                                               ObjectProvider<SoclaasEnablementManager> managers) {
+        ReportAiService.Factory browserAiGatewayFactory(JdbcTemplate sql, Clock clock,
+                                                        ObjectProvider<SoclaasEnablementManager> managers) {
             if (LIVE_MODE) {
                 SoclaasEnablementManager manager = managers.getIfAvailable();
                 if (manager == null || manager != LIVE_MANAGER) throw ReporterLiveBrowserGuard.denied();
-                return new ReportAiService(reports, clock, (actors, authorizer, contexts) -> manager.createGateway(
-                        actors, authorizer, liveContextBuilder(contexts)));
+                return (actors, authorizer, contexts) -> manager.createGateway(actors, authorizer, liveContextBuilder(contexts));
             }
             var ledger = new JdbcAiLedger(sql);
             var policy = new Policy(true, 100, 1_000_000, 500_000, 4, 1, Duration.ofSeconds(60));
@@ -278,13 +291,22 @@ public final class ReporterBrowserFixture {
                     if (!AI_AVAILABLE.get()) throw new GatewayFailure(GatewayFailure.Code.AI_UNAVAILABLE);
                     if (context.dataJson().contains("textLogs") || context.dataJson().contains("AI_DO_NOT_SEND_LOG_CANARY"))
                         throw new GatewayFailure(GatewayFailure.Code.AI_REJECTED);
+                    if ("qa-planning-v1".equals(context.promptVersion())) {
+                        if (!context.dataJson().contains("Deduplicate") && !context.dataJson().contains("synthetic change summary"))
+                            throw new GatewayFailure(GatewayFailure.Code.AI_REJECTED);
+                        return new Completion("""
+                            {"checks":["Replay the synthetic steps and compare the result."],
+                             "evidenceGaps":["Record the build used for verification."]}
+                            """, new Usage(300, 80));
+                    }
                     return new Completion("""
                         {"changes":[{"field":"title","replacement":"Clearer Java report <img src=x onerror=window.__aiInjected=true>"}],
                          "missingInformation":["Which Java version reproduces this issue?"]}
                         """, new Usage(300, 80));
                 }
             };
-            return new ReportAiService(reports, clock, provider, ledger, policy);
+            return (actors, authorizer, contexts) -> new SecuredAiGateway(
+                    actors, authorizer, contexts, provider, ledger, policy, clock);
         }
     }
 

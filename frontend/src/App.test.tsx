@@ -222,9 +222,18 @@ describe('login and server session flow', () => {
       reproductionSteps: 'Refresh the payment.', expectedBehavior: 'One row', actualBehavior: 'Two rows',
     }
     let resolutionCalls = 0
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    let aiCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input)
       if (path === '/api/session') return reply(200, { userId: user, role: 'QA_REVIEWER' })
+      if (path === '/api/csrf') return reply(200, { token: 'synthetic-csrf' })
+      if (path === `/api/projects/${project}/reports/${reportId}/qa-suggestions`) {
+        aiCalls += 1
+        expect(init?.method).toBe('POST')
+        expect(JSON.parse(String(init?.body))).toEqual({ expectedVersion: 3 })
+        return reply(200, { capability: 'QA_PLANNING', promptVersion: 'qa-planning-v1', sourceId: reportId,
+          sourceVersion: 3, checks: ['Confirm one row after refresh.'], evidenceGaps: ['Record the build tested.'] })
+      }
       if (path === '/api/workspaces') return reply(200, { items: [
         { project: { id: project, name: 'QA Project A' }, role: 'QA_REVIEWER' },
         { project: { id: otherProject, name: 'QA Project B' }, role: 'QA_REVIEWER' },
@@ -252,7 +261,13 @@ describe('login and server session flow', () => {
     fireEvent.click(await screen.findByText('Proposed fix · Revision 1'))
     expect(screen.getByText('<b>synthetic-fix</b>')).toBeVisible()
     expect(screen.queryByRole('link', { name: /synthetic-fix/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Review with AI' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Review with AI' }))
+    expect(aiCalls).toBe(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Generate review' }))
+    expect(await screen.findByText('Confirm one row after refresh.')).toBeVisible()
+    expect(screen.getByText('Record the build tested.')).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Refund display duplicates' })).toBeVisible()
+    expect(aiCalls).toBe(1)
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     fireEvent.click(screen.getByRole('button', { name: 'Choose another project' }))
