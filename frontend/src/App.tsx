@@ -3,6 +3,7 @@ import { SignIn } from './login/SignIn'
 import { AuthApiError, getSession, login, logout } from './auth/sessionApi'
 import { ReporterWorkspace } from './reports/ReporterWorkspace'
 import { DeveloperWorkspace } from './developer/DeveloperWorkspace'
+import { QaWorkspace } from './qa/QaWorkspace'
 import { WorkspacePicker } from './workspaces/WorkspacePicker'
 import { fetchWorkspaces, type WorkspaceMembership, type WorkspacePage } from './workspaces/workspaceApi'
 
@@ -125,7 +126,6 @@ export function App() {
   }
 
   const chooseWorkspace = useCallback((workspace: WorkspaceMembership) => {
-    if (workspace.role === 'QA_REVIEWER') return
     const url = new URL(window.location.href)
     url.searchParams.set('project', workspace.project.id)
     url.searchParams.delete('workspace')
@@ -149,7 +149,7 @@ export function App() {
   if (authState === 'signed-in') {
     if (!sessionUserId) return <main className="auth-loading" role="status">Loading your workspace…</main>
     const selectedWorkspace = workspacePage?.items.find(item => item.project.id === selectedProjectId)
-    if (workspaceState !== 'ready' || !selectedWorkspace || selectedWorkspace.role === 'QA_REVIEWER') {
+    if (workspaceState !== 'ready' || !selectedWorkspace) {
       const routeWasUnavailable = workspaceState === 'ready' && Boolean(selectedProjectId) && !selectedWorkspace
       return <WorkspacePicker
         page={workspacePage}
@@ -174,6 +174,10 @@ export function App() {
       signingOut: logoutBusy,
       signOutError: logoutError,
       onChooseWorkspace: showWorkspacePicker,
+    }
+    if (selectedWorkspace.role === 'QA_REVIEWER') {
+      return <QaWorkspace key={`${sessionUserId}:${selectedWorkspace.project.id}`}
+        project={selectedWorkspace.project} {...workspaceProps} />
     }
     if (selectedWorkspace.role === 'DEVELOPER') {
       return <DeveloperWorkspace key={sessionUserId} {...workspaceProps} sessionUserId={sessionUserId} />

@@ -64,6 +64,7 @@ public final class ReporterBrowserFixture {
             UUID developerFixtureReporterId = UUID.randomUUID();
             UUID nonmemberId = UUID.randomUUID();
             UUID developerId = UUID.randomUUID();
+            UUID qaId = UUID.randomUUID();
             UUID successorId = UUID.randomUUID();
             UUID assignedReportId = UUID.randomUUID();
             UUID unassignedReportId = UUID.randomUUID();
@@ -72,6 +73,7 @@ public final class ReporterBrowserFixture {
             String developerFixtureReporterLogin = "developer-fixture-reporter-" + suffix + "@example.test";
             String nonmemberLogin = "nonmember-" + suffix + "@example.test";
             String developerLogin = "developer-" + suffix + "@example.test";
+            String qaLogin = "qa-" + suffix + "@example.test";
             String successorLogin = "developer-successor-" + suffix + "@example.test";
 
             SpringApplication app = new SpringApplication(AuthApplication.class);
@@ -115,6 +117,9 @@ public final class ReporterBrowserFixture {
                 seedUser(sql, encoder, nonmemberId, nonmemberLogin);
                 seedUser(sql, encoder, developerId, developerLogin);
                 seedUser(sql, encoder, successorId, successorLogin);
+                seedUser(sql, encoder, qaId, qaLogin);
+                sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'QA_REVIEWER','ACTIVE')",
+                        projectId, qaId);
                 sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'REPORTER','ACTIVE')",
                         projectId, reporterId);
                 sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'DEVELOPER','ACTIVE')",
@@ -129,7 +134,7 @@ public final class ReporterBrowserFixture {
                 Files.writeString(metadataTemp, "{\"projectId\":\"" + projectId + "\",\"deniedProjectId\":\"" +
                         deniedProjectId + "\",\"reporterId\":\"" + reporterId + "\",\"login\":\"" + login +
                         "\",\"nonmemberLogin\":\"" + nonmemberLogin + "\",\"developerLogin\":\"" +
-                        developerLogin + "\",\"developerId\":\"" + developerId +
+                        developerLogin + "\",\"qaLogin\":\"" + qaLogin + "\",\"developerId\":\"" + developerId +
                         "\",\"assignedReportId\":\"" + assignedReportId +
                         "\",\"unassignedReportId\":\"" + unassignedReportId + "\"}");
                 Files.move(metadataTemp, metadata, java.nio.file.StandardCopyOption.ATOMIC_MOVE);

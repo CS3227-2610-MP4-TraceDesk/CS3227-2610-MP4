@@ -146,7 +146,7 @@ describe('login and server session flow', () => {
     expect(fetchMock.mock.calls.some(call => String(call[0]).endsWith('/reporter-context'))).toBe(false)
   })
 
-  it('lists role memberships without enabling the unfinished QA preview', async () => {
+  it('lists all discovered role memberships', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(reply(200, { userId: user }))
       .mockResolvedValueOnce(reply(200, { items: [
@@ -159,7 +159,7 @@ describe('login and server session flow', () => {
 
     expect(await screen.findByRole('button', { name: 'Manual Test A' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Manual Test B' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /Manual Test QA/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Manual Test QA/ })).toBeEnabled()
   })
 
   it('shows no workspace data when discovery is unavailable and recovers on retry', async () => {
@@ -196,16 +196,68 @@ describe('login and server session flow', () => {
     expect(await screen.findByText('Only the first 100 active projects are shown.')).toBeInTheDocument()
   })
 
-  it('does not enter a QA workspace or role-specific context from a route hint', async () => {
+  it('ignores a QA role hint for a project outside the membership list', async () => {
     window.history.replaceState(null, '', `/?workspace=qa&project=${project}`)
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(reply(200, { userId: user }))
-      .mockResolvedValueOnce(reply(200, { items: [{ project: { id: project, name: 'Manual Test QA' }, role: 'QA_REVIEWER' }], hasMore: false }))
+      .mockResolvedValueOnce(reply(200, { items: [{ project: { id: '20000000-0000-4000-8000-000000000003', name: 'Manual Test QA' }, role: 'QA_REVIEWER' }], hasMore: false }))
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    expect(await screen.findByRole('button', { name: /Manual Test QA/ })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: /Manual Test QA/ })).toBeEnabled()
+    expect(screen.getByText(/That project is not available/)).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('loads the authorized QA queue, retries a summary failure, and clears it when switching projects', async () => {
+    const otherProject = '20000000-0000-4000-8000-000000000002'
+    const reportId = '30000000-0000-4000-8000-000000000001'
+    const report = {
+      id: reportId, projectId: project, reporterUserId: user, title: 'Refund display duplicates',
+      status: 'READY_FOR_QA', assignedDeveloperId: secondUser, version: 3,
+      createdAt: '2026-11-09T10:00:00Z', updatedAt: '2026-11-10T10:00:00Z',
+      description: 'Two rows appear for one refund.', environment: 'Staging', textLogs: '',
+      reproductionSteps: 'Refresh the payment.', expectedBehavior: 'One row', actualBehavior: 'Two rows',
+    }
+    let resolutionCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path === '/api/session') return reply(200, { userId: user })
+      if (path === '/api/workspaces') return reply(200, { items: [
+        { project: { id: project, name: 'QA Project A' }, role: 'QA_REVIEWER' },
+        { project: { id: otherProject, name: 'QA Project B' }, role: 'QA_REVIEWER' },
+      ], hasMore: false })
+      if (path.startsWith(`/api/projects/${project}/reports?`)) return reply(200, { items: [report], nextCursor: null })
+      if (path === `/api/projects/${project}/reports/${reportId}`) return reply(200, report)
+      if (path.startsWith(`/api/projects/${project}/reports/${reportId}/resolutions?`)) {
+        if (++resolutionCalls === 1) return reply(503)
+        return reply(200, { items: [{
+          id: '40000000-0000-4000-8000-000000000001', reportId, authorUserId: secondUser, revision: 1,
+          rootCause: 'Duplicate IDs', changeSummary: 'Deduplicate by ID', verificationSteps: 'Refresh twice',
+          fixReference: '<b>synthetic-fix</b>', createdAt: report.updatedAt,
+        }], nextCursor: null })
+      }
+      return reply(404)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'QA Project A' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Refund display duplicates.*Ready for QA/ }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the bug summary')
+    expect(screen.queryByText('Two rows appear for one refund.')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    fireEvent.click(await screen.findByText('Proposed fix · Revision 1'))
+    expect(screen.getByText('<b>synthetic-fix</b>')).toBeVisible()
+    expect(screen.queryByRole('link', { name: /synthetic-fix/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Review with AI' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose another project' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'QA Project B' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('This project is no longer available')
+    expect(screen.queryByText('Refund display duplicates')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([path]) => String(path).includes('status=READY_FOR_QA'))).toBe(true)
   })
 
   it('selects a membership, reauthorizes it and returns to discovery on project change', async () => {
@@ -312,7 +364,8 @@ describe('login and server session flow', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    await screen.findByRole('button', { name: /Shared Project/ })
+    await screen.findByRole('heading', { name: 'Verification' })
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     await signInAsSecondAccount()
 
