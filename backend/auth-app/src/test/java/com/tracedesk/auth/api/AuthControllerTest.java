@@ -79,7 +79,7 @@ class AuthControllerTest {
   AuthStore store=mock(AuthStore.class);
   PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
   UUID actor=UUID.randomUUID(), project=UUID.randomUUID(), forged=UUID.randomUUID();
-  when(store.findProjectAccess(actor,project)).thenReturn(Optional.of(new ProjectAccessRepository.Snapshot(project,"Synthetic Project",true,true,true)));
+  when(store.findProjectAccess(actor,project)).thenReturn(Optional.of(new ProjectAccessRepository.Snapshot(project,"Synthetic Project",true,true,true,"REPORTER")));
   MockMvc mvc=MockMvcBuilders.standaloneSetup(controller(store,encoder)).setControllerAdvice(new ApiFailureHandler(store)).build();
   MockHttpSession session=authenticatedSession(actor);
   mvc.perform(get("/api/projects/{projectId}",project).session(session).param("userId",forged.toString()).header("X-Role","ADMIN"))
@@ -112,8 +112,9 @@ class AuthControllerTest {
   UUID actor=UUID.randomUUID(), reporterProject=UUID.randomUUID(), developerProject=UUID.randomUUID();
   when(store.activeMemberships(actor,WorkspaceDiscovery.MAX_ITEMS)).thenReturn(new WorkspaceMembershipRepository.Page(java.util.List.of(
       new WorkspaceMembershipRepository.Membership(reporterProject,"Manual Test B","REPORTER"),
-      new WorkspaceMembershipRepository.Membership(developerProject,"Manual Test A","DEVELOPER")
+      new WorkspaceMembershipRepository.Membership(developerProject,"Manual Test A","REPORTER")
   ),false));
+  when(store.accountRole(actor)).thenReturn(Optional.of("REPORTER"));
   MockMvc mvc=MockMvcBuilders.standaloneSetup(controller(store,encoder)).setControllerAdvice(new ApiFailureHandler(store)).build();
 
   mvc.perform(get("/api/workspaces").session(authenticatedSession(actor)).param("role","QA_REVIEWER").header("X-Role","QA_REVIEWER"))
@@ -121,7 +122,7 @@ class AuthControllerTest {
       .andExpect(jsonPath("$.items[0].project.id").value(reporterProject.toString()))
       .andExpect(jsonPath("$.items[0].role").value("REPORTER"))
       .andExpect(jsonPath("$.items[1].project.id").value(developerProject.toString()))
-      .andExpect(jsonPath("$.items[1].role").value("DEVELOPER"))
+      .andExpect(jsonPath("$.items[1].role").value("REPORTER"))
       .andExpect(jsonPath("$.hasMore").value(false));
   verify(store).activeMemberships(actor,WorkspaceDiscovery.MAX_ITEMS);
  }
@@ -159,6 +160,7 @@ class AuthControllerTest {
   UUID actor=UUID.randomUUID();
   when(store.activeMemberships(actor,WorkspaceDiscovery.MAX_ITEMS))
       .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic persistence failure"));
+  when(store.accountRole(actor)).thenReturn(Optional.of("REPORTER"));
   MockMvc mvc=MockMvcBuilders.standaloneSetup(controller(store,encoder)).setControllerAdvice(new ApiFailureHandler(store)).build();
 
   mvc.perform(get("/api/workspaces").session(authenticatedSession(actor)))
@@ -246,6 +248,7 @@ class AuthControllerTest {
   var clock=new MutableClock(Instant.parse("2026-01-01T08:00:00Z"));
   MockMvc mvc=MockMvcBuilders.standaloneSetup(new AuthController(store,new ProjectAuthorization(store),new WorkspaceDiscovery(store),encoder,clock)).build();
   when(store.enabled(actor)).thenReturn(true);
+  when(store.accountRole(actor)).thenReturn(Optional.of("REPORTER"));
   MockHttpSession session=authenticatedSession(actor);
   session.setAttribute(AuthController.AUTH_AT,clock.millis()-8L*60*60*1000+1);
   mvc.perform(get("/api/session").session(session)).andExpect(status().isOk());
