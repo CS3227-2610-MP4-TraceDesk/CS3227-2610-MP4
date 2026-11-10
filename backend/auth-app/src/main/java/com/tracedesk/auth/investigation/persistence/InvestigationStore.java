@@ -30,7 +30,7 @@ public class InvestigationStore implements InvestigationRepository {
 
     @Override public Optional<ReportRepository.Membership> membership(UUID actor, UUID project) {
         return jdbc.query("""
-                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',m.role
+                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role
                 from td_projects p join td_project_memberships m on m.project_id=p.id
                 join td_users u on u.id=m.user_id where m.user_id=? and p.id=?
                 """, rs -> rs.next() ? Optional.of(mapMembership(rs)) : Optional.empty(), actor, project);
@@ -215,7 +215,7 @@ public class InvestigationStore implements InvestigationRepository {
 
     private ReportRepository.Membership requireDeveloperLocked(UUID actor, UUID project) {
         ReportRepository.Membership membership = jdbc.query("""
-                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',m.role
+                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role
                 from td_projects p join td_project_memberships m on m.project_id=p.id
                 join td_users u on u.id=m.user_id where m.user_id=? and p.id=?
                 for share of p,u,m

@@ -44,7 +44,7 @@ public class AuthController {
         boolean hasInvalidField() { return invalidField; }
     }
     record LoginReply(UUID userId) { }
-    record SessionReply(UUID userId) { }
+    record SessionReply(UUID userId, String role) { }
     record CsrfReply(String token) { }
     record ProjectReply(UUID id, String name) { }
     record WorkspaceProject(UUID id, String name) { }
@@ -76,7 +76,7 @@ public class AuthController {
         var user=normalized==null?java.util.Optional.<AuthStore.User>empty():store.user(normalized);
         String hash=user.map(AuthStore.User::hash).orElse(dummyHash);
         boolean matches=encoder.matches(body.password(),hash);
-        if(user.isEmpty()||!user.get().enabled()||!matches){invalidateAndExpire(req,res);denied("LOGIN_DENIED","/api/session/login",401,null,null);return error(HttpStatus.UNAUTHORIZED,"INVALID_CREDENTIALS");}
+        if(user.isEmpty()||!user.get().enabled()||user.get().role()==null||!matches){invalidateAndExpire(req,res);denied("LOGIN_DENIED","/api/session/login",401,null,null);return error(HttpStatus.UNAUTHORIZED,"INVALID_CREDENTIALS");}
         HttpSession session=req.getSession(true); req.changeSessionId(); session=req.getSession(false);
         session.setAttribute(USER,user.get().id()); session.setAttribute(org.springframework.session.FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME,user.get().id().toString()); session.setAttribute(AUTH_AT,clock.millis()); session.setAttribute(CSRF,UUID.randomUUID().toString()+UUID.randomUUID());
         return ResponseEntity.ok(new LoginReply(user.get().id()));
@@ -87,8 +87,10 @@ public class AuthController {
     }
     @GetMapping("/api/session") public ResponseEntity<?> session(HttpServletRequest req) {
         UUID actor=actor(req); if(actor==null)return error(HttpStatus.UNAUTHORIZED,"UNAUTHENTICATED");
-        if(!store.enabled(actor)){req.getSession(false).invalidate(); return error(HttpStatus.UNAUTHORIZED,"UNAUTHENTICATED");}
-        return ResponseEntity.ok(new SessionReply(actor));
+        if(!store.enabled(actor)){req.getSession(false).invalidate();denied("UNAUTHENTICATED","/api/session",401,null,null); return error(HttpStatus.UNAUTHORIZED,"UNAUTHENTICATED");}
+        var role=store.accountRole(actor);
+        if(role.isEmpty()){req.getSession(false).invalidate();denied("UNAUTHENTICATED","/api/session",401,null,null);return error(HttpStatus.UNAUTHORIZED,"UNAUTHENTICATED");}
+        return ResponseEntity.ok(new SessionReply(actor,role.get()));
     }
     private UUID actor(HttpServletRequest req) {
         HttpSession s=req.getSession(false); if(s==null)return null;
@@ -118,6 +120,7 @@ public class AuthController {
     @GetMapping("/api/workspaces") public ResponseEntity<?> workspaces(HttpServletRequest req) {
         UUID actor=actor(req);
         if(actor==null){denied("UNAUTHENTICATED","/api/workspaces",401,null,null);return error(HttpStatus.UNAUTHORIZED,"UNAUTHENTICATED");}
+        if(store.accountRole(actor).isEmpty()){denied("UNAUTHENTICATED","/api/workspaces",401,null,null);return error(HttpStatus.UNAUTHORIZED,"UNAUTHENTICATED");}
         var page=workspaceDiscovery.discover(actor);
         var items=page.items().stream().map(item -> new WorkspaceReply(
                 new WorkspaceProject(item.projectId(),item.projectName()),item.role())).toList();

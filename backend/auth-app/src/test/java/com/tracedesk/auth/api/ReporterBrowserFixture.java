@@ -154,6 +154,7 @@ public final class ReporterBrowserFixture {
                     Map.entry("spring.datasource.username", required("TRACEDESK_TEST_DATABASE_USER")),
                     Map.entry("spring.datasource.password", required("TRACEDESK_TEST_DATABASE_PASSWORD")),
                     Map.entry("TRACEDESK_DATABASE_URL", dbUrl),
+                    Map.entry("TRACEDESK_PROJECT_CURSOR_SECRET", "synthetic-project-cursor-secret-for-tests-0001"),
                     Map.entry("TRACEDESK_DATABASE_USER", required("TRACEDESK_TEST_DATABASE_USER")),
                     Map.entry("TRACEDESK_DATABASE_PASSWORD", required("TRACEDESK_TEST_DATABASE_PASSWORD")),
                     Map.entry("spring.flyway.schemas", db.schema()),
@@ -178,12 +179,12 @@ public final class ReporterBrowserFixture {
                 sql.update("insert into td_projects(id,name) values(?,?)", projectId, "Synthetic Reporter Project");
                 sql.update("insert into td_projects(id,name) values(?,?)", deniedProjectId, "Synthetic Unavailable Project");
                 Argon2PasswordEncoder encoder = new Argon2PasswordEncoder(16, 32, 1, 19456, 2);
-                seedUser(sql, encoder, reporterId, login);
-                seedUser(sql, encoder, developerFixtureReporterId, developerFixtureReporterLogin);
-                seedUser(sql, encoder, nonmemberId, nonmemberLogin);
-                seedUser(sql, encoder, developerId, developerLogin);
-                seedUser(sql, encoder, successorId, successorLogin);
-                seedUser(sql, encoder, qaId, qaLogin);
+                seedUser(sql, encoder, reporterId, login,"REPORTER");
+                seedUser(sql, encoder, developerFixtureReporterId, developerFixtureReporterLogin,"REPORTER");
+                seedUser(sql, encoder, nonmemberId, nonmemberLogin,"REPORTER");
+                seedUser(sql, encoder, developerId, developerLogin,"DEVELOPER");
+                seedUser(sql, encoder, successorId, successorLogin,"DEVELOPER");
+                seedUser(sql, encoder, qaId, qaLogin,"QA_REVIEWER");
                 sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'QA_REVIEWER','ACTIVE')",
                         projectId, qaId);
                 sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'REPORTER','ACTIVE')",
@@ -347,9 +348,9 @@ public final class ReporterBrowserFixture {
         Files.move(temp, result, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
     }
 
-    private static void seedUser(JdbcTemplate sql, Argon2PasswordEncoder encoder, UUID id, String login) {
-        sql.update("insert into td_users(id,login_normalized,password_hash) values(?,?,?)",
-                id, login, encoder.encode(PASSWORD));
+    private static void seedUser(JdbcTemplate sql, Argon2PasswordEncoder encoder, UUID id, String login,String role) {
+        sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,?,?)",
+                id, login, encoder.encode(PASSWORD),role);
     }
 
     private static void seedDeveloperReport(JdbcTemplate sql, UUID id, UUID projectId, UUID reporterId,

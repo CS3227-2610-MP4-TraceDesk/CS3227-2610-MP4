@@ -111,3 +111,44 @@ are required; Windows-native filesystem support is not verified. No monetary or
 token savings, comparative model outcome, production readiness or remote CI pass
 is claimed. The development-context comparison remains due at the Reporter
 workflow milestone. Verification preceded the issue #37 commits. No push or issue closure performed.
+
+## Issue #55 integration follow-up — 2026-11-11
+
+The first PR #57 run passed the local setup guard, persistence, credential and
+reset tests, but its real browser journey failed. The backend launcher in
+`tools/local-reporter-smoke.py` did not supply the newly required project
+directory cursor signing key. After adding a fresh in-memory key, the backend
+started and the browser exposed a stale chooser selector: it expected the old
+membership button label instead of the issue #55 directory's `Open …` label.
+Both integration defects were corrected without relaxing assertions.
+
+- Revision: `codex/issue-55-projects` at `ad3bf5f` plus uncommitted changes to
+  `tools/local-reporter-smoke.py` and `frontend/e2e/local-reporter-setup.e2e.ts`.
+- Environment: isolated disposable PostgreSQL container at loopback port 55419,
+  Java 25, Node 24, Playwright Chromium; no normal local or production database.
+- Checks: `python3 -m py_compile tools/local-reporter-smoke.py` and
+  `git diff --check` passed. The full `python3 tools/local-reporter-smoke.py`
+  journey passed, including repeat provisioning, frontend build, HTTPS backend
+  readiness, real browser login, project discovery, report/draft access and
+  cross-project denial. Its sanitized result was `{"phase":"COMPLETE","passed":true}`.
+- The initial failing runs remain recorded as failures; the backend-startup
+  failure was caused by the absent cursor key, and the subsequent browser timeout
+  was caused by the obsolete button name. The temporary database container was
+  stopped after verification.
+
+The next PR run exposed stale static browser fixtures in the same frontend
+workflow: mocked sessions omitted the now-required account role, and mocked
+project discovery omitted `GET /api/projects`. The shared auth fixture now returns
+the account role and active project-directory entries; the Developer-specific
+fixture does the same. The test behavior was kept intact.
+
+- Revision: `07e3503` plus uncommitted changes to
+  `frontend/e2e/helpers/authApi.ts`, `frontend/e2e/developer-states.e2e.ts` and
+  this evidence record.
+- Checks: `npm run check` passed (typecheck, lint, 97 unit tests); `npm run build`
+  passed; `npm run test:e2e -- --retries=0` passed all 44 production and
+  development browser/accessibility tests. The previously failing Developer and
+  Reporter AI subset passed all 13 tests separately.
+- These are local checks. A fresh remote CI run after pushing the fixture update
+  remains necessary; no remote CI pass, deployment or independent review is
+  claimed here.

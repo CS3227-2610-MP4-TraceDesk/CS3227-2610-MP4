@@ -69,6 +69,7 @@ class ReportHttpsIntegrationTest {
                     Map.entry("server.ssl.key-store-password", keyPassword),
                     Map.entry("server.ssl.key-store-type", "PKCS12"), Map.entry("server.ssl.key-alias", "tracedesk-test"),
                     Map.entry("TRACEDESK_DATABASE_URL", dbUrl),
+                    Map.entry("TRACEDESK_PROJECT_CURSOR_SECRET", "synthetic-project-cursor-secret-for-tests-0001"),
                     Map.entry("TRACEDESK_DATABASE_USER", System.getenv("TRACEDESK_TEST_DATABASE_USER")),
                     Map.entry("TRACEDESK_DATABASE_PASSWORD", System.getenv("TRACEDESK_TEST_DATABASE_PASSWORD")),
                     Map.entry("spring.flyway.schemas", db.schema()), Map.entry("spring.flyway.default-schema", db.schema()),
@@ -241,12 +242,12 @@ class ReportHttpsIntegrationTest {
                 } finally {
                     sql.update("update td_projects set enabled=true where id=?", fixture.projectId());
                 }
-                sql.update("update td_project_memberships set role='DEVELOPER' where project_id=? and user_id=?", fixture.projectId(), fixture.ownerId());
+                sql.update("update td_users set account_role='DEVELOPER' where id=?", fixture.ownerId());
                 try {
                     assertEquals(403, request(reporter, base, "POST", reports, body, key).statusCode(),
                             "same-key replay still authorizes the actor's current role");
                 } finally {
-                    sql.update("update td_project_memberships set role='REPORTER' where project_id=? and user_id=?", fixture.projectId(), fixture.ownerId());
+                    sql.update("update td_users set account_role='REPORTER' where id=?", fixture.ownerId());
                 }
 
                 sql.execute("alter table td_security_events rename to td_security_events_unavailable");
@@ -408,8 +409,9 @@ class ReportHttpsIntegrationTest {
 
     private UUID addUser(JdbcTemplate sql, Argon2PasswordEncoder encoder, String suffix) {
         UUID id = UUID.randomUUID();
-        sql.update("insert into td_users(id,login_normalized,password_hash) values (?,?,?)", id,
-                "report-" + suffix + "@example.test", encoder.encode(PASSWORD));
+        String role=suffix.equals("developer")?"DEVELOPER":suffix.equals("qa")?"QA_REVIEWER":"REPORTER";
+        sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values (?,?,?,?)", id,
+                "report-" + suffix + "@example.test", encoder.encode(PASSWORD),role);
         return id;
     }
 

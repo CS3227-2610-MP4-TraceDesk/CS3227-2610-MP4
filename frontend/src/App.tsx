@@ -5,7 +5,7 @@ import { ReporterWorkspace } from './reports/ReporterWorkspace'
 import { DeveloperWorkspace } from './developer/DeveloperWorkspace'
 import { QaWorkspace } from './qa/QaWorkspace'
 import { WorkspacePicker } from './workspaces/WorkspacePicker'
-import { fetchWorkspaces, type WorkspaceMembership, type WorkspacePage } from './workspaces/workspaceApi'
+import { fetchWorkspaces, type WorkspaceMembership, type WorkspacePage, type WorkspaceRole } from './workspaces/workspaceApi'
 
 type AuthState = 'checking' | 'signed-out' | 'signed-in'
 
@@ -23,6 +23,7 @@ export function App() {
   const [logoutError, setLogoutError] = useState<string | null>(null)
   const [logoutBusy, setLogoutBusy] = useState(false)
   const [sessionUserId, setSessionUserId] = useState<string | null>(null)
+  const [sessionRole, setSessionRole] = useState<WorkspaceRole | null>(null)
   const [workspacePage, setWorkspacePage] = useState<WorkspacePage | null>(null)
   const [workspaceState, setWorkspaceState] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle')
   const [selectedProjectId, setSelectedProjectId] = useState(() => new URLSearchParams(window.location.search).get('project') ?? '')
@@ -39,6 +40,7 @@ export function App() {
       const session = await getSession(signal)
       if (signal?.aborted) return
       setSessionUserId(session.userId)
+      setSessionRole(session.role)
       setServiceNotice(null)
       setAuthState('signed-in')
     } catch (error) {
@@ -56,6 +58,7 @@ export function App() {
     removeProjectRoute()
     setSelectedProjectId('')
     setSessionUserId(null)
+    setSessionRole(null)
     setWorkspacePage(null)
     setWorkspaceState('idle')
     setWorkspaceMessage(undefined)
@@ -67,8 +70,11 @@ export function App() {
   useEffect(() => {
     if (authState !== 'signed-in' || !sessionUserId) return
     const controller = new AbortController()
-    void fetchWorkspaces(controller.signal).then(page => {
+    void fetchWorkspaces(controller.signal).then(discovered => {
       if (controller.signal.aborted) return
+      const page: WorkspacePage = sessionRole
+        ? { ...discovered, items: discovered.items.map(item => ({ ...item, role: sessionRole })) }
+        : discovered
       setWorkspacePage(page)
       setWorkspaceState('ready')
     }, error => {
@@ -81,13 +87,14 @@ export function App() {
       }
     })
     return () => controller.abort()
-  }, [authState, sessionUserId, workspaceReload, clearSignedInState])
+  }, [authState, sessionUserId, sessionRole, workspaceReload, clearSignedInState])
 
   useEffect(() => {
     const controller = new AbortController()
     void getSession(controller.signal).then(session => {
       if (controller.signal.aborted) return
       setSessionUserId(session.userId)
+      setSessionRole(session.role)
       setServiceNotice(null)
       setAuthState('signed-in')
     }, error => {
@@ -104,6 +111,7 @@ export function App() {
     await login(email, password)
     const session = await getSession()
     setSessionUserId(session.userId)
+    setSessionRole(session.role)
     setServiceNotice(null)
     setAuthState('signed-in')
   }
@@ -126,6 +134,16 @@ export function App() {
   }
 
   const chooseWorkspace = useCallback((workspace: WorkspaceMembership) => {
+    setWorkspacePage(current => {
+      const existing = current?.items.some(item => item.project.id === workspace.project.id) ?? false
+      return {
+        items: existing
+          ? current!.items.map(item => item.project.id === workspace.project.id ? workspace : item)
+          : [workspace, ...(current?.items ?? [])],
+        hasMore: current?.hasMore ?? false,
+      }
+    })
+    setWorkspaceState('ready')
     const url = new URL(window.location.href)
     url.searchParams.set('project', workspace.project.id)
     url.searchParams.delete('workspace')
@@ -147,13 +165,14 @@ export function App() {
   }
 
   if (authState === 'signed-in') {
-    if (!sessionUserId) return <main className="auth-loading" role="status">Loading your workspace…</main>
+    if (!sessionUserId || !sessionRole) return <main className="auth-loading" role="status">Loading your workspace…</main>
     const selectedWorkspace = workspacePage?.items.find(item => item.project.id === selectedProjectId)
     if (workspaceState !== 'ready' || !selectedWorkspace) {
       const routeWasUnavailable = workspaceState === 'ready' && Boolean(selectedProjectId) && !selectedWorkspace
       return <WorkspacePicker
         page={workspacePage}
         state={workspaceState === 'idle' ? 'loading' : workspaceState}
+        role={sessionRole}
         message={routeWasUnavailable
           ? workspacePage?.hasMore
             ? 'That project is not in the list shown. Only your first 100 active projects can be opened here.'
@@ -162,6 +181,7 @@ export function App() {
         onSelect={chooseWorkspace}
         onRetry={() => { setWorkspaceState('loading'); setWorkspaceReload(value => value + 1) }}
         onSignOut={() => void handleSignOut()}
+        onSessionExpired={clearSignedInState}
         signingOut={logoutBusy}
         signOutError={logoutError}
       />
@@ -175,11 +195,11 @@ export function App() {
       signOutError: logoutError,
       onChooseWorkspace: showWorkspacePicker,
     }
-    if (selectedWorkspace.role === 'QA_REVIEWER') {
+    if (sessionRole === 'QA_REVIEWER') {
       return <QaWorkspace key={`${sessionUserId}:${selectedWorkspace.project.id}`}
         project={selectedWorkspace.project} {...workspaceProps} />
     }
-    if (selectedWorkspace.role === 'DEVELOPER') {
+    if (sessionRole === 'DEVELOPER') {
       return <DeveloperWorkspace key={sessionUserId} {...workspaceProps} sessionUserId={sessionUserId} />
     }
     return (

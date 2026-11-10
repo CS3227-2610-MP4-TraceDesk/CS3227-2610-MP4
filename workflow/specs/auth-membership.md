@@ -13,17 +13,25 @@ provisioning, or broader product work.
 Provide local password sign-in for pre-provisioned synthetic users, a PostgreSQL
 server-side session, current project-membership authorization, and one minimal
 protected project read. A trusted session establishes the user identity. The
-membership record establishes that user's role in a particular project. A role
-alone never grants access, and no identity, role, or project membership claim in
-the browser is authoritative.
+account record establishes the user's one operator-assigned role before
+project selection. The role is constant across projects. Project membership
+establishes access to a project, not the user's role. A role alone never grants
+project access, and no identity, role, or membership claim in the browser is
+authoritative. This updates the original first-slice contract through issue
+[#55](https://github.com/CS3227-2610-MP4-TraceDesk/CS3227-2610-MP4/issues/55) and
+the [shared project contract](project-discovery-joining.md).
 
-The only roles are `REPORTER`, `DEVELOPER`, and `QA_REVIEWER`. A user may have
-memberships in multiple projects, but has at most one role in any one project.
-Membership rows have `ACTIVE` or `DISABLED` state. Removing a membership deletes
-or revokes that row. There is no global user role. A project read is permitted to
-any active member of that project, irrespective of the member's role; this slice
-does not establish bug-level permissions or imply that every later operation is
-available to every member.
+The only roles are `REPORTER`, `DEVELOPER`, and `QA_REVIEWER`. Each enabled
+account has exactly one role assigned by an operator; there is no browser role
+selection or application role-change API. During the account-role migration,
+unambiguous historical membership roles may be backfilled; conflicts and
+accounts with no membership require an explicit reviewed operator mapping. An
+unmapped account cannot log in or use any role/project endpoint. Historical
+membership role snapshots may remain for migration evidence but are never used
+for authorization. Membership rows have `ACTIVE` or `DISABLED` state. Removing
+a membership deletes or revokes that row. Every protected project read requires
+active membership; role operations additionally enforce object-level
+permissions.
 
 The protected resource is `GET /api/projects/{projectId}`, returning only
 `{"id":"<uuid>","name":"<name>"}` for an existing project with an active
@@ -166,6 +174,17 @@ revocation and read outcomes follow the linearization rule above; no `409` or
 version token is relevant because the endpoint is read-only.
 
 ## Denials, security events, and failure policy
+
+Issue #55 extends the existing denial policy to project directory, creation,
+and join requests. Their fixed route templates are `/api/projects`,
+`/api/projects/{projectId}`, and `/api/projects/{projectId}/join`; bounded
+event codes are `PROJECT_INVALID_REQUEST` and `PROJECT_MUTATION_DENIED` in
+addition to existing `CSRF_INVALID` and `UNAUTHENTICATED`. Record denied and
+malformed requests only, using trusted actor/project IDs after strict parsing.
+Do not include project names, pagination values, request keys, bodies, session
+IDs/tokens, or exceptions. Event-sink failure returns 503 and prevents data
+delivery or mutation. Successful project directory reads do not emit an event.
+See [TD-PROJ](project-discovery-joining.md) for the specific mapping.
 
 Record denied login attempts (including bad/unknown credentials and malformed
 login requests) and protected-project denials (unauthenticated, non-member,
