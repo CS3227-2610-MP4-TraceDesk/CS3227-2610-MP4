@@ -221,6 +221,8 @@ class InvestigationAiAccessTest {
     @Test void a17_everyOutcomeLeavesBusinessRowsAndAuditUnchanged() throws Exception {
         try(var f=new Fixture()) {
             long revision=1;
+            // Each advanced policy revokes earlier AI metadata, so the fake must publish a newer revision.
+            var metadataRevision=new AtomicLong();
             for(String scenario:List.of("success","denied","disabled","invalidOutput","providerFailure")) {
                 var before=f.businessSnapshot(); f.live.set(scenario.equals("denied")?f.reporter:f.developer);
                 boolean enabled=!scenario.equals("disabled");
@@ -228,7 +230,7 @@ class InvestigationAiAccessTest {
                 f.beforeDelivery=() -> {};
                 // For output and provider failures install a controlled fake at the gateway factory seam.
                 try(var service=new InvestigationAiAccess(f.source,CLOCK,(actors,authorizer,contexts) -> new SecuredAiGateway(actors,authorizer,contexts,new Provider() {
-                    public Metadata metadata() { return new Metadata("synthetic-model",1,NOW.plusSeconds(900),1); }
+                    public Metadata metadata() { return new Metadata("synthetic-model",metadataRevision.addAndGet(100),NOW.plusSeconds(900),1); }
                     public Completion complete(Context c) {
                         if(scenario.equals("providerFailure")) throw new GatewayFailure(GatewayFailure.Code.AI_UNAVAILABLE);
                         return new Completion(scenario.equals("invalidOutput")?"{\"hypotheses\":[],\"nextSteps\":[],\"action\":\"CLOSED\"}":OUTPUT,new Usage(20,20));
