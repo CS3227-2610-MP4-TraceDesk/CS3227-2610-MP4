@@ -185,7 +185,7 @@ public final class LocalReporterSetupCommand {
             if (exists(c, "select exists(select 1 from td_users where login_normalized='reporter.local@tracedesk.invalid')")
                     || exists(c, "select exists(select 1 from td_projects where name='Local Reporter Workspace')"))
                 throw new SafeFailure("conflicting local Reporter records exist without an ownership marker");
-            try (var p = c.prepareStatement("insert into td_users(id,login_normalized,password_hash,enabled) values(?,?,?,true)")) {
+            try (var p = c.prepareStatement("insert into td_users(id,login_normalized,password_hash,enabled,account_role) values(?,?,?,true,'REPORTER')")) {
                 p.setObject(1,userId); p.setString(2,LOGIN); p.setString(3,hash); p.executeUpdate();
             }
             try (var p = c.prepareStatement("insert into td_projects(id,name,enabled) values(?,?,true)")) {
@@ -238,9 +238,9 @@ public final class LocalReporterSetupCommand {
     private static void lock(Connection c) throws SQLException { try (var p=c.prepareStatement("select pg_advisory_xact_lock(?)")) { p.setLong(1,LOCK_KEY); p.execute(); } }
     private static boolean exists(Connection c, String sql) throws SQLException { try (var s=c.createStatement(); var r=s.executeQuery(sql)) { return r.next() && r.getBoolean(1); } }
     private static void verifyRows(Connection c, UUID user, UUID project) throws SQLException {
-        try (var p=c.prepareStatement("select u.login_normalized,u.enabled,p.name,p.enabled,m.role,m.state from td_users u cross join td_projects p cross join td_project_memberships m where u.id=? and p.id=? and m.user_id=u.id and m.project_id=p.id")) {
+        try (var p=c.prepareStatement("select u.login_normalized,u.enabled,u.account_role,p.name,p.enabled,m.role,m.state from td_users u cross join td_projects p cross join td_project_memberships m where u.id=? and p.id=? and m.user_id=u.id and m.project_id=p.id")) {
             p.setObject(1,user); p.setObject(2,project); try(var r=p.executeQuery()) {
-                if (!r.next() || !LOGIN.equals(r.getString(1)) || !r.getBoolean(2) || !PROJECT.equals(r.getString(3)) || !r.getBoolean(4) || !"REPORTER".equals(r.getString(5)) || !"ACTIVE".equals(r.getString(6)) || r.next())
+                if (!r.next() || !LOGIN.equals(r.getString(1)) || !r.getBoolean(2) || !"REPORTER".equals(r.getString(3)) || !PROJECT.equals(r.getString(4)) || !r.getBoolean(5) || !"REPORTER".equals(r.getString(6)) || !"ACTIVE".equals(r.getString(7)) || r.next())
                     throw new SafeFailure("owned Reporter records are missing or changed");
             }
         }
