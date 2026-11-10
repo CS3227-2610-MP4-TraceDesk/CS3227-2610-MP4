@@ -1,0 +1,22 @@
+.qa-page-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block: 12px;
+}
+
+.qa-authenticated-summary {
+  overflow-wrap: anywhere;
+}
+
+.qa-summary-label {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--td-float);
+  font-size: 13px;
+}
+
+.qa-resolution-history dd {
+  white-space: pre-wrap;
+}
