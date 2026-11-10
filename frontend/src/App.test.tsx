@@ -29,23 +29,23 @@ async function signInAsSecondAccount() {
 describe('login and server session flow', () => {
   it('shows server-discovered projects only after the server confirms a session', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(reply(200, { userId: user }))
+      .mockResolvedValueOnce(reply(200, { userId: user, role: 'REPORTER' }))
       .mockResolvedValueOnce(reply(200, emptyWorkspaces))
     vi.stubGlobal('fetch', fetchMock)
 
     render(<App />)
 
     expect(await screen.findByRole('heading', { name: 'Choose a project' })).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: 'No projects available' })).toBeInTheDocument()
-    expect(screen.queryByText(/reporter|developer|qa reviewer/i)).not.toBeInTheDocument()
+    expect(await screen.findByText('You have not joined any projects yet.')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/role/i)).not.toBeInTheDocument()
   })
 
   it('gets CSRF, posts credentials and verifies the resulting session', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(reply(401, { error: { code: 'UNAUTHENTICATED' } }))
       .mockResolvedValueOnce(reply(200, { token: 'synthetic-csrf' }))
-      .mockResolvedValueOnce(reply(200, { userId: user }))
-      .mockResolvedValueOnce(reply(200, { userId: user }))
+      .mockResolvedValueOnce(reply(200, { userId: user, role: 'REPORTER' }))
+      .mockResolvedValueOnce(reply(200, { userId: user, role: 'REPORTER' }))
       .mockResolvedValueOnce(reply(200, emptyWorkspaces))
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
@@ -55,7 +55,7 @@ describe('login and server session flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
     expect(await screen.findByRole('heading', { name: 'Choose a project' })).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledTimes(5)
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6))
     expect(fetchMock.mock.calls[1][0]).toBe('/api/csrf')
     expect(fetchMock.mock.calls[2][0]).toBe('/api/session/login')
     expect(fetchMock.mock.calls[2][1]).toMatchObject({
@@ -66,6 +66,7 @@ describe('login and server session flow', () => {
     expect(new Headers(fetchMock.mock.calls[2][1]?.headers).get('X-CSRF-TOKEN')).toBe('synthetic-csrf')
     expect(fetchMock.mock.calls[3][0]).toBe('/api/session')
     expect(fetchMock.mock.calls[4][0]).toBe('/api/workspaces')
+    expect(fetchMock.mock.calls[5][0]).toBe('/api/projects?limit=50')
   })
 
   it('keeps login available and lets the user retry when session lookup is unavailable', async () => {
@@ -100,7 +101,7 @@ describe('login and server session flow', () => {
 
   it('retains signed-in state when the server cannot confirm logout', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(reply(200, { userId: user }))
+      .mockResolvedValueOnce(reply(200, { userId: user, role: 'REPORTER' }))
       .mockResolvedValueOnce(reply(200, emptyWorkspaces))
       .mockResolvedValueOnce(reply(200, { token: 'synthetic-csrf' }))
       .mockResolvedValueOnce(reply(503, { error: { code: 'SERVICE_UNAVAILABLE' } }))
@@ -115,7 +116,7 @@ describe('login and server session flow', () => {
 
   it('clears local state when the server confirms the session already ended', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(reply(200, { userId: user }))
+      .mockResolvedValueOnce(reply(200, { userId: user, role: 'REPORTER' }))
       .mockResolvedValueOnce(reply(200, emptyWorkspaces))
       .mockResolvedValueOnce(reply(200, { token: 'synthetic-csrf' }))
       .mockResolvedValueOnce(reply(401, { error: { code: 'UNAUTHENTICATED' } }))
@@ -131,7 +132,7 @@ describe('login and server session flow', () => {
     window.history.replaceState(null, '', `/?workspace=reporter&project=${project}`)
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input)
-      if (path === '/api/session') return reply(200, { userId: user })
+      if (path === '/api/session') return reply(200, { userId: user, role: 'DEVELOPER' })
       if (path === '/api/workspaces') return reply(200, { items: [{ project: { id: project, name: 'Manual Test A' }, role: 'DEVELOPER' }], hasMore: false })
       if (path === `/api/projects/${project}/developer-context`) return reply(200, { project: { id: project, name: 'Manual Test A' }, role: 'DEVELOPER' })
       if (path.startsWith(`/api/projects/${project}/reports?`)) return reply(200, { items: [], nextCursor: null })
@@ -146,9 +147,9 @@ describe('login and server session flow', () => {
     expect(fetchMock.mock.calls.some(call => String(call[0]).endsWith('/reporter-context'))).toBe(false)
   })
 
-  it('lists all discovered role memberships', async () => {
+  it('lists projects under the account role, ignoring legacy membership roles', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(reply(200, { userId: user }))
+      .mockResolvedValueOnce(reply(200, { userId: user, role: 'REPORTER' }))
       .mockResolvedValueOnce(reply(200, { items: [
         { project: { id: project, name: 'Manual Test A' }, role: 'DEVELOPER' },
         { project: { id: '20000000-0000-4000-8000-000000000002', name: 'Manual Test B' }, role: 'REPORTER' },
@@ -157,29 +158,30 @@ describe('login and server session flow', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    expect(await screen.findByRole('button', { name: 'Manual Test A' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Manual Test B' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /Manual Test QA/ })).toBeEnabled()
+    expect(await screen.findByRole('button', { name: 'Open Manual Test A' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Open Manual Test B' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Open Manual Test QA/ })).toBeEnabled()
   })
 
   it('shows no workspace data when discovery is unavailable and recovers on retry', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(reply(200, { userId: user }))
+      .mockResolvedValueOnce(reply(200, { userId: user, role: 'REPORTER' }))
       .mockResolvedValueOnce(reply(503, { error: { code: 'SERVICE_UNAVAILABLE' } }))
+      .mockResolvedValueOnce(reply(200, { items: [], nextCursor: null, hasMore: false }))
       .mockResolvedValueOnce(reply(200, { items: [{ project: { id: project, name: 'Manual Test A' }, role: 'REPORTER' }], hasMore: false }))
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('could not load your projects')
-    expect(screen.queryByRole('button', { name: 'Manual Test A' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not load your memberships')
+    expect(screen.queryByRole('button', { name: 'Open Manual Test A' })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(await screen.findByRole('button', { name: 'Manual Test A' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry memberships' }))
+    expect(await screen.findByRole('button', { name: 'Open Manual Test A' })).toBeEnabled()
   })
 
   it('returns to sign in when the session expires during discovery', async () => {
     vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce(reply(200, { userId: user }))
+      .mockResolvedValueOnce(reply(200, { userId: user, role: 'REPORTER' }))
       .mockResolvedValueOnce(reply(401, { error: { code: 'UNAUTHENTICATED' } })))
     render(<App />)
 
@@ -189,24 +191,24 @@ describe('login and server session flow', () => {
 
   it('states when the membership list is incomplete', async () => {
     vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce(reply(200, { userId: user }))
+      .mockResolvedValueOnce(reply(200, { userId: user, role: 'REPORTER' }))
       .mockResolvedValueOnce(reply(200, { items: [{ project: { id: project, name: 'Manual Test A' }, role: 'REPORTER' }], hasMore: true })))
     render(<App />)
 
-    expect(await screen.findByText('Only the first 100 active projects are shown.')).toBeInTheDocument()
+    expect(await screen.findByText('Your membership list is limited. Use the directory above to find other projects.')).toBeInTheDocument()
   })
 
   it('ignores a QA role hint for a project outside the membership list', async () => {
     window.history.replaceState(null, '', `/?workspace=qa&project=${project}`)
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(reply(200, { userId: user }))
+      .mockResolvedValueOnce(reply(200, { userId: user, role: 'REPORTER' }))
       .mockResolvedValueOnce(reply(200, { items: [{ project: { id: '20000000-0000-4000-8000-000000000003', name: 'Manual Test QA' }, role: 'QA_REVIEWER' }], hasMore: false }))
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    expect(await screen.findByRole('button', { name: /Manual Test QA/ })).toBeEnabled()
+    expect(await screen.findByRole('button', { name: /Open Manual Test QA/ })).toBeEnabled()
     expect(screen.getByText(/That project is not available/)).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
   it('loads the authorized QA queue, retries a summary failure, and clears it when switching projects', async () => {
@@ -222,7 +224,7 @@ describe('login and server session flow', () => {
     let resolutionCalls = 0
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input)
-      if (path === '/api/session') return reply(200, { userId: user })
+      if (path === '/api/session') return reply(200, { userId: user, role: 'QA_REVIEWER' })
       if (path === '/api/workspaces') return reply(200, { items: [
         { project: { id: project, name: 'QA Project A' }, role: 'QA_REVIEWER' },
         { project: { id: otherProject, name: 'QA Project B' }, role: 'QA_REVIEWER' },
@@ -242,7 +244,7 @@ describe('login and server session flow', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'QA Project A' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open QA Project A' }))
     fireEvent.click(await screen.findByRole('button', { name: /Refund display duplicates.*Ready for QA/ }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the bug summary')
     expect(screen.queryByText('Two rows appear for one refund.')).not.toBeInTheDocument()
@@ -254,7 +256,7 @@ describe('login and server session flow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     fireEvent.click(screen.getByRole('button', { name: 'Choose another project' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'QA Project B' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open QA Project B' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('This project is no longer available')
     expect(screen.queryByText('Refund display duplicates')).not.toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([path]) => String(path).includes('status=READY_FOR_QA'))).toBe(true)
@@ -263,7 +265,7 @@ describe('login and server session flow', () => {
   it('selects a membership, reauthorizes it and returns to discovery on project change', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input)
-      if (path === '/api/session') return reply(200, { userId: user })
+      if (path === '/api/session') return reply(200, { userId: user, role: 'DEVELOPER' })
       if (path === '/api/workspaces') return reply(200, { items: [{ project: { id: project, name: 'Manual Test A' }, role: 'DEVELOPER' }], hasMore: false })
       if (path === `/api/projects/${project}/developer-context`) return reply(200, { project: { id: project, name: 'Manual Test A' }, role: 'DEVELOPER' })
       if (path.startsWith(`/api/projects/${project}/reports?`)) return reply(200, { items: [], nextCursor: null })
@@ -272,7 +274,7 @@ describe('login and server session flow', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Manual Test A' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Manual Test A' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Change project' }))
 
     expect(await screen.findByRole('heading', { name: 'Choose a project' })).toBeInTheDocument()
@@ -285,7 +287,7 @@ describe('login and server session flow', () => {
   it('routes a Reporter membership through its context and returns to discovery from the list', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input)
-      if (path === '/api/session') return reply(200, { userId: user })
+      if (path === '/api/session') return reply(200, { userId: user, role: 'REPORTER' })
       if (path === '/api/workspaces') return reply(200, { items: [{ project: { id: project, name: 'Manual Test A' }, role: 'REPORTER' }], hasMore: false })
       if (path === `/api/projects/${project}/reporter-context`) return reply(200, { project: { id: project, name: 'Manual Test A' }, role: 'REPORTER' })
       if (path.startsWith(`/api/projects/${project}/reports?`)) return reply(200, { items: [], nextCursor: null })
@@ -295,7 +297,7 @@ describe('login and server session flow', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Manual Test A' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Manual Test A' }))
     await screen.findByText('Reports for Manual Test A')
     fireEvent.click(screen.getByRole('button', { name: 'Change project' }))
 
@@ -308,7 +310,7 @@ describe('login and server session flow', () => {
     window.history.replaceState(null, '', `/?project=${project}`)
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input)
-      if (path === '/api/session') return reply(200, { userId: user })
+      if (path === '/api/session') return reply(200, { userId: user, role: 'DEVELOPER' })
       if (path === '/api/workspaces') return reply(200, { items: [{ project: { id: project, name: 'Manual Test A' }, role: 'DEVELOPER' }], hasMore: false })
       return reply(404, { error: { code: 'NOT_FOUND' } })
     }))
@@ -324,7 +326,7 @@ describe('login and server session flow', () => {
     window.history.replaceState(null, '', `/?project=${project}`)
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input)
-      if (path === '/api/session') return reply(200, { userId: user })
+      if (path === '/api/session') return reply(200, { userId: user, role: 'REPORTER' })
       if (path === '/api/workspaces') return reply(200, { items: [{ project: { id: project, name: 'Manual Test A' }, role: 'DEVELOPER' }], hasMore: false })
       return reply(401, { error: { code: 'UNAUTHENTICATED' } })
     }))
@@ -337,7 +339,7 @@ describe('login and server session flow', () => {
   it('does not call a project unavailable when the membership list is incomplete', async () => {
     window.history.replaceState(null, '', `/?project=${project}`)
     vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce(reply(200, { userId: user }))
+      .mockResolvedValueOnce(reply(200, { userId: user, role: 'REPORTER' }))
       .mockResolvedValueOnce(reply(200, { items: [{ project: { id: '20000000-0000-4000-8000-000000000002', name: 'Manual Test B' }, role: 'REPORTER' }], hasMore: true })))
     render(<App />)
 
@@ -353,8 +355,8 @@ describe('login and server session flow', () => {
       const path = String(input)
       if (path === '/api/csrf') return reply(200, { token: 'synthetic-csrf' })
       if (path === '/api/session/logout') return reply(204)
-      if (path === '/api/session/login') return reply(200, { userId: secondUser })
-      if (path === '/api/session') return reply(200, { userId: ++sessionCalls === 1 ? user : secondUser })
+      if (path === '/api/session/login') return reply(200, { userId: secondUser, role: 'DEVELOPER' })
+      if (path === '/api/session') return reply(200, { userId: ++sessionCalls === 1 ? user : secondUser, role: sessionCalls === 1 ? 'QA_REVIEWER' : 'DEVELOPER' })
       if (path === '/api/workspaces') {
         workspaceCalls += 1
         return reply(200, { items: [{ project: { id: project, name: 'Shared Project' }, role: workspaceCalls === 1 ? 'QA_REVIEWER' : 'DEVELOPER' }], hasMore: false })
@@ -369,7 +371,7 @@ describe('login and server session flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     await signInAsSecondAccount()
 
-    expect(await screen.findByRole('button', { name: 'Shared Project' })).toBeEnabled()
+    expect(await screen.findByRole('button', { name: 'Open Shared Project' })).toBeEnabled()
     expect(new URLSearchParams(window.location.search).has('project')).toBe(false)
     expect(fetchMock.mock.calls.some(call => String(call[0]).endsWith('/developer-context'))).toBe(false)
   })
@@ -382,8 +384,8 @@ describe('login and server session flow', () => {
       const path = String(input)
       if (path === '/api/csrf') return Promise.resolve(reply(200, { token: 'synthetic-csrf' }))
       if (path === '/api/session/logout') return Promise.resolve(reply(204))
-      if (path === '/api/session/login') return Promise.resolve(reply(200, { userId: secondUser }))
-      if (path === '/api/session') return Promise.resolve(reply(200, { userId: ++sessionCalls === 1 ? user : secondUser }))
+      if (path === '/api/session/login') return Promise.resolve(reply(200, { userId: secondUser, role: 'DEVELOPER' }))
+      if (path === '/api/session') return Promise.resolve(reply(200, { userId: ++sessionCalls === 1 ? user : secondUser, role: sessionCalls === 1 ? 'REPORTER' : 'DEVELOPER' }))
       if (path === '/api/workspaces') {
         workspaceCalls += 1
         if (workspaceCalls === 1) return Promise.resolve(reply(503, { error: { code: 'SERVICE_UNAVAILABLE' } }))
@@ -394,14 +396,14 @@ describe('login and server session flow', () => {
     }))
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
-    await screen.findByText('Loading your projects…')
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry memberships' }))
+    await screen.findByText('Loading your memberships…')
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     await screen.findByRole('heading', { name: 'Sign in' })
     resolveRetry(reply(200, { items: [{ project: { id: project, name: 'Previous Account Project' }, role: 'REPORTER' }], hasMore: false }))
     await signInAsSecondAccount()
 
-    expect(await screen.findByText('Loading your projects…')).toBeInTheDocument()
+    expect(await screen.findByText('Loading your memberships…')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Previous Account Project' })).not.toBeInTheDocument()
   })
 
@@ -412,10 +414,10 @@ describe('login and server session flow', () => {
       const path = String(input)
       if (path === '/api/csrf') return reply(200, { token: 'synthetic-csrf' })
       if (path === '/api/session/logout') return reply(401, { error: { code: 'UNAUTHENTICATED' } })
-      if (path === '/api/session/login') return reply(200, { userId: '10000000-0000-4000-8000-000000000002' })
+      if (path === '/api/session/login') return reply(200, { userId: '10000000-0000-4000-8000-000000000002', role: 'DEVELOPER' })
       if (path === '/api/session') {
         sessionCalls += 1
-        return reply(200, { userId: sessionCalls === 1 ? user : '10000000-0000-4000-8000-000000000002' })
+        return reply(200, { userId: sessionCalls === 1 ? user : '10000000-0000-4000-8000-000000000002', role: 'REPORTER' })
       }
       if (path === '/api/workspaces') {
         workspaceCalls += 1
@@ -429,13 +431,13 @@ describe('login and server session flow', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    await screen.findByRole('button', { name: 'Previous Account Project' })
+    await screen.findByRole('button', { name: 'Open Previous Account Project' })
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'second@example.test' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'synthetic-password' } })
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
-    expect(await screen.findByText('Loading your projects…')).toBeInTheDocument()
+    expect(await screen.findByText('Loading your memberships…')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Previous Account Project' })).not.toBeInTheDocument()
   })
 })
