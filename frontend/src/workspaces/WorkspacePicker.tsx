@@ -42,16 +42,14 @@ export function WorkspacePicker({
         {groups.map(group => {
           const items = page.items.filter(item => item.role === group.role)
           if (items.length === 0) return null
-          const unavailable = group.role === 'QA_REVIEWER'
           return <section className="workspace-picker-group" key={group.role} aria-labelledby={`workspace-role-${group.role}`}>
             <div><h2 id={`workspace-role-${group.role}`}>{group.label}</h2><p>{group.description}</p></div>
             <div className="workspace-picker-list">{items.map(item => <Button
               key={item.project.id}
               color="secondary"
               variant="outline"
-              disabled={unavailable}
               onClick={() => onSelect(item)}
-            >{item.project.name}{unavailable ? ' — workspace coming soon' : ''}</Button>)}</div>
+            >{item.project.name}</Button>)}</div>
           </section>
         })}
       </div>}
