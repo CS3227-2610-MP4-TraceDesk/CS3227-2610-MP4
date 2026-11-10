@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@openai/apps-sdk-ui/components/Button'
 import { Code } from '@openai/apps-sdk-ui/components/Icon'
 import { DeveloperApiError, fetchResolutions, type ProposedResolution } from '../developer/developerApi'
 import { QaReviewSummary } from '../preview/qa/QaReviewSummary'
 import type { QaBug } from '../preview/qa/qaFixtures'
 import { fetchReport, ReportApiError, type ReportDetail, type ReportStatus } from '../reports/reportApi'
+import { QaAiPanel } from './QaAiPanel'
 import { Disclosure } from '../shared/Disclosure'
 
 const statuses: Record<ReportStatus, QaBug['status']> = {
@@ -38,6 +39,8 @@ export function QaReportSummary({ project, reportId, onSessionExpired }: {
   const [detail, setDetail] = useState<{ report: ReportDetail; resolutions: ProposedResolution[] } | null>(null)
   const [error, setError] = useState<'failed' | 'denied' | null>(null)
   const [reload, setReload] = useState(0)
+  const [aiOpen, setAiOpen] = useState(false)
+  const aiTrigger = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -68,7 +71,18 @@ export function QaReportSummary({ project, reportId, onSessionExpired }: {
 
   const { report, resolutions } = detail
   return <section className="qa-authenticated-summary" aria-label="Bug review">
-    <div className="qa-review-toolbar"><span className="qa-summary-label">Summary</span></div>
+    <div className="qa-review-toolbar">
+      <span className="qa-summary-label">Summary</span>
+      {report.status === 'READY_FOR_QA' && resolutions.length > 0 && (
+        <Button ref={aiTrigger} color="secondary" variant="soft" size="sm" aria-expanded={aiOpen}
+          onClick={() => setAiOpen(open => !open)}>Review with AI</Button>
+      )}
+    </div>
+    <div className={aiOpen ? 'qa-ai-layout' : undefined}>
+    {aiOpen && <QaAiPanel projectId={project.id} reportId={report.id} version={report.version}
+      onSessionExpired={onSessionExpired}
+      onClose={() => { setAiOpen(false); aiTrigger.current?.focus() }}
+      onRefresh={() => { setAiOpen(false); setDetail(null); setReload(value => value + 1) }} />}
     <QaReviewSummary bug={{
       id: report.id, title: report.title, status: statuses[report.status], project: project.name,
       lastActivity: report.updatedAt, expected: report.expectedBehavior, actual: report.actualBehavior,
@@ -88,5 +102,6 @@ export function QaReportSummary({ project, reportId, onSessionExpired }: {
         </Disclosure>)}
       </section>}
     />
+    </div>
   </section>
 }

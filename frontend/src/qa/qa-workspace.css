@@ -20,3 +20,32 @@
 .qa-resolution-history dd {
   white-space: pre-wrap;
 }
+
+.qa-authenticated-summary { container-type: inline-size; }
+
+.qa-ai-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 2fr) minmax(0, 3fr);
+  align-items: start;
+}
+
+.qa-ai-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  min-width: 0;
+  border-inline-end: 1px solid var(--td-line);
+}
+
+.qa-ai-panel header { display: flex; align-items: center; justify-content: space-between; }
+.qa-ai-panel h2, .qa-ai-panel h3 { font-weight: 600; }
+.qa-ai-panel > button { justify-self: start; }
+.qa-ai-panel ol, .qa-ai-panel ul { padding-inline-start: 22px; }
+.qa-ai-panel ol { list-style: decimal; }
+.qa-ai-panel ul { list-style: disc; }
+.qa-ai-panel li { white-space: pre-wrap; margin-block-end: 6px; }
+
+@container (max-width: 640px) {
+  .qa-ai-layout { grid-template-columns: minmax(0, 1fr); }
+  .qa-ai-panel { border-inline-end: 0; border-block-end: 1px solid var(--td-line); }
+}
