@@ -127,6 +127,54 @@ deployment checks have passed.
 | **AI-DEPLOY-03 — Authorized deployed smoke** | On an explicitly authorized deployment target, synthetic-account smoke tests cover session/CSRF/project isolation, ordinary report create/read/edit and Reporter preview/explicit apply, secure cookies/headers, migrations, accounting and AI-unavailable behavior. Claim whole-app deployment only after implemented Developer/QA journeys meet their own criteria. | Target, environment, deployed revision and sanitized journey outcomes; if no target is supplied/authorized, mark unavailable and do not deploy. |
 | **AI-DEPLOY-04 — Traceable evidence and review** | Evidence maps each claimed criterion to actual checks, outcomes, independent diff review and findings. Local/staging, production, fake-provider and live-provider results are distinguished; no fabricated ownership, approval, usage, or metric. | Sanitized evidence record includes revision/working-tree identity, commands, pass/fail/skip/unavailable results and limitations. |
 
+### Bounded live Reporter browser harness (AI-LIVE-01/03)
+
+The real-browser journey is a separately invoked, test-only operation. Ordinary
+tests and the default synthetic browser task must force AI off and the live flag
+off. Provider activation must not be possible through an environment variable
+alone. The dedicated live task requires an explicit, pre-existing authorization
+record before it may touch its isolated test database, fetch the model catalog,
+or contact the provider. The authorization record must have a strict allowlist
+of keys and bind the approved synthetic account/environment, fixed candidate
+and model, prompt fixture, resource-unit allowance, expiry, and stop conditions;
+unknown keys, missing values, malformed values, or expired authorization fail
+closed. The approval file contains no credentials. The browser driver may attach
+only after a user-terminal-started backend has received the provider key through
+its backend-only process environment; never pass the key to Node, Vite, the
+browser, browser metadata, logs, or artifacts.
+
+One invocation permits at most one completion, with a hard reservation ceiling
+of 9,200 resource units. A shared atomic one-use admission gate must cover all
+requests and actors, so concurrent requests cannot start another completion
+even when the ledger's measured charge is below the reservation. Do not retry a
+completion or browser project request. Use same-origin loopback HTTPS backed by the
+owned isolated test database/schema. Disable traces, screenshots, video and
+other content capture for live mode. Stop on any failure, expiry, consumed
+approval, unavailable state, or uncertainty; do not re-run with the same
+authorization.
+
+The successful journey uses the synthetic Reporter account and its six saved
+fields, requests one suggestion, verifies an inert escaped preview, then
+explicitly selects a title and applies it through the normal expected-version
+PATCH. Verify logs and all other unselected fields remain unchanged. A safe
+unavailable response is acceptable only before any live completion. Stale or
+revoked delivery and other negative paths must be exercised offline with fake
+providers, without adding live calls. If the single response has no useful title
+change, record that outcome and stop without applying or retrying; do not invent
+or edit a suggestion. The sanitized run summary may contain fixed case/model/
+prompt/revision identifiers, outcome, latency, byte counts, and provider-reported
+usage when present. It must contain no model text, session tokens, login details,
+passwords, prompts, or suggestion content.
+
+Before the dedicated task is used live, fake-provider tests must show that
+defaults and ordinary test environment variables cannot enable a live call, and
+that the live guard rejects absent, malformed, expired, mismatched, or consumed
+approval; enforces one global attempt under concurrency and the 9,200-unit cap;
+and keeps credentials out of browser-facing processes and captured artifacts.
+This contract adds no product/UI or role scope, quality remediation, deployment
+authorization, or live-call authorization. Quality findings remain separate and
+must not be attributed to a model without evidence.
+
 ## Security boundaries, dependencies and non-goals
 
 Trust boundaries are operator/deployment configuration to application, metadata

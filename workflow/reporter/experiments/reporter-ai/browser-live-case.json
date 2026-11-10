@@ -1,0 +1,13 @@
+{
+  "caseId": "RAI-BROWSER-01",
+  "promptVersion": "report-improvement-v2",
+  "fields": {
+    "title": "app broke",
+    "description": "Running Hello.java throws NullPointerException.",
+    "environment": "Java 25",
+    "reproductionSteps": "Run java Hello.java.",
+    "expectedBehavior": "The sample completes.",
+    "actualBehavior": "NullPointerException is thrown.",
+    "textLogs": "AI_DO_NOT_SEND_LOG_CANARY"
+  }
+}

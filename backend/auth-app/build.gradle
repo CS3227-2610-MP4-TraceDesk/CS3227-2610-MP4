@@ -28,6 +28,7 @@ tasks.withType(Test).configureEach {
     useJUnitPlatform()
     // Ordinary tests must never opt into a provider because the parent shell enables AI.
     environment 'AI_ENABLED', 'false'
+    environment 'TRACEDESK_LIVE_BROWSER_TEST', 'false'
 }
 
 tasks.register('reporterBrowserFixture', JavaExec) {
@@ -38,6 +39,17 @@ tasks.register('reporterBrowserFixture', JavaExec) {
     mainClass = 'com.tracedesk.auth.api.ReporterBrowserFixture'
     javaLauncher = javaToolchains.launcherFor(java.toolchain)
     environment 'AI_ENABLED', 'false'
+    environment 'TRACEDESK_LIVE_BROWSER_TEST', 'false'
+}
+
+tasks.register('reporterLiveBrowserFixture', JavaExec) {
+    group = 'verification'
+    description = 'Runs the separately authorized, one-completion live Reporter browser backend.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.tracedesk.auth.api.ReporterBrowserFixture'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+    environment 'TRACEDESK_LIVE_BROWSER_TEST', 'true'
 }
 
 tasks.register('reporterAiLiveEvaluation', JavaExec) {
