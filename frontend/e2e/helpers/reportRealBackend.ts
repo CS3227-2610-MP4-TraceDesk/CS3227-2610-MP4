@@ -13,6 +13,7 @@ export interface ReporterFixtureMetadata {
   login: string
   nonmemberLogin: string
   developerLogin: string
+  qaLogin: string
   developerId: string
   assignedReportId: string
   unassignedReportId: string
@@ -77,7 +78,7 @@ export class ReportRealBackend {
         try {
           this.metadata = JSON.parse(await readFile(metadataFile, 'utf8')) as ReporterFixtureMetadata
           if (!this.metadata.projectId || !this.metadata.deniedProjectId || !this.metadata.login ||
-              !this.metadata.developerId || !this.metadata.assignedReportId || !this.metadata.unassignedReportId) {
+              !this.metadata.qaLogin || !this.metadata.developerId || !this.metadata.assignedReportId || !this.metadata.unassignedReportId) {
             throw new Error('Reporter fixture metadata is incomplete')
           }
           return this.metadata
