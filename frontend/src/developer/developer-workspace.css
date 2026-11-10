@@ -1,0 +1,66 @@
+.developer-shell-heading { display: flex; align-items: center; gap: 12px; min-width: 0; color: var(--td-ink); font-size: 14px; font-weight: 500; }
+.developer-shell-heading > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.developer-shell-heading > span:last-child { padding-left: 12px; border-left: 1px solid var(--td-line); color: var(--td-muted); font-size: 13px; font-weight: 400; }
+.developer-gate { display: grid; min-height: 100%; place-items: center; padding: 32px; }
+.developer-notice, .developer-inline-notice { display: grid; justify-items: start; gap: 12px; width: min(100%, 560px); padding: 24px; border: 1px solid var(--td-line); border-radius: 16px; background: var(--td-sidebar); }
+.developer-notice h1 { font-size: 24px; }
+.developer-notice > p, .developer-inline-notice > p { color: var(--td-muted); }
+.developer-project-form { display: grid; gap: 8px; width: 100%; margin-top: 12px; }
+.developer-project-form > label, .developer-note label { font-size: 14px; font-weight: 600; }
+.developer-project-row { display: flex; gap: 8px; }
+.developer-project-row > :first-child { min-width: 0; flex: 1; }
+.developer-error { color: var(--color-text-danger-soft, #ba2623); font-size: 13px; }
+.developer-library { max-width: 1152px; margin: 0 auto; padding: 32px 48px 48px; }
+.developer-page-heading, .developer-title-row, .developer-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.developer-page-heading h1, .developer-settings > h1 { font-size: 24px; line-height: 1.16; font-weight: 650; letter-spacing: -.034em; }
+.developer-page-heading p { margin-top: 8px; }
+.developer-list-controls { display: flex; align-items: center; gap: 10px; margin: 24px 0 12px; }
+.developer-list-controls label { color: var(--td-muted); font-size: 13px; }
+.developer-list-controls select { min-height: 32px; padding: 4px 30px 4px 10px; border: 1px solid var(--td-line); border-radius: 8px; background: var(--td-page); color: var(--td-ink); font: inherit; }
+.developer-status { padding: 28px 32px; color: var(--td-muted); }
+.developer-empty { display: grid; gap: 10px; margin-top: 24px; padding: 24px; border: 1px solid var(--td-line); border-radius: 12px; background: var(--td-sidebar); }
+.developer-empty p { color: var(--td-muted); }
+.developer-list { display: grid; }
+.developer-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 120px; align-items: center; gap: 16px; min-height: 58px; padding: 8px 12px; border: 0; border-bottom: 1px solid var(--td-line); background: transparent; color: var(--td-ink); font: inherit; text-align: left; }
+.developer-row:hover { background: var(--td-sidebar); }
+.developer-row:focus-visible { outline: 2px solid #4588f3; outline-offset: -2px; }
+.developer-row-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.developer-assignment { color: var(--td-muted); font-size: 13px; text-align: right; }
+.developer-detail { max-width: 1000px; margin: 0 auto; padding: 32px 48px 48px; }
+.developer-detail-top { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.developer-version { margin-left: auto; color: var(--td-muted); font-size: 13px; }
+.developer-title-row h1 { overflow-wrap: anywhere; font-size: 28px; line-height: 1.16; font-weight: 600; letter-spacing: -.034em; }
+.developer-detail-meta { margin-top: 8px; overflow-wrap: anywhere; color: var(--td-muted); font-size: 13px; }
+.developer-action-message { margin-top: 20px; padding: 12px 14px; border: 1px solid var(--td-line); border-radius: 10px; background: var(--td-sidebar); font-size: 13px; }
+.developer-detail-fields { display: grid; gap: 16px; margin: 28px 0; }
+.developer-detail-field { padding: 16px; border: 1px solid var(--td-line); border-radius: 16px; background: var(--td-sidebar); }
+.developer-detail-field dt { margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+.developer-detail-field dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.developer-detail-logs dd { overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+.developer-notes { display: grid; gap: 16px; margin-top: 28px; padding: 18px; border: 1px solid var(--td-line); border-radius: 16px; background: var(--td-sidebar); }
+.developer-section-heading h2 { font-size: 18px; }
+.developer-section-heading p, .developer-note-byline { margin-top: 4px; color: var(--td-muted); font-size: 13px; }
+.developer-note-list { display: grid; gap: 12px; padding: 0; list-style: none; }
+.developer-note { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--td-line); border-radius: 10px; background: var(--td-page); }
+.developer-note-body { overflow-wrap: anywhere; white-space: pre-wrap; }
+.developer-note-actions, .developer-composer-foot { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+.developer-note-composer { display: grid; gap: 8px; padding-top: 4px; }
+.developer-note-composer textarea, .developer-note textarea { width: 100%; resize: vertical; }
+.developer-composer-foot > span { margin-right: auto; color: var(--td-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.developer-settings { max-width: 816px; margin: 0 auto; padding: 32px 48px 48px; }
+.developer-settings > h1 { margin-bottom: 24px; }
+.developer-settings > section { display: grid; gap: 10px; margin-bottom: 24px; padding: 16px; border: 1px solid var(--td-line); border-radius: 16px; background: var(--td-sidebar); }
+.developer-settings h2 { font-size: 16px; }
+.developer-theme-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 700px) {
+  .developer-gate, .developer-library, .developer-detail, .developer-settings { padding: 24px 12px 32px; }
+  .developer-project-row, .developer-title-row { align-items: stretch; flex-direction: column; }
+  .developer-project-row > * { width: 100%; }
+  .developer-list-controls { flex-wrap: wrap; }
+  .developer-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .developer-assignment { grid-column: 1 / -1; text-align: left; }
+  .developer-title-row > button { align-self: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .developer-row { transition: none; }
+}

@@ -60,6 +60,7 @@ export function ReporterWorkspace({
   onSignOut,
   signingOut,
   signOutError,
+  onChooseWorkspace,
 }: {
   theme: 'light' | 'dark'
   onThemeChange: (theme: 'light' | 'dark') => void
@@ -67,6 +68,7 @@ export function ReporterWorkspace({
   onSignOut: () => void
   signingOut: boolean
   signOutError: string | null
+  onChooseWorkspace?: () => void
 }) {
   const routeProject = initialProjectId()
   const [area, setArea] = useState<WorkspaceArea>('reports')
@@ -529,9 +531,13 @@ export function ReporterWorkspace({
     if (!leaveComposer('Changing projects')) return
     resetComposer()
     setView('list')
+    if (onChooseWorkspace) {
+      onChooseWorkspace()
+      return
+    }
     setProjectInput(projectId)
     setShowProjectForm(true)
-  }, [leaveComposer, projectId, resetComposer])
+  }, [leaveComposer, onChooseWorkspace, projectId, resetComposer])
 
   const returnToList = useCallback(() => {
     setDetail(null)
@@ -1049,6 +1055,11 @@ export function ReporterWorkspace({
     )
   }
 
+  function renderProjectExit() {
+    if (!onChooseWorkspace) return renderProjectForm()
+    return <Button color="secondary" variant="outline" onClick={requestProjectChange}>Choose another project</Button>
+  }
+
   function renderProjectGate() {
     return (
       <section className="report-gate" aria-labelledby="report-gate-title">
@@ -1058,20 +1069,20 @@ export function ReporterWorkspace({
           <div className="report-notice" role="alert">
             <h1 id="report-gate-title">Project unavailable</h1>
             <p>This project is unavailable to your account.</p>
-            {renderProjectForm()}
+            {renderProjectExit()}
           </div>
         ) : contextUnavailable ? (
           <div className="report-notice" role="alert">
             <h1 id="report-gate-title">Project could not be opened</h1>
             <p>TraceDesk could not verify project access. Try again.</p>
           {projectId && <Button color="secondary" variant="outline" onClick={() => { setContextUnavailable(false); setContextLoading(true); setContextRetry(value => value + 1) }}>Retry</Button>}
-            {renderProjectForm()}
+            {renderProjectExit()}
           </div>
         ) : (
           <div className="report-notice">
             <h1 id="report-gate-title">Open a project</h1>
             <p>Open a project to view and submit your reports.</p>
-            {renderProjectForm()}
+            {renderProjectExit()}
           </div>
         )}
       </section>
@@ -1093,7 +1104,7 @@ export function ReporterWorkspace({
           <select id="report-status-filter" value={statusFilter} onChange={event => changeStatusFilter(event.target.value as ReportStatus | '')}>
             {statuses.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
-          <Button color="secondary" variant="ghost" className="report-change-project" onClick={() => { setProjectInput(projectId); setShowProjectForm(value => !value) }}>
+          <Button color="secondary" variant="ghost" className="report-change-project" onClick={onChooseWorkspace ? requestProjectChange : () => { setProjectInput(projectId); setShowProjectForm(value => !value) }}>
             {showProjectForm ? 'Close project form' : 'Change project'}
           </Button>
         </div>

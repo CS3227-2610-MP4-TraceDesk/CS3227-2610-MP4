@@ -11,6 +11,7 @@ export async function mockAuthApi(page: Page, options: {
   loginStatus?: number
   logoutStatus?: number
   sessionStatuses?: number[]
+  workspaces?: { project: { id: string; name: string }; role: 'REPORTER' | 'DEVELOPER' | 'QA_REVIEWER' }[]
 } = {}) {
   const requests: AuthRequest[] = []
   let sessionCall = 0
@@ -35,6 +36,11 @@ export async function mockAuthApi(page: Page, options: {
 
     if (path === '/api/csrf' && request.method() === 'GET') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"token":"synthetic-csrf-token"}' })
+      return
+    }
+
+    if (path === '/api/workspaces' && request.method() === 'GET') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: options.workspaces ?? [], hasMore: false }) })
       return
     }
 
