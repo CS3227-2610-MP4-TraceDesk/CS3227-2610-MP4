@@ -13,7 +13,7 @@ export type VerificationCheck = {
 export type QaBug = {
   id: string
   title: string
-  status: 'Ready for QA' | 'Closed' | 'Investigating' | 'Needs clarification' | 'Reopened'
+  status: 'Open' | 'Ready for QA' | 'Closed' | 'Investigating' | 'Needs clarification' | 'Reopened'
   project: string
   lastActivity: string
   expected: string
@@ -88,11 +88,11 @@ export const qaBugs: readonly QaBug[] = [
 ]
 
 export const qaQueues = [
-  { label: 'Awaiting verification', matches: (bug: QaBug) => bug.status === 'Ready for QA' },
-  { label: 'Reviewed by me', matches: (bug: QaBug) => bug.reviewedByMe === true },
+  { label: 'Awaiting verification', matches: (bug: Pick<QaBug, 'status'>) => bug.status === 'Ready for QA' },
+  { label: 'Reviewed by me', matches: (bug: Pick<QaBug, 'reviewedByMe'>) => bug.reviewedByMe === true },
   { label: 'All bugs', matches: () => true },
 ] as const
 
-export function matchesBugSearch(bug: QaBug, search: string) {
+export function matchesBugSearch(bug: Pick<QaBug, 'id' | 'title'>, search: string) {
   return `${bug.id} ${bug.title}`.toLowerCase().includes(search.trim().toLowerCase())
 }
