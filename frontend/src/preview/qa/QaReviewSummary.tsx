@@ -5,7 +5,14 @@ import { Disclosure } from '../../shared/Disclosure'
 
 import type { QaBug } from './qaFixtures'
 
-export function QaReviewSummary({ bug, comment, showChangeMap }: { bug: QaBug; comment: ReactNode; showChangeMap: boolean }) {
+export function QaReviewSummary({ bug, comment, showChangeMap = false, resolution, description, environment }: {
+  bug: QaBug
+  comment?: ReactNode
+  showChangeMap?: boolean
+  resolution?: ReactNode
+  description?: string
+  environment?: string
+}) {
   const fix = [...bug.entries].reverse().find(entry => entry.title === 'Proposed fix')
   const checks = bug.checks
   const completed = checks.filter(check => check.result !== 'Pending').length
@@ -24,9 +31,10 @@ export function QaReviewSummary({ bug, comment, showChangeMap }: { bug: QaBug; c
           </div>
         </header>
 
-        <p className="qa-summary-description">{bug.actual}</p>
+        <p className="qa-summary-description">{description ?? bug.actual}</p>
         <Disclosure className="qa-activity-row" id="qa-review-report" tabIndex={-1} label={<><FileDocument aria-hidden="true" /> Original report</>}>
           <dl>
+            {environment && <><dt>Environment</dt><dd>{environment}</dd></>}
             <dt>Expected behavior</dt><dd>{bug.expected}</dd>
             <dt>Actual behavior</dt><dd>{bug.actual}</dd>
             <dt>Steps to reproduce</dt><dd>{bug.steps}</dd>
@@ -38,6 +46,7 @@ export function QaReviewSummary({ bug, comment, showChangeMap }: { bug: QaBug; c
           </Disclosure>
         )}
 
+        {resolution}
         {fix && (
           <section className="qa-summary-fix" id="qa-review-fix" tabIndex={-1}>
             <h2><Code aria-hidden="true" /> Proposed fix</h2>

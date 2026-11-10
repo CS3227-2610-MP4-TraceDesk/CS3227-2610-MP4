@@ -171,8 +171,10 @@ export async function updateNote(projectId: string, reportId: string, noteId: st
     (value): value is InvestigationNote => isNote(value, projectId) && value.reportId === reportId && value.id === noteId)
 }
 
-export async function fetchResolutions(projectId: string, reportId: string, signal?: AbortSignal): Promise<ResolutionPage> {
-  return json(await read(`/api/projects/${projectId}/reports/${reportId}/resolutions?limit=100`, signal), (value): value is ResolutionPage =>
+export async function fetchResolutions(projectId: string, reportId: string, signal?: AbortSignal, cursor?: string): Promise<ResolutionPage> {
+  const query = new URLSearchParams({ limit: '100' })
+  if (cursor) query.set('cursor', cursor)
+  return json(await read(`/api/projects/${projectId}/reports/${reportId}/resolutions?${query}`, signal), (value): value is ResolutionPage =>
     object(value) && Array.isArray(value.items) && value.items.every(item => isResolution(item, reportId)) &&
     (value.nextCursor === null || typeof value.nextCursor === 'string'))
 }
