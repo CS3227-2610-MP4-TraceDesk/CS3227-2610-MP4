@@ -41,7 +41,7 @@ public final class ReportAiController {
             var session=request.getSession(false);Object token=session==null?null:session.getAttribute("td.csrf");String supplied=request.getHeader("X-CSRF-TOKEN");
             if(!(token instanceof String expected)||supplied==null||!MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8),supplied.getBytes(StandardCharsets.UTF_8)))
                 throw new ReportService.Failure("CSRF_INVALID",403);
-            return ResponseEntity.ok().header("Cache-Control","no-store").body(service.suggest(kind,project,source,version,()->freshActor(request)));
+            return ResponseEntity.ok().header("Cache-Control","no-store").body(service.suggest(kind,project,source,version,()->freshActor(request,clock,sessions)));
         } catch(ReportService.Failure failure) {
             if(Set.of("FORBIDDEN","NOT_FOUND","UNAUTHENTICATED","CSRF_INVALID").contains(failure.code())) {
                 String event=switch(failure.code()){case "UNAUTHENTICATED","CSRF_INVALID"->failure.code();default->"REPORT_DENIED";};
@@ -66,7 +66,7 @@ public final class ReportAiController {
         }
     }
     /** Spring Session's request wrapper caches its HttpSession: always re-read persisted authority. */
-    private UUID freshActor(HttpServletRequest request) {
+    static UUID freshActor(HttpServletRequest request, Clock clock, SessionRepository<? extends Session> sessions) {
         try {
             UUID cached=TrustedSessionActor.resolve(request,clock);
             var cachedSession=request.getSession(false);
@@ -79,6 +79,6 @@ public final class ReportAiController {
             return age>=0&&age<8L*60*60*1000?cached:null;
         } catch(RuntimeException failure){throw new ReportService.Failure("SERVICE_UNAVAILABLE",503);}
     }
-    private static UUID uuid(String text){try{UUID id=UUID.fromString(text);if(!id.toString().equals(text))throw invalid();return id;}catch(RuntimeException failure){throw invalid();}}
-    private static ReportService.Failure invalid(){return new ReportService.Failure("INVALID_REQUEST",400);}
+    static UUID uuid(String text){try{UUID id=UUID.fromString(text);if(!id.toString().equals(text))throw invalid();return id;}catch(RuntimeException failure){throw invalid();}}
+    static ReportService.Failure invalid(){return new ReportService.Failure("INVALID_REQUEST",400);}
 }
