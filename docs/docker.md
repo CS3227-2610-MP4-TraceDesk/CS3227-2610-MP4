@@ -1,9 +1,8 @@
 # Local Docker setup
 
 Docker Compose runs the current TraceDesk frontend and local PostgreSQL. The
-Spring Boot application has no runnable entry point yet; add its service and
-image when the first backend feature is implemented. These commands are local
-development and image checks, not production deployment.
+Spring Boot backend runs separately on the host as described below. These
+commands are local development and image checks, not production deployment.
 
 ## Development
 
@@ -29,9 +28,10 @@ TRACEDESK_DATABASE_PASSWORD=tracedesk_dev_only \
 
 Use a matching local password if `TRACEDESK_DEV_DB_PASSWORD` overrides the
 Compose default. The backend applies its fresh migrations at startup. Login
-requires an account already provisioned in this local database; the API has no
-account-creation route. Demo account shortcuts only fill credentials and are
-not authenticated unless those synthetic accounts have been provisioned. The
+requires an account provisioned in this local database. Use the
+[local Reporter setup command](local-reporter-setup.md) to create an account and
+project explicitly; the API has no account-creation route. Demo account shortcuts
+only fill credentials and are not authenticated unless those synthetic accounts have been provisioned. The
 development database listens only on `127.0.0.1:54329` and persists in the
 `dev-db-data` Docker volume. It is named `tracedesk_dev`; the default local
 account and password are synthetic and configurable with `.env` (copy from
