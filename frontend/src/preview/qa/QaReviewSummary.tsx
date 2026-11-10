@@ -33,11 +33,11 @@ export function QaReviewSummary({ bug, comment, showChangeMap = false, resolutio
 
         <p className="qa-summary-description">{description ?? bug.actual}</p>
         <Disclosure className="qa-activity-row" id="qa-review-report" tabIndex={-1} label={<><FileDocument aria-hidden="true" /> Original report</>}>
-          <dl>
-            {environment && <><dt>Environment</dt><dd>{environment}</dd></>}
-            <dt>Expected behavior</dt><dd>{bug.expected}</dd>
-            <dt>Actual behavior</dt><dd>{bug.actual}</dd>
-            <dt>Steps to reproduce</dt><dd>{bug.steps}</dd>
+          <dl className="qa-summary-fields">
+            {environment && <div><dt>Environment</dt><dd>{environment}</dd></div>}
+            <div><dt>Expected behavior</dt><dd>{bug.expected}</dd></div>
+            <div><dt>Actual behavior</dt><dd>{bug.actual}</dd></div>
+            <div><dt>Steps to reproduce</dt><dd>{bug.steps}</dd></div>
           </dl>
         </Disclosure>
         {bug.logs && (
@@ -56,7 +56,8 @@ export function QaReviewSummary({ bug, comment, showChangeMap = false, resolutio
 
         <section className="qa-summary-activity" aria-labelledby="qa-activity-heading">
           <h2 id="qa-activity-heading">Activity</h2>
-          <Disclosure className="qa-activity-row" label={<><Bug aria-hidden="true" /> Bug reported <span className="muted">Reporter</span></>}>
+          <Disclosure className="qa-activity-row qa-activity-event"
+            label={<><Bug aria-hidden="true" /> Bug reported <span className="muted">Reporter</span></>}>
             <p>{bug.actual}</p>
           </Disclosure>
           {bug.entries.map((entry, index) => (

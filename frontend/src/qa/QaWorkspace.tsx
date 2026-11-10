@@ -30,6 +30,7 @@ export function QaWorkspace({
 }: QaWorkspaceProps) {
   const [area, setArea] = useState('verification')
   const [search, setSearch] = useState('')
+  const [decisionNotice, setDecisionNotice] = useState('')
   const [selectedId, setSelectedId] = useState('')
   const [reports, setReports] = useState<ReportSummary[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
@@ -120,6 +121,7 @@ export function QaWorkspace({
       </div>
       {signOutError && <p role="alert">{signOutError}</p>}
     </section> : <>
+      {!selected && decisionNotice && <p className="qa-queue-view" role="status">{decisionNotice}</p>}
       {state === 'denied' ? <section className="qa-queue-view">
         <h1>Verification</h1>
         <p role="alert">This project is no longer available to your account.</p>
@@ -129,7 +131,11 @@ export function QaWorkspace({
           hidden={Boolean(selected)} awaitingOnly footer={pageControls} />
       ) : <section className="qa-queue-view"><h1>Verification</h1>{pageControls}</section>}
       {selected && <QaReportSummary key={selected.id} project={project} reportId={selected.id}
-        onSessionExpired={onSessionExpired} />}
+        onSessionExpired={onSessionExpired} onDecision={status => {
+          setReports(current => current.filter(report => report.id !== selected.id))
+          setSelectedId('')
+          setDecisionNotice(status === 'CLOSED' ? 'Bug verified and closed.' : 'Bug sent back to the Developer.')
+        }} />}
     </>}
   </AppShell>
 }
