@@ -99,6 +99,44 @@ test('real Developer workspace enforces assignment, versions, sessions and respo
   await expect(page.getByRole('button', { name: 'Send to QA' })).toHaveCount(0)
   expect(await page.evaluate(() => (window as Window & { __resolutionInjected?: boolean }).__resolutionInjected)).toBeUndefined()
 
+  const qaContext = await browser.newContext({ ignoreHTTPSErrors: true })
+  try {
+    const qa = await qaContext.newPage()
+    const baseUrl = new URL(page.url()).origin
+    await qa.goto(`${baseUrl}/`)
+    await qa.getByLabel('Email', { exact: true }).fill(accounts.qaLogin)
+    await qa.getByLabel('Password', { exact: true }).fill(fixture.credentials.password)
+    await qa.getByLabel('Password', { exact: true }).press('Enter')
+    await qa.getByRole('button', { name: 'Synthetic Reporter Project' }).click()
+    const queue = qa.getByRole('region', { name: 'Verification', exact: true })
+    await expect(queue.getByRole('button', { name: new RegExp(assignedTitle.split(' <')[0]) })).toBeVisible()
+    await expect(queue.getByText(unassignedTitle, { exact: true })).toHaveCount(0)
+    await queue.getByText(assignedTitle, { exact: true }).click()
+    const summary = qa.getByRole('article', { name: 'Bug review summary' })
+    await summary.getByText('Proposed fix · Revision 1').click()
+    await expect(summary.getByText(rootCause, { exact: true })).toBeVisible()
+    await expect(summary.getByText('synthetic-branch', { exact: true })).toBeVisible()
+    await expect(summary.getByText(noteText, { exact: true })).toHaveCount(0)
+    expect(await qa.evaluate(() => (window as Window & { __resolutionInjected?: boolean }).__resolutionInjected)).toBeUndefined()
+
+    for (const width of [390, 320]) {
+      await qa.setViewportSize({ width, height: 844 })
+      expect(await qa.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+      await expect(summary.getByText('synthetic-branch', { exact: true })).toBeVisible()
+    }
+    const qaAxe = await new AxeBuilder({ page: qa }).analyze()
+    expect(qaAxe.violations.map(({ id, impact }) => `${id}:${impact}`)).toEqual([])
+
+    const foreign = await qa.request.get(`${baseUrl}/api/projects/${accounts.deniedProjectId}/reports/${accounts.assignedReportId}/resolutions`)
+    expect(foreign.status()).toBe(404)
+    await qa.getByRole('button', { name: 'Settings' }).click()
+    await qa.getByRole('button', { name: 'Choose another project' }).click()
+    await expect(qa.getByRole('heading', { name: 'Choose a project' })).toBeVisible()
+    await expect(summary).toHaveCount(0)
+  } finally {
+    await qaContext.close()
+  }
+
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 390, height: 844 })
   const mobile390 = await captureDeveloperEvidence(page, browser.version(), 'developer-detail-390-reduced-motion')
