@@ -203,3 +203,57 @@ report mutation is introduced by this feature.
 Open material decisions: none within the approved local-only boundary. The local
 DB is an explicitly separate disposable instance; starting or altering any
 existing default local DB remains outside this contract.
+
+## Local sample accounts extension — 2026-11-12
+
+User requested synthetic Developer and QA accounts alongside Reporter for local
+use. This extension supersedes the Reporter-only exclusion for this explicit
+local setup task; application role/assignment rules remain unchanged.
+
+- **TD-LOCAL-07 — Three sample identities:** Add `localSampleAccountsSetup
+  --args=provision`, which provisions/reuses the Reporter first, then one
+  `DEVELOPER` (`developer@tracedesk.test`) and one `QA_REVIEWER`
+  (`qa@tracedesk.test`) with active membership in the same owned
+  `Local Reporter Workspace`. All use real authentication and account roles.
+  The existing `localReporterSetup` task and Reporter credential format remain
+  compatible. No reports, assignments or lifecycle mutations are seeded.
+- **TD-LOCAL-08 — Isolated ownership and reset:** Each extra identity has a
+  private local ownership marker and its own owner-only credential file
+  (`.local/local-developer.json`, `.local/local-qa.json`). Reuse the existing
+  local target, profile, credential, transaction and process-lock protections.
+  Staff setup verifies the intact owned Reporter/project tuple; it never adopts
+  an unrelated project or changes existing roles. Each account is an atomic
+  operation; the three-account command is sequential, not a cross-account
+  transaction. If a later account fails, earlier accounts remain usable and a
+  rerun validates/reuses them. `--args='reset reporter|developer|qa'` rotates only
+  the named owned identity and invalidates only its sessions. Never auto-reset.
+- **TD-LOCAL-09 — Verification:** Isolated disposable-database tests prove all
+  three account roles, same-project memberships, password authentication,
+  idempotence, targeted reset, conflict/changed-role rejection and rollback/file
+  cleanup. Guard tests cover confirmation/profile/target rejection for each
+  profile. Check production JAR exclusion. Existing Reporter verification remains
+  applicable; do not claim new live-browser acceptance from database tests.
+
+Credential contents are read by the provisioner/tests only, not copied into agent
+context or logs. The extension is opt-in local tooling, not production seed data,
+public registration, browser role selection or additional application permissions.
+
+### Fixed staff demo credentials — user correction, 2026-11-12
+
+Developer uses `developer@tracedesk.test` and QA uses `qa@tracedesk.test`, both
+with the explicit synthetic password `tracedesk-demo`, matching the existing
+frontend demo fixtures. Do not generate random passwords for these two sample
+identities. Reporter-only provisioning retains its original credential behavior.
+This supersedes the generated-password requirement for Developer and QA only.
+
+On `provision`, an intact previously owned staff tuple from the earlier local
+sample setup may migrate its old `*.local@tracedesk.invalid` login/random password
+to these exact values, preserving account/project/membership IDs. First verify
+its credential binding, ownership, role, enabled state and stored password.
+Update login/password and invalidate only that account's sessions transactionally,
+with credential-file restoration on failure. Conflicting unowned target logins
+must fail without adoption or data loss. Repeating the already-matching fixed
+setup does not reset credentials or sessions. Explicit staff `reset` restores
+the same fixed password and invalidates only that account's sessions; it does
+not generate a new password. Extend TD-LOCAL-09 tests for migration, target-login
+collision rollback and exact frontend-fixture credential alignment.

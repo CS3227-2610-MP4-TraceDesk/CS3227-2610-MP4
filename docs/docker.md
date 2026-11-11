@@ -37,7 +37,8 @@ Use a matching local password if `TRACEDESK_DEV_DB_PASSWORD` overrides the
 Compose default. The backend applies its fresh migrations at startup. Login
 requires an account provisioned in this local database. Use the
 [local Reporter setup command](local-reporter-setup.md) to create an account and
-project explicitly; the API has no account-creation route. Demo account shortcuts
+project explicitly; its optional `localSampleAccountsSetup` command adds Developer
+and QA accounts in the same project. The API has no account-creation route. Demo account shortcuts
 only fill credentials and are not authenticated unless those synthetic accounts have been provisioned. The
 development database listens only on `127.0.0.1:54329` and persists in the
 `dev-db-data` Docker volume. It is named `tracedesk_dev`; the default local
