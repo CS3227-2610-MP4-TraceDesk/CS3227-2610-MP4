@@ -26,7 +26,8 @@ queue filter tabs. The library queue supports its specified filters and opens th
 selected bug. Contextual sidebars can collapse, and overlay on mobile. Preserve
 the rail when a sidebar is collapsed. Keep the account control compact at bottom.
 
-Reporter rail contains Reports and Environments plus bottom Settings; submitted
+Reporter rail contains Reports plus bottom Settings; saved environment management
+is outside the MVP and has no navigation destination or placeholder page. Submitted
 reports and drafts live within Reports. New report is a button within Reports.
 Developer navigation remains subject to its owning feature scope. Do not invent
 Help, dashboards or destinations merely to fill rail space.
