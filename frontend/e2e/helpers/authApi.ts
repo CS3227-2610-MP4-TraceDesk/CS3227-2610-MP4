@@ -9,6 +9,7 @@ export type AuthRequest = {
 
 export async function mockAuthApi(page: Page, options: {
   loginStatus?: number
+  registrationStatus?: number
   logoutStatus?: number
   sessionStatuses?: number[]
   workspaces?: { project: { id: string; name: string }; role: 'REPORTER' | 'DEVELOPER' | 'QA_REVIEWER' }[]
@@ -27,7 +28,8 @@ export async function mockAuthApi(page: Page, options: {
       if (configured && configured !== 200 && configured !== 401) {
         await route.fulfill({ status: configured, contentType: 'application/json', body: '{"error":{"code":"SERVICE_UNAVAILABLE","message":"Service unavailable"}}' })
       } else if (headers.cookie?.includes('TDSESSION=synthetic-session')) {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: '{"userId":"synthetic-user"}' })
+        const role = options.workspaces?.[0]?.role ?? 'REPORTER'
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ userId: 'synthetic-user', role }) })
       } else {
         await route.fulfill({ status: 401, contentType: 'application/json', body: '{"error":{"code":"UNAUTHENTICATED","message":"Authentication required"}}' })
       }
@@ -44,6 +46,12 @@ export async function mockAuthApi(page: Page, options: {
       return
     }
 
+    if (path === '/api/projects' && request.method() === 'GET') {
+      const items = (options.workspaces ?? []).map(({ project }) => ({ ...project, membership: 'ACTIVE' }))
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items, nextCursor: null, hasMore: false }) })
+      return
+    }
+
     if (path === '/api/session/login' && request.method() === 'POST') {
       if ((options.loginStatus ?? 200) === 200) {
         await route.fulfill({
@@ -57,6 +65,19 @@ export async function mockAuthApi(page: Page, options: {
         const code = status === 401 ? 'INVALID_CREDENTIALS' : status === 403 ? 'CSRF_INVALID' : 'SERVICE_UNAVAILABLE'
         await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: { code, message: 'Service unavailable' } }) })
       }
+      return
+    }
+
+    if (path === '/api/session/register' && request.method() === 'POST') {
+      const status = options.registrationStatus ?? 201
+      await route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: status === 201 ? '{"registered":true}' : JSON.stringify({ error: {
+          code: status === 409 ? 'ACCOUNT_UNAVAILABLE' : status === 403 ? 'CSRF_INVALID' : 'SERVICE_UNAVAILABLE',
+          message: 'Request failed',
+        } }),
+      })
       return
     }
 

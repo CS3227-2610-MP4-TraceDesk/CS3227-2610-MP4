@@ -22,7 +22,7 @@ class SecuredGatewayLedgerIntegrationTest {
             Flyway.configure().dataSource(db).locations("classpath:db/migration").load().migrate();
             var sql = new JdbcTemplate(db);
             UUID actorId = UUID.randomUUID(), project = UUID.randomUUID(), report = UUID.randomUUID();
-            sql.update("insert into td_users(id,login_normalized,password_hash) values(?,?,'synthetic-hash')", actorId, "gateway@example.test");
+            sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,'synthetic-hash','REPORTER')", actorId, "gateway@example.test");
             sql.update("insert into td_projects(id,name) values(?,'Synthetic gateway project')", project);
             sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'REPORTER','ACTIVE')", project, actorId);
             sql.update("insert into td_reports(id,project_id,reporter_user_id,title,description,environment,reproduction_steps,expected_behavior,actual_behavior) values(?,?,?,'Synthetic title','Synthetic description','env','steps','expected','actual')", report, project, actorId);

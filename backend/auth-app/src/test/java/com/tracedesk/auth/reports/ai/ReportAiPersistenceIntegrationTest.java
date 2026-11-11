@@ -20,7 +20,7 @@ class ReportAiPersistenceIntegrationTest {
             Flyway.configure().dataSource(db).locations("classpath:db/migration").load().migrate();
             var sql=new JdbcTemplate(db);var repo=new ReportStore(sql);var ledger=new JdbcAiLedger(sql);
             UUID actor=UUID.randomUUID(),other=UUID.randomUUID(),project=UUID.randomUUID(),report=UUID.randomUUID(),draft=UUID.randomUUID();
-            sql.update("insert into td_users(id,login_normalized,password_hash) values(?,'report-ai@example.test','synthetic-hash'),(?,'other-ai@example.test','synthetic-hash')",actor,other);
+            sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,'report-ai@example.test','synthetic-hash','REPORTER'),(?,'other-ai@example.test','synthetic-hash','REPORTER')",actor,other);
             sql.update("insert into td_projects(id,name) values(?,'Synthetic AI project')",project);
             sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'REPORTER','ACTIVE'),(?,?,'REPORTER','ACTIVE')",project,actor,project,other);
             sql.update("insert into td_reports(id,project_id,reporter_user_id,title,description,environment,reproduction_steps,expected_behavior,actual_behavior,text_logs) values(?,?,?,'title','description','env','steps','expected','actual','PRIVATE-LOG-CANARY')",report,project,actor);

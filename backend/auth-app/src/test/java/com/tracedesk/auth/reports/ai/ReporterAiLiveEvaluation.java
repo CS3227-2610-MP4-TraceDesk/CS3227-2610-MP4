@@ -109,7 +109,7 @@ public final class ReporterAiLiveEvaluation {
             var sql = new JdbcTemplate(db);
             var ledger = new JdbcAiLedger(sql);
             UUID actor = UUID.randomUUID(), project = UUID.randomUUID();
-            sql.update("insert into td_users(id,login_normalized,password_hash) values(?,'live-synthetic@example.test','unusable-synthetic-hash')", actor);
+            sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,'live-synthetic@example.test','unusable-synthetic-hash','REPORTER')", actor);
             sql.update("insert into td_projects(id,name) values(?,'Synthetic live evaluation')", project);
             sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'REPORTER','ACTIVE')", project, actor);
             var diagnostic = new java.util.concurrent.atomic.AtomicReference<ReportAiOutput.Diagnostic>();

@@ -159,10 +159,10 @@ describe('Reporter workspace request isolation', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Environments' }))
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Environments' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Reports' }))
     expect(screen.getByRole('heading', { name: 'New report' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Change project' }))
     expect(screen.getByText('The report is still being submitted. Wait for the save outcome before changing projects or reports.')).toBeInTheDocument()
     expect(screen.getByLabelText(/Title/)).toHaveValue('Cannot save report')
   })

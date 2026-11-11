@@ -16,6 +16,7 @@ public final class ProjectAuthorization {
                                                                        UUID projectId) {
         return repository.findProjectAccess(actorId, projectId)
                 .filter(snapshot -> ProjectAccessPolicy.mayRead(new ProjectAccessPolicy.Facts(
-                        snapshot.userEnabled(), snapshot.projectEnabled(), snapshot.membershipActive())));
+                        snapshot.userEnabled() && snapshot.accountRole() != null,
+                        snapshot.projectEnabled(), snapshot.membershipActive())));
     }
 }

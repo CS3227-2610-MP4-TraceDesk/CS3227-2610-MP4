@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@openai/apps-sdk-ui/components/Badge'
 import { Button } from '@openai/apps-sdk-ui/components/Button'
-import { Bug, FileDocument, Folder, Plus } from '@openai/apps-sdk-ui/components/Icon'
+import { Bug, FileDocument, Plus } from '@openai/apps-sdk-ui/components/Icon'
 import { Input } from '@openai/apps-sdk-ui/components/Input'
 import { Textarea } from '@openai/apps-sdk-ui/components/Textarea'
 import { AppShell } from '../shell/AppShell'
@@ -12,7 +12,7 @@ import { emptyReport, reportFieldRules, reportFields, validateReport, type Field
 import { ReporterAiPanel } from './ReporterAiPanel'
 import './reporter-workspace.css'
 
-type WorkspaceArea = 'reports' | 'environments' | 'settings'
+type WorkspaceArea = 'reports' | 'settings'
 type ReportView = 'list' | 'new' | 'detail'
 type SubmissionState = 'editing' | 'pending' | 'unconfirmed' | 'conflict'
 type Attempt = { body: string; key: string; values: ReportValues }
@@ -29,7 +29,6 @@ const statuses: { value: ReportStatus | ''; label: string }[] = [
 
 const trayItems: readonly TrayItem[] = [
   { id: 'reports', label: 'Reports', icon: <Bug /> },
-  { id: 'environments', label: 'Environments', icon: <Folder /> },
 ]
 
 function initialProjectId(): string {
@@ -559,18 +558,8 @@ export function ReporterWorkspace({
   }, [])
 
   const handleAreaSelect = useCallback((next: string) => {
-    const nextArea = next as WorkspaceArea
-    if (nextArea === 'environments' && view === 'new') {
-      const dirty = composerDirty || draftAttempt !== null || submissionState === 'pending' || submissionState === 'unconfirmed' || submissionState === 'conflict'
-      if (!leaveComposer('Opening Environments')) return
-      if (dirty) {
-        const previousEditor = editorKind
-        resetComposer()
-        setView(previousEditor === 'report' ? 'detail' : 'list')
-      }
-    }
-    setArea(nextArea)
-  }, [composerDirty, draftAttempt, editorKind, leaveComposer, resetComposer, submissionState, view])
+    if (next === 'reports' || next === 'settings') setArea(next)
+  }, [])
 
   const handleSignOut = useCallback(() => {
     clearProtectedProject()
@@ -1322,9 +1311,7 @@ export function ReporterWorkspace({
         </div>
       )}
     >
-      {area === 'reports' ? renderReports() : area === 'environments' ? (
-        <section className="report-notice report-area-unavailable"><Folder /><h1>Environments</h1><p>Saved environments are not available yet.</p><Button color="secondary" variant="outline" onClick={() => setArea('reports')}>Back to reports</Button></section>
-      ) : (
+      {area === 'reports' ? renderReports() : (
         <section className="report-settings" aria-labelledby="settings-heading">
           <h1 id="settings-heading">Settings</h1>
           <section className="report-settings-group">

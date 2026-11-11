@@ -28,7 +28,7 @@ public class ReportStore implements ReportRepository {
 
     @Override public Optional<Membership> membership(UUID actor, UUID project) {
         return jdbc.query("""
-                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',m.role
+                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role
                 from td_projects p join td_project_memberships m on m.project_id=p.id
                 join td_users u on u.id=m.user_id where m.user_id=? and p.id=?
                 """, rs -> rs.next() ? Optional.of(new Membership(rs.getObject(1,UUID.class),rs.getString(2),rs.getBoolean(3),rs.getBoolean(4),rs.getBoolean(5),rs.getString(6))) : Optional.empty(), actor, project);
@@ -139,7 +139,7 @@ public class ReportStore implements ReportRepository {
     @Override public Report create(UUID actor, UUID project, UUID key, ReportData data, UUID requestId, Instant now) {
         return transactions.execute(status -> {
             Membership membership = jdbc.query("""
-                    select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',m.role
+                    select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role
                     from td_projects p join td_project_memberships m on m.project_id=p.id
                     join td_users u on u.id=m.user_id where m.user_id=? and p.id=?
                     for update of p,u,m
@@ -293,7 +293,7 @@ public class ReportStore implements ReportRepository {
     }
 
     private void lockReporter(UUID actor, UUID project) {
-        Membership m=jdbc.query("select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',m.role from td_projects p join td_project_memberships m on m.project_id=p.id join td_users u on u.id=m.user_id where m.user_id=? and p.id=? for update of p,u,m",
+        Membership m=jdbc.query("select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role from td_projects p join td_project_memberships m on m.project_id=p.id join td_users u on u.id=m.user_id where m.user_id=? and p.id=? for update of p,u,m",
                 rs->rs.next()?new Membership(rs.getObject(1,UUID.class),rs.getString(2),rs.getBoolean(3),rs.getBoolean(4),rs.getBoolean(5),rs.getString(6)):null,actor,project);
         if(m==null||!m.userEnabled()||!m.projectEnabled()||!m.active()) throw new ReportService.Failure("NOT_FOUND",404);
         if(!"REPORTER".equals(m.role())) throw new ReportService.Failure("FORBIDDEN",403);

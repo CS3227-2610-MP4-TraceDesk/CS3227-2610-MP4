@@ -17,6 +17,13 @@ preconditions, editing rules, and assignment mechanics belong in the first domai
 specification before implementation. Do not infer MP3's category-based access or
 reporter-controlled closure rules.
 
+## Account creation
+
+Users may register with an email-shaped identifier, password and initial Reporter,
+Developer or QA reviewer role. This role selection was explicitly requested on
+2026-11-12. Registration creates no project membership and does not change an
+existing account's role. See the [registration contract](../workflow/specs/account-registration.md).
+
 ## MVP boundaries
 
 One programming language for examples, small pasted snippets and text logs, one
