@@ -62,6 +62,16 @@ tasks.register('localReporterSetup', JavaExec) {
     javaLauncher = javaToolchains.launcherFor(java.toolchain)
     workingDir = rootProject.projectDir
 }
+tasks.register('localSampleAccountsSetup', JavaExec) {
+    group = 'local development'
+    description = 'Explicitly provisions Reporter, Developer and QA sample accounts, or resets one owned account.'
+    dependsOn tasks.named('localDevClasses')
+    classpath = sourceSets.localDev.runtimeClasspath
+    mainClass = 'com.tracedesk.local.LocalSampleAccountsSetupCommand'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+    workingDir = rootProject.projectDir
+}
+
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
     // Ordinary tests must never opt into a provider because the parent shell enables AI.

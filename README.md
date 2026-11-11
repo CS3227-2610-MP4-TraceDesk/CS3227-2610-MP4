@@ -1,94 +1,126 @@
 # TraceDesk
 
-AI-assisted software bug reporting, investigation, and verification for CS3227 MP4.
-Reporter, Developer, and QA reviewer each own a stage of the bug lifecycle and a
-human-reviewed AI capability.
+TraceDesk is a local web app for reporting software bugs, investigating them,
+and reviewing proposed fixes. This guide starts the current application on your
+computer with Docker, PostgreSQL, Spring Boot, and the React frontend. It is for
+local development, not production deployment.
 
-## Current status
+## Requirements
 
-Architecture and reuse selections were confirmed by the repository user on
-2026-11-04. This checkout contains the engineering foundation, login UI connected
-to the bounded authentication API, an isolated database test helper, and the
-tested provider transport. Persistence, the secured gateway, and role workflows
-remain to be implemented in the order recorded in the integration plan.
+- Docker Desktop with Docker Compose
+- JDK 25
+- Node.js 24.15 or newer (Node 24 line) and npm, if running the frontend outside Docker
+- macOS or Linux shell for the sample-account setup command
 
-## Start here
+## Start TraceDesk locally
 
+Run the following steps from the repository root unless a step says otherwise.
+
+### 1. Start PostgreSQL and the development frontend
+
+```sh
+docker compose --profile dev up --build -d --wait db frontend-dev
+docker compose ps
+```
+
+This starts PostgreSQL on `127.0.0.1:54329` and the HTTPS frontend on
+`https://localhost:5173`. The database persists in a Docker volume. The frontend
+uses a local self-signed certificate, so your browser may show a certificate
+warning the first time.
+
+The default database is synthetic local development data:
+
+- Database: `tracedesk_dev`
+- Username: `tracedesk_dev`
+- Password: `tracedesk_dev_only`
+
+If you have configured another local database password or port, use those same
+values in the setup and backend commands below. Local Compose overrides can be
+placed in `.env` using [.env.example](.env.example); keep `.env` private and out
+of source control.
+
+### 2. Create the sample accounts
+
+In a terminal at the repository root, run:
+
+```sh
+export TRACEDESK_LOCAL_CONFIRM=true
+export TRACEDESK_LOCAL_JDBC_URL=jdbc:postgresql://127.0.0.1:54329/tracedesk_dev
+export TRACEDESK_LOCAL_DATABASE_USER=tracedesk_dev
+read -rs 'TRACEDESK_LOCAL_DATABASE_PASSWORD?Local database password: '
+export TRACEDESK_LOCAL_DATABASE_PASSWORD
+printf '\n'
+./gradlew :backend:auth-app:localSampleAccountsSetup --args=provision --console=plain
+```
+
+For the default Compose database password, enter `tracedesk_dev_only` at the
+prompt. This provisions real local accounts and memberships in
+`Local Reporter Workspace`; it does not create bugs or bypass normal sign-in.
+You can run this command again to reuse the same accounts.
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Developer | `developer@tracedesk.test` | `tracedesk-demo` |
+| QA reviewer | `qa@tracedesk.test` | `tracedesk-demo` |
+| Reporter | `reporter.local@tracedesk.invalid` | Generated; stored in `.local/local-reporter.json` |
+
+The Reporter credential file is private to your machine. Read it locally when
+signing in as Reporter; never commit or share it. The Developer and QA credentials
+are fixed to match the demo sign-in shortcuts.
+
+### 3. Run the backend
+
+Keep the setup terminal open so its database environment variables remain set.
+In a second terminal at the repository root, configure and start the backend:
+
+```sh
+export TRACEDESK_DATABASE_URL=jdbc:postgresql://127.0.0.1:54329/tracedesk_dev
+export TRACEDESK_DATABASE_USER=tracedesk_dev
+export TRACEDESK_DATABASE_PASSWORD=tracedesk_dev_only
+export TRACEDESK_PROJECT_CURSOR_SECRET="$(openssl rand -hex 32)"
+export AI_ENABLED=false
+./gradlew :backend:auth-app:bootRun
+```
+
+If your local database password or port differs, set the corresponding values
+here too. The backend applies database migrations on startup and listens on port
+8080. AI is disabled for this local run.
+
+### 4. Sign in
+
+Open [https://localhost:5173](https://localhost:5173), accept the local
+certificate warning if shown, and sign in with one of the accounts above. The
+frontend forwards API requests to the backend on port 8080. Choose
+`Local Reporter Workspace` after sign-in. Sign out before switching roles.
+
+## Stop the app
+
+Stop the backend with Ctrl+C in its terminal. Stop the Compose services while
+keeping the database volume and its data:
+
+```sh
+docker compose stop frontend-dev db
+```
+
+To start them again, repeat step 1. Do not use `docker compose down --volumes`
+unless you intend to erase the local database and all its data.
+
+## Troubleshooting
+
+- **Frontend cannot reach the API:** make sure the backend is running on port
+  8080 and the frontend is using the Compose `dev` profile.
+- **Login fails:** confirm the setup command completed, the backend and setup
+  target the same database, and the email/password match the selected role.
+- **Database connection fails:** check `docker compose ps` and verify the
+  database password and port. The local setup tool accepts only an explicit
+  loopback PostgreSQL address and the `tracedesk_dev` database/user.
+- **Migration fails:** keep the existing database volume intact and share the
+  safe error summary. Do not delete the volume to work around a migration error.
+
+## More information
+
+- [Detailed Docker and local database guide](docs/docker.md)
+- [Local account provisioning and reset](docs/local-reporter-setup.md)
+- [Product scope](docs/product.md)
+- [Architecture](docs/architecture.md)
 - [Project instructions](AGENTS.md)
-- [Product scope](docs/product.md) and [architecture](docs/architecture.md)
-- [Reuse inventory and integration sequence](docs/reuse-plan.md)
-- [Development workflow](workflow/README.md)
-- [Development harness](harness/README.md)
-- [Foundation specification](workflow/specs/foundation.md)
-- [Engineering foundation specification](workflow/specs/engineering-foundations.md)
-- [Threat model](docs/threat-model.md)
-- [Isolated database testing](docs/test-database.md)
-- [Local Docker setup](docs/docker.md)
-- [UI identity and design system](docs/ui-design-system.md),
-  [UI specification](workflow/specs/shared-ui.md),
-  [reference screens](workflow/ui/reference/README.md), and
-  [UI implementation plan](workflow/plans/ui-foundation.md)
-
-## Repository layout
-
-| Location | Purpose |
-| --- | --- |
-| `.agents/skills/` | Portable project-local skills; no personal configuration |
-| `docs/` | TraceDesk requirements, architecture, AI/security policies, reuse provenance |
-| `harness/` | Development-agent roles and coordination protocol; execution uses the host's agent tools |
-| `workflow/` | Specifications, acceptance index, handoff/evidence templates, decisions and progress |
-| `backend/` | Internal provider transport and PostgreSQL test support |
-| `frontend/` | React login UI, local demo preview, browser tests, build and lint setup |
-| `tools/` | Portable repository checks |
-| `.github/workflows/` | Foundation, frontend and isolated database CI; deployment is not configured |
-| `compose.yaml`, `Dockerfile`, `docker/` | Local containers and built frontend image |
-
-The frontend opens on the approved login screen and uses server-confirmed
-sessions. Role workspaces remain pending.
-
-## Inspect the login UI locally
-
-Run from the repository root after installing Node and npm. The current jsdom
-dependency declares Node 24.15 or newer in the Node 24 release line.
-
-```sh
-cd frontend
-npm ci
-npm run dev
-```
-
-Open https://localhost:5173/. Vite serves HTTPS with a locally generated,
-self-signed certificate; the browser may ask you to trust it. Start the local
-database and authentication API as described in the [Docker guide](docs/docker.md).
-The login API requires an account already provisioned in that database. The
-development-only **Demo accounts** disclosure fills synthetic credentials and
-submits them to the same backend API; it does not create or authenticate users
-locally. Production builds omit those shortcuts. See the
-[login criteria](workflow/specs/login-ui.md),
-[authentication integration contract](workflow/specs/login-auth-integration.md),
-and [verification evidence](workflow/reporter/evidence/login-auth-integration.md).
-
-To inspect the shared shell with sample data, open
-`https://localhost:5173/?workspace-preview` in the Vite development server.
-Choose Reporter, Developer, or QA reviewer. This preview is separate from sign-in
-and does not need the local authentication API.
-
-## Verify the foundation
-
-Use JDK 25 and Python 3. Run from the repository root:
-
-```sh
-python3 tools/check_foundation.py
-./gradlew :backend:ai-transport:test
-cd frontend && npm ci && npm run check && npm run build && npm run test:e2e
-```
-
-The Java tests use synthetic loopback HTTP responses. They need no provider key,
-database, or application environment file. Database integration tests require an
-explicitly confirmed dedicated PostgreSQL test database; CI supplies an ephemeral
-service. Initial dependency and browser setup may require network access. See
-[verification evidence](workflow/evidence/foundation.md) for the original foundation
-and [engineering evidence](workflow/evidence/engineering-foundations.md) for this
-extension.
-
-For a container-based local environment, see the [Docker guide](docs/docker.md).

@@ -126,6 +126,6 @@ class ReportPersistenceIntegrationTest {
         return false;
     }
     private static UUID user(JdbcTemplate sql,String login) {
-        UUID id=UUID.randomUUID(); sql.update("insert into td_users(id,login_normalized,password_hash) values(?,?,?)",id,login,"$argon2id$v=19$m=19456,t=2,p=1$synthetic$hash"); return id;
+        UUID id=UUID.randomUUID(); String role=login.contains("developer")?"DEVELOPER":login.contains("qa")||login.contains("review")?"QA_REVIEWER":"REPORTER"; sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,?,?)",id,login,"$argon2id$v=19$m=19456,t=2,p=1$synthetic$hash",role); return id;
     }
 }

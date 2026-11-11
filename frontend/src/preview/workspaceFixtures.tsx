@@ -14,14 +14,6 @@ type PreviewArea = TrayItem & {
   groups?: readonly PreviewGroup[]
 }
 
-const environmentIcon = (
-  <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-    strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="3" width="16" height="11" rx="2" />
-    <path d="M7 17h6m-3-3v3" />
-  </svg>
-)
-
 const refundReport = { id: 'TD-023', label: 'Refund totals are duplicated', icon: <Bug /> }
 
 export const previewAreas: Record<PreviewRole, readonly [PreviewArea, ...PreviewArea[]]> = {
@@ -35,12 +27,6 @@ export const previewAreas: Record<PreviewRole, readonly [PreviewArea, ...Preview
         ] },
         { label: 'Drafts', rows: [], emptyMessage: 'No saved drafts' },
       ],
-    },
-    {
-      id: 'environments', label: 'Environments', icon: environmentIcon,
-      groups: [{ label: 'Saved setups', rows: [
-        { id: 'desktop-chrome', label: 'Desktop Chrome', icon: environmentIcon },
-      ] }],
     },
   ],
   Developer: [

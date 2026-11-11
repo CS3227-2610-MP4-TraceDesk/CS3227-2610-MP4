@@ -116,7 +116,7 @@ test('local Reporter signs in, discovers its project, and uses real report and d
     throw new Error('Provisioned project was not discovered with Reporter membership')
   }
 
-  await page.getByRole('button', { name: 'Local Reporter Workspace', exact: true }).click()
+  await page.getByRole('button', { name: 'Open Local Reporter Workspace', exact: true }).click()
   await expect(page.getByText('Reports for Local Reporter Workspace', { exact: true })).toBeVisible()
   await expect(page.getByText('Reporter', { exact: true })).toBeVisible()
   phase = 'DRAFT'

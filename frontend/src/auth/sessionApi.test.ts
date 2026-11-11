@@ -12,10 +12,10 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('session API client', () => {
   it('loads a server session without caching auth data', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(reply(200, { userId: 'synthetic-user' }))
+    const fetchMock = vi.fn().mockResolvedValue(reply(200, { userId: 'synthetic-user', role: 'REPORTER' }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(getSession()).resolves.toEqual({ userId: 'synthetic-user' })
+    await expect(getSession()).resolves.toEqual({ userId: 'synthetic-user', role: 'REPORTER' })
     expect(fetchMock).toHaveBeenCalledWith('/api/session', expect.objectContaining({
       credentials: 'same-origin',
       cache: 'no-store',

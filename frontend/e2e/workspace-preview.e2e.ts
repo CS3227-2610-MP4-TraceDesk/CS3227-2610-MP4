@@ -9,15 +9,25 @@ test('role fixtures open the shared shell without an authentication request', as
   })
 
   for (const [role, primary, secondary] of [
-    ['reporter', 'Reports', 'Environments'],
+    ['reporter', 'Reports', 'Settings'],
     ['developer', 'My work', 'All bugs'],
     ['qa', 'Verification', 'Test templates'],
   ]) {
     await page.goto(`/?workspace-preview=${role}`)
     const tray = page.getByRole('navigation', { name: 'Main navigation' })
     await expect(tray.getByRole('button', { name: primary })).toHaveAttribute('aria-current', 'page')
+    if (role === 'reporter') {
+      await expect(tray.getByRole('button', { name: 'Environments' })).toHaveCount(0)
+      for (const width of [1440, 390, 320]) {
+        await page.setViewportSize({ width, height: 900 })
+        await expect(tray.getByRole('button', { name: 'Reports' })).toBeVisible()
+        expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+        await page.screenshot({ path: test.info().outputPath(`reporter-mvp-${width}.png`) })
+      }
+      await page.setViewportSize({ width: 1440, height: 900 })
+    }
     await tray.getByRole('button', { name: secondary }).click()
-    await expect(page.getByRole('heading', { name: secondary, exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: role === 'reporter' ? 'Appearance' : secondary, exact: true })).toBeVisible()
     if (role === 'developer') {
       await expect(page.getByRole('button', { name: 'Toggle sidebar' })).toHaveCount(0)
     }

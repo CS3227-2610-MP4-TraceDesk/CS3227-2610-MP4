@@ -20,17 +20,25 @@ The Vite same-origin `/api` proxy forwards to the backend on the host at port
 8080. Start the backend from another terminal after the database is healthy:
 
 ```sh
+TRACEDESK_PROJECT_CURSOR_SECRET="$(openssl rand -hex 32)" \
 TRACEDESK_DATABASE_URL=jdbc:postgresql://127.0.0.1:54329/tracedesk_dev \
 TRACEDESK_DATABASE_USER=tracedesk_dev \
 TRACEDESK_DATABASE_PASSWORD=tracedesk_dev_only \
 ./gradlew :backend:auth-app:bootRun
 ```
 
+The cursor secret must contain at least 32 UTF-8 bytes. This local command
+generates one for the single backend process; use one stable secret from the
+secret manager on every replica in a shared deployment. Restarting with a new
+secret invalidates directory cursors already held by clients. The application
+has no fallback secret and fails startup when this setting is missing.
+
 Use a matching local password if `TRACEDESK_DEV_DB_PASSWORD` overrides the
 Compose default. The backend applies its fresh migrations at startup. Login
 requires an account provisioned in this local database. Use the
 [local Reporter setup command](local-reporter-setup.md) to create an account and
-project explicitly; the API has no account-creation route. Demo account shortcuts
+project explicitly; its optional `localSampleAccountsSetup` command adds Developer
+and QA accounts in the same project. The API has no account-creation route. Demo account shortcuts
 only fill credentials and are not authenticated unless those synthetic accounts have been provisioned. The
 development database listens only on `127.0.0.1:54329` and persists in the
 `dev-db-data` Docker volume. It is named `tracedesk_dev`; the default local

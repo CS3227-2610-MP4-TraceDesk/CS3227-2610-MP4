@@ -16,14 +16,14 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
-/** Bounds the login body before Jackson can buffer or deserialize it, including chunked requests. */
+/** Bounds login and registration bodies before Jackson can buffer or deserialize them, including chunked requests. */
 public final class LoginBodyLimitFilter extends OncePerRequestFilter {
     private static final int LIMIT = 8 * 1024;
     private final AuthStore store;
     public LoginBodyLimitFilter(AuthStore store) { this.store = store; }
 
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !"POST".equals(request.getMethod()) || !"/api/session/login".equals(request.getRequestURI());
+        return !"POST".equals(request.getMethod()) || !isBoundedAuthRoute(request.getRequestURI());
     }
 
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -31,7 +31,8 @@ public final class LoginBodyLimitFilter extends OncePerRequestFilter {
         byte[] body = request.getInputStream().readNBytes(LIMIT + 1);
         if (body.length > LIMIT) {
             try {
-                store.event("LOGIN_INVALID_REQUEST", "/api/session/login", 400, null, null);
+                String route=request.getRequestURI();
+                store.event(isRegistration(route)?"REGISTRATION_INVALID_REQUEST":"LOGIN_INVALID_REQUEST", route, 400, null, null);
                 writeError(response, 400, "INVALID_REQUEST", "Invalid request");
             } catch (DataAccessException eventFailure) {
                 writeError(response, 503, "SERVICE_UNAVAILABLE", "Service unavailable");
@@ -40,6 +41,9 @@ public final class LoginBodyLimitFilter extends OncePerRequestFilter {
         }
         chain.doFilter(new CachedRequest(request, body), response);
     }
+
+    private static boolean isBoundedAuthRoute(String route) { return "/api/session/login".equals(route)||isRegistration(route); }
+    private static boolean isRegistration(String route) { return "/api/session/register".equals(route); }
 
     private static void writeError(HttpServletResponse response, int status, String code, String message) throws IOException {
         response.setStatus(status);

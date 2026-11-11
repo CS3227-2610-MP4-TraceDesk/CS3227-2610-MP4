@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import secrets
 import signal
 import socket
 import ssl
@@ -62,6 +63,10 @@ def main():
         backend_env = child_environment()
         backend_env.update({
             'AI_ENABLED': 'false', 'SPRING_PROFILES_ACTIVE': 'local',
+            # Project discovery requires an integrity key even when the browser
+            # journey never requests a paginated directory cursor. Keep this
+            # ephemeral verification key out of logs and generated artifacts.
+            'TRACEDESK_PROJECT_CURSOR_SECRET': secrets.token_urlsafe(32),
             'TRACEDESK_DATABASE_URL': setup_env['TRACEDESK_LOCAL_JDBC_URL'],
             'TRACEDESK_DATABASE_USER': setup_env['TRACEDESK_LOCAL_DATABASE_USER'],
             'TRACEDESK_DATABASE_PASSWORD': setup_env['TRACEDESK_LOCAL_DATABASE_PASSWORD'],

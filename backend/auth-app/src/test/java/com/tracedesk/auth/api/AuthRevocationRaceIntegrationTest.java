@@ -65,6 +65,7 @@ class AuthRevocationRaceIntegrationTest {
                     Map.entry("server.ssl.key-store-type", "PKCS12"),
                     Map.entry("server.ssl.key-alias", "tracedesk-test"),
                     Map.entry("TRACEDESK_DATABASE_URL", dbUrl),
+                    Map.entry("TRACEDESK_PROJECT_CURSOR_SECRET", "synthetic-project-cursor-secret-for-tests-0001"),
                     Map.entry("TRACEDESK_DATABASE_USER", System.getenv("TRACEDESK_TEST_DATABASE_USER")),
                     Map.entry("TRACEDESK_DATABASE_PASSWORD", System.getenv("TRACEDESK_TEST_DATABASE_PASSWORD")),
                     Map.entry("spring.flyway.schemas", db.schema()),
@@ -79,7 +80,7 @@ class AuthRevocationRaceIntegrationTest {
                 UUID project = UUID.randomUUID();
                 sql.update("insert into td_projects(id,name) values(?,?)", project, "Race protected project");
                 Argon2PasswordEncoder encoder = new Argon2PasswordEncoder(16, 32, 1, 19456, 2);
-                sql.update("insert into td_users(id,login_normalized,password_hash) values(?,?,?)",
+                sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,?,'REPORTER')",
                         actor, "race-reporter@example.test", encoder.encode(PASSWORD));
                 sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,?,'ACTIVE')",
                         project, actor, "REPORTER");

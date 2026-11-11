@@ -4,7 +4,56 @@ Issue #37 provides an explicit local-only provisioning tool. It creates one
 synthetic Reporter, a project named `Local Reporter Workspace`, and an active
 Reporter membership using the real authentication and report tables. It is not
 run during application startup and is excluded from the production backend JAR.
-It does not create Developer/QA accounts or call AI.
+The original command creates only the Reporter; the optional sample-account
+command below adds Developer and QA accounts. Neither command calls AI.
+
+## Optional: provision all three sample roles
+
+For a fresh setup, follow the database configuration below, then replace the
+Reporter-only provision command with:
+
+```sh
+./gradlew :backend:auth-app:localSampleAccountsSetup --args=provision --console=plain
+```
+
+For an existing local Reporter setup, run the same command with the same
+`TRACEDESK_LOCAL_*` settings and intact `.local/local-reporter.json`. It validates
+and reuses that Reporter, then adds Developer and QA to the same
+`Local Reporter Workspace` project. Repeating an already-matching setup reuses all three accounts without changing
+passwords or creating duplicates. Previously owned Developer/QA sample accounts
+from the earlier local setup are updated to the exact demo credentials below,
+preserving IDs/project membership and invalidating only their old sessions.
+
+| Account role | Login | Password / credential record |
+| --- | --- | --- |
+| Reporter | `reporter.local@tracedesk.invalid` | `.local/local-reporter.json` |
+| Developer | `developer@tracedesk.test` | `tracedesk-demo`; `.local/local-developer.json` |
+| QA reviewer | `qa@tracedesk.test` | `tracedesk-demo`; `.local/local-qa.json` |
+
+Developer and QA use the exact fixed password `tracedesk-demo`, matching the
+existing demo sign-in buttons; no other staff demo password is generated. The
+Reporter keeps its original generated credentials in its file. Keep credential
+records private and out of source control. These are normal accounts with server-assigned roles
+and active membership, not browser demo identities. Setup does not create reports,
+assign bugs or bypass existing role/assignment/lifecycle checks. Use the same
+frontend and backend startup steps below, and sign out before switching accounts.
+
+Accounts are provisioned sequentially, each in its own atomic database operation.
+If a later account fails, earlier accounts remain provisioned; correct the stated
+conflict and rerun. The command never adopts another account, repairs changed
+roles, or silently resets an existing password.
+
+To explicitly reset one sample account and invalidate only its sessions, select
+its role:
+
+```sh
+./gradlew :backend:auth-app:localSampleAccountsSetup --args='reset developer' --console=plain
+```
+
+The other supported selectors are `reset reporter` and `reset qa`. Developer/QA
+reset restores the same `tracedesk-demo` password; Reporter reset retains its
+existing random-password behavior. Existing Reporter-only
+`localReporterSetup --args=provision` and `--args=reset` remain supported.
 
 ## Provision the local development database
 
@@ -59,6 +108,7 @@ In the backend terminal, map the explicitly selected local database settings:
 export TRACEDESK_DATABASE_URL="$TRACEDESK_LOCAL_JDBC_URL"
 export TRACEDESK_DATABASE_USER="$TRACEDESK_LOCAL_DATABASE_USER"
 export TRACEDESK_DATABASE_PASSWORD="$TRACEDESK_LOCAL_DATABASE_PASSWORD"
+export TRACEDESK_PROJECT_CURSOR_SECRET="$(openssl rand -hex 32)"
 export AI_ENABLED=false
 ./gradlew :backend:auth-app:bootRun
 ```
