@@ -275,6 +275,85 @@ describe('login and server session flow', () => {
     expect(fetchMock.mock.calls.some(([path]) => String(path).includes('status=READY_FOR_QA'))).toBe(true)
   })
 
+  it('manages assignment from All bugs and preserves the reason through a version conflict', async () => {
+    const reportId = '30000000-0000-4000-8000-000000000001'
+    const candidate = '10000000-0000-4000-8000-000000000003'
+    const report = {
+      id: reportId, projectId: project, reporterUserId: user, title: 'Refund display duplicates',
+      status: 'OPEN', assignedDeveloperId: secondUser as string | null, version: 3,
+      createdAt: '2026-11-09T10:00:00Z', updatedAt: '2026-11-10T10:00:00Z',
+      description: 'Two rows appear for one refund.', environment: 'Staging', textLogs: '',
+      reproductionSteps: 'Refresh the payment.', expectedBehavior: 'One row', actualBehavior: 'Two rows',
+    }
+    const reportPath = `/api/projects/${project}/reports/${reportId}`
+    const patches: unknown[] = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      if (path === '/api/csrf') return reply(200, { token: 'synthetic-csrf' })
+      if (path === '/api/session') return reply(200, { userId: user })
+      if (path === '/api/workspaces') return reply(200, { items: [
+        { project: { id: project, name: 'QA Assignment Project' }, role: 'QA_REVIEWER' },
+      ], hasMore: false })
+      if (path.startsWith(`/api/projects/${project}/reports?`)) {
+        return reply(200, { items: path.includes('status=READY_FOR_QA') ? [] : [report], nextCursor: null })
+      }
+      if (path === reportPath) return reply(200, report)
+      if (path.startsWith(`${reportPath}/resolutions?`)) return reply(200, { items: [], nextCursor: null })
+      if (path === `${reportPath}/assignment`) {
+        if (init?.method !== 'PATCH') return reply(200, {
+          assignedDeveloperId: report.assignedDeveloperId, assignmentEligible: report.assignedDeveloperId === candidate,
+          items: [{ id: candidate }], nextCursor: null, version: report.version,
+        })
+        expect(new Headers(init.headers).get('X-CSRF-TOKEN')).toBe('synthetic-csrf')
+        const change = JSON.parse(String(init.body)) as { developerId?: string }
+        patches.push(change)
+        report.version += 1
+        if (patches.length === 1) return reply(409, { error: { code: 'STALE_VERSION' } })
+        report.assignedDeveloperId = change.developerId ?? null
+        return reply(200, { assignedDeveloperId: report.assignedDeveloperId, version: report.version, updatedAt: report.updatedAt })
+      }
+      return reply(404)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'QA Assignment Project' }))
+    expect(await screen.findByText('No tickets in this queue.')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'All bugs' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Refund display duplicates.*Open/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Manage assignment' }))
+    fireEvent.keyDown(await screen.findByRole('button', { name: /Choose a developer/ }), { key: 'ArrowDown' })
+    fireEvent.pointerUp(await screen.findByRole('option', { name: candidate }))
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: ' Move to the payments team ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save assignment' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('This assignment changed')
+    expect(screen.getByLabelText('Reason')).toHaveValue(' Move to the payments team ')
+    expect(screen.getByRole('button', { name: 'Save assignment' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh assignment' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save assignment' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Save assignment' }))
+    expect(await screen.findByText('Developer assignment updated.')).toBeVisible()
+    expect(screen.getByText(`Current developer: ${candidate}`)).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Manage assignment' }))
+    fireEvent.keyDown(await screen.findByRole('button', { name: /Choose a developer/ }), { key: 'ArrowDown' })
+    fireEvent.pointerUp(await screen.findByRole('option', { name: 'Clear assignment' }))
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Return to queue' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save assignment' }))
+    expect(await screen.findByText('Current developer: Unassigned')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Manage assignment' }))
+    fireEvent.keyDown(await screen.findByRole('button', { name: /Choose a developer/ }), { key: 'ArrowDown' })
+    fireEvent.pointerUp(await screen.findByRole('option', { name: candidate }))
+    expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Save assignment' }))
+    expect(await screen.findByText(`Current developer: ${candidate}`)).toBeVisible()
+    expect(patches).toEqual([
+      { developerId: candidate, expectedVersion: 3, reason: ' Move to the payments team ' },
+      { developerId: candidate, expectedVersion: 4, reason: ' Move to the payments team ' },
+      { expectedVersion: 5, reason: 'Return to queue' },
+      { developerId: candidate, expectedVersion: 6 },
+    ])
+  })
+
   it('selects a membership, reauthorizes it and returns to discovery on project change', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input)
