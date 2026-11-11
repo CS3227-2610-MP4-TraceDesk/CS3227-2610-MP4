@@ -7,26 +7,25 @@ skip them if short on time. Sources for every number: [runs.md](../experiments/a
 
 ## 1. Less context, same code? (40 s)
 
-Hi. I work on the developer side of TraceDesk, and today I want to show a small
-experiment on how much a coding agent needs to read. I gave two coding agents the same
-jobs. One could only read a short list of files I chose. The other could read anything
-in the project. Then a third agent reviewed both versions without knowing which was
-which. I ran this on real work, the core of my feature, so the code I kept from these
-runs is now in the project.
+Hi. Our MP4 is TraceDesk, and for my part I ran a small experiment on how much a coding
+agent needs to read. I gave two coding agents the same jobs. One could only read a short
+list of files I chose. The other could read anything in the project. Then a third agent
+reviewed both versions without knowing which was which. I ran it on a real feature of
+our project, so the code I kept from these runs is now part of TraceDesk.
 
 ## 2. The feature: AI suggestions for the developer (50 s)
 
-First, the feature. TraceDesk is a bug tracker with three roles: reporter, developer and
-QA. My part is the developer side. This feature lets the developer assigned to a bug ask
-an AI for possible causes and next steps. The developer chooses which parts of the
-report go to the AI, for example the description, the logs or their own notes. The AI's
-answer is only advice: it cannot change the report or its status. If the developer likes
-a suggestion, they can edit it and save it as a private note. The three blue boxes are
-the core pieces built in this experiment: the permission checks, building what is sent,
-and checking the AI's reply. The permission checks run three times: before anything is
-selected, before sending, and before showing the result, so if someone is removed from
-the bug mid-request, they don't get the answer. The web endpoint and the screen come
-next.
+First, the feature. TraceDesk is a bug tracker with three user roles: reporter,
+developer and QA. I built the features for the developer role. This feature lets the
+developer assigned to a bug ask an AI for possible causes and next steps. The developer
+chooses which parts of the report go to the AI, for example the description, the logs or
+their own notes. The AI's answer is only advice: it cannot change the report or its
+status. If the developer likes a suggestion, they can edit it and save it as a private
+note. The three blue boxes are the core pieces built in this experiment: the permission
+checks, building what is sent, and checking the AI's reply. The permission checks run
+three times: before anything is selected, before sending, and before showing the result,
+so if someone is removed from the bug mid-request, they don't get the answer. The web
+endpoint and the screen come next.
 
 ## 3. Two questions (60 s)
 
@@ -160,7 +159,7 @@ rules like this into one shared contract (for example the shared role contracts
 decision) and have each feature spec point to it.
 
 **"So wasn't job 1 unfair to A?"**
-Partly, and I say so on the limits slide. But it's also a realistic result: in a real
+Partly, and I say so on the limits slide. But it's also a realistic result: in any real
 project, rules end up in the wrong place, and a fixed short list can't know that. The
 broad agent found the rule because it was allowed to look.
 
