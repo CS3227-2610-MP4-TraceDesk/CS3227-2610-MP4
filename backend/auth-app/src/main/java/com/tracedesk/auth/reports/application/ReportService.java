@@ -16,6 +16,9 @@ public final class ReportService {
         public String code() { return code; } public int status() { return status; } public Integer currentVersion() { return currentVersion; }
     }
     public record ListResult(java.util.List<ReportRepository.Summary> items, String nextCursor) { }
+    public record AssignmentPage(ReportRepository.AssignmentCandidates candidates, String nextCursor) { }
+    private static final int ASSIGNMENT_PAGE_SIZE = 25;
+    private static final String ASSIGNMENT_CURSOR = "QA_ASSIGNMENT";
     private final ReportRepository repository; private final ReportCursorSigner cursors; private final Clock clock;
     public ReportService(ReportRepository repository, ReportCursorSigner cursors, Clock clock) { this.repository=repository; this.cursors=cursors; this.clock=clock; }
 
@@ -52,6 +55,25 @@ public final class ReportService {
         var membership = requireMembership(actor, project);
         if (!ReportAccessPolicy.mayList(facts(membership, null))) throw new Failure("FORBIDDEN", 403);
         return repository.detail(actor, project, report).orElseThrow(() -> new Failure("NOT_FOUND", 404));
+    }
+    public AssignmentPage assignmentCandidates(UUID actor, UUID project, UUID report, String cursor) {
+        if (!"QA_REVIEWER".equals(requireMembership(actor, project).role())) throw new Failure("FORBIDDEN", 403);
+        UUID after = null;
+        if (cursor != null) {
+            var decoded = cursors.verify(cursor, actor, project, ASSIGNMENT_CURSOR, report.toString(), clock.instant());
+            if (decoded == null) throw new Failure("INVALID_CURSOR", 400);
+            after = decoded.lastId();
+        }
+        var page = repository.assignmentCandidates(actor, project, report, after, ASSIGNMENT_PAGE_SIZE);
+        String next = page.hasMore() ? cursors.issue(new ReportCursorSigner.Cursor(
+                actor, project, ASSIGNMENT_CURSOR, report.toString(), Instant.EPOCH,
+                page.items().getLast(), clock.millis())) : null;
+        return new AssignmentPage(page, next);
+    }
+
+    public ReportRepository.Assignment changeAssignment(UUID actor, UUID project, UUID report, UUID developer,
+                                                         String reason, int version, UUID requestId) {
+        return repository.changeAssignment(actor, project, report, developer, reason, version, requestId, clock.instant());
     }
     public ReportRepository.Membership reporterContext(UUID actor, UUID project) {
         var membership = requireMembership(actor, project);
