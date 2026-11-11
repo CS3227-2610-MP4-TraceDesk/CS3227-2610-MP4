@@ -73,6 +73,20 @@ public record ReportData(String title, String description, String environment,
         return out.toByteArray();
     }
 
+    public static boolean validAssignmentReason(String reason, boolean required) {
+        if (reason == null) return !required;
+        if (hasUnpairedSurrogate(reason) || reason.codePointCount(0, reason.length()) > 500
+                || reason.getBytes(StandardCharsets.UTF_8).length > 2000) return false;
+        boolean nonblank = false;
+        for (int offset = 0; offset < reason.length();) {
+            int cp = reason.codePointAt(offset);
+            if (Character.isISOControl(cp) && cp != '\t' && cp != '\n' && cp != '\r') return false;
+            if (!Character.isWhitespace(cp) && !Character.isSpaceChar(cp)) nonblank = true;
+            offset += Character.charCount(cp);
+        }
+        return nonblank || !required;
+    }
+
     public byte[] sha256() {
         try { return MessageDigest.getInstance("SHA-256").digest(canonicalJson()); }
         catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }

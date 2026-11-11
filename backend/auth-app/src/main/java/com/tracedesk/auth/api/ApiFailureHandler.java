@@ -52,7 +52,7 @@ public class ApiFailureHandler {
     @ExceptionHandler(Exception.class)
     ResponseEntity<?> unexpected(Exception ignored) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); }
 
-    private static boolean isReportRoute(String path) { return path.matches("/api/projects/[^/]+/(reports(?:/[^/]+)?|reporter-context)"); }
+    private static boolean isReportRoute(String path) { return path.matches("/api/projects/[^/]+/(reports(?:/[^/]+(?:/assignment)?)?|reporter-context)"); }
     private static boolean isInvestigationRoute(String path) { return path.matches("/api/projects/[^/]+/(developer-context|reports/[^/]+/(investigation/start|resolutions|notes(?:/[^/]+)?))"); }
     private static String investigationRoute(String path) {
         if(path.endsWith("/developer-context")) return "/api/projects/{projectId}/developer-context";
@@ -63,7 +63,7 @@ public class ApiFailureHandler {
     }
     private static String reportRoute(String path) {
         if(path.endsWith("/reporter-context")) return "/api/projects/{projectId}/reporter-context";
-        return path.matches(".*/reports/[^/]+$") ? "/api/projects/{projectId}/reports/{reportId}" : "/api/projects/{projectId}/reports";
+        return path.matches(".*/reports/[^/]+(?:/assignment)?$") ? "/api/projects/{projectId}/reports/{reportId}" : "/api/projects/{projectId}/reports";
     }
     private static UUID canonicalProject(String path) {
         try { String raw=path.substring("/api/projects/".length(),path.length()-"/join".length()); UUID id=UUID.fromString(raw); return id.toString().equals(raw)?id:null; }

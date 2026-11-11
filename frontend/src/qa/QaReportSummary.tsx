@@ -4,8 +4,9 @@ import { Code } from '@openai/apps-sdk-ui/components/Icon'
 import { DeveloperApiError, fetchResolutions, type ProposedResolution } from '../developer/developerApi'
 import { QaReviewSummary } from '../preview/qa/QaReviewSummary'
 import type { QaBug } from '../preview/qa/qaFixtures'
-import { fetchReport, ReportApiError, type ReportDetail, type ReportStatus } from '../reports/reportApi'
+import { fetchReport, ReportApiError, type AssignmentResult, type ReportDetail, type ReportStatus } from '../reports/reportApi'
 import { QaAiPanel } from './QaAiPanel'
+import { QaAssignment } from './QaAssignment'
 import { Disclosure } from '../shared/Disclosure'
 
 const statuses: Record<ReportStatus, QaBug['status']> = {
@@ -31,10 +32,11 @@ async function readResolutionHistory(projectId: string, reportId: string, signal
   return resolutions.sort((left, right) => right.revision - left.revision)
 }
 
-export function QaReportSummary({ project, reportId, onSessionExpired }: {
+export function QaReportSummary({ project, reportId, onSessionExpired, onAssignmentConfirmed }: {
   project: { id: string; name: string }
   reportId: string
   onSessionExpired: () => void
+  onAssignmentConfirmed: (reportId: string, result: AssignmentResult) => void
 }) {
   const [detail, setDetail] = useState<{ report: ReportDetail; resolutions: ProposedResolution[] } | null>(null)
   const [error, setError] = useState<'failed' | 'denied' | null>(null)
@@ -48,13 +50,19 @@ export function QaReportSummary({ project, reportId, onSessionExpired }: {
       fetchReport(project.id, reportId, controller.signal),
       readResolutionHistory(project.id, reportId, controller.signal),
     ]).then(([report, resolutions]) => {
-      if (!controller.signal.aborted) setDetail({ report, resolutions })
+      if (!controller.signal.aborted) {
+        setDetail(current => current && current.report.version > report.version ? current : { report, resolutions })
+        setError(null)
+      }
     }, failure => {
       if (controller.signal.aborted) return
       controller.abort()
       const status = failure instanceof ReportApiError || failure instanceof DeveloperApiError ? failure.status : 0
       if (status === 401) onSessionExpired()
-      else setError([403, 404].includes(status) ? 'denied' : 'failed')
+      else if ([403, 404].includes(status)) {
+        setDetail(null)
+        setError('denied')
+      } else setError('failed')
     })
     return () => controller.abort()
   }, [project.id, reportId, reload, onSessionExpired])
@@ -70,6 +78,16 @@ export function QaReportSummary({ project, reportId, onSessionExpired }: {
   </section>
 
   const { report, resolutions } = detail
+  function refreshAssignment(confirmed?: AssignmentResult) {
+    setAiOpen(false)
+    setError(null)
+    if (confirmed) {
+      setDetail(current => current && { ...current, report: { ...current.report, ...confirmed } })
+      onAssignmentConfirmed(reportId, confirmed)
+    }
+    setReload(value => value + 1)
+  }
+
   return <section className="qa-authenticated-summary" aria-label="Bug review">
     <div className="qa-review-toolbar">
       <span className="qa-summary-label">Summary</span>
@@ -78,6 +96,10 @@ export function QaReportSummary({ project, reportId, onSessionExpired }: {
           onClick={() => setAiOpen(open => !open)}>Review with AI</Button>
       )}
     </div>
+    {error === 'failed' && <div className="qa-page-controls">
+      <p role="alert">Could not refresh the bug summary.</p>
+      <Button type="button" color="secondary" variant="outline" onClick={() => refreshAssignment()}>Retry summary refresh</Button>
+    </div>}
     <div className={aiOpen ? 'qa-ai-layout' : undefined}>
     {aiOpen && <QaAiPanel projectId={project.id} reportId={report.id} version={report.version}
       onSessionExpired={onSessionExpired}
@@ -88,7 +110,10 @@ export function QaReportSummary({ project, reportId, onSessionExpired }: {
       lastActivity: report.updatedAt, expected: report.expectedBehavior, actual: report.actualBehavior,
       steps: report.reproductionSteps, logs: report.textLogs, checks: [], entries: [],
     }} description={report.description} environment={report.environment}
-      resolution={<section className="qa-summary-fix qa-resolution-history" aria-label="Developer resolutions">
+      resolution={<>
+      <QaAssignment projectId={project.id} reportId={report.id} assignedDeveloperId={report.assignedDeveloperId}
+        reportVersion={report.version} closed={report.status === 'CLOSED'} onSessionExpired={onSessionExpired} onRefresh={refreshAssignment} />
+      <section className="qa-summary-fix qa-resolution-history" aria-label="Developer resolutions">
         <h2><Code aria-hidden="true" /> Developer resolutions</h2>
         {!resolutions.length && <p className="muted">No proposed resolution was recorded.</p>}
         {resolutions.map(resolution => <Disclosure key={resolution.id} className="qa-activity-row"
@@ -100,7 +125,7 @@ export function QaReportSummary({ project, reportId, onSessionExpired }: {
             {resolution.fixReference && <><dt>Fix reference</dt><dd>{resolution.fixReference}</dd></>}
           </dl>
         </Disclosure>)}
-      </section>}
+      </section></>}
     />
     </div>
   </section>

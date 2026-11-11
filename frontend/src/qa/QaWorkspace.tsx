@@ -13,6 +13,9 @@ import '../preview/workspace-preview.css'
 import './qa-workspace.css'
 
 const items = [{ id: 'verification', label: 'Verification', icon: <Check /> }]
+const statusLabels: Record<ReportSummary['status'], 'Open' | 'Investigating' | 'Ready for QA' | 'Closed'> = {
+  OPEN: 'Open', IN_PROGRESS: 'Investigating', READY_FOR_QA: 'Ready for QA', CLOSED: 'Closed',
+}
 
 type QaWorkspaceProps = {
   project: { id: string; name: string }
@@ -29,6 +32,7 @@ export function QaWorkspace({
   project, theme, onThemeChange, onSessionExpired, onSignOut, onChooseWorkspace, signingOut, signOutError,
 }: QaWorkspaceProps) {
   const [area, setArea] = useState('verification')
+  const [destination, setDestination] = useState<'awaiting' | 'all'>('awaiting')
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState('')
   const [reports, setReports] = useState<ReportSummary[]>([])
@@ -39,9 +43,9 @@ export function QaWorkspace({
 
   useEffect(() => {
     const controller = new AbortController()
-    void fetchReports(project.id, 'READY_FOR_QA', cursor, controller.signal).then(page => {
+    void fetchReports(project.id, destination === 'awaiting' ? 'READY_FOR_QA' : '', cursor, controller.signal).then(page => {
       if (controller.signal.aborted) return
-      const ready = page.items.filter(report => report.status === 'READY_FOR_QA')
+      const ready = destination === 'awaiting' ? page.items.filter(report => report.status === 'READY_FOR_QA') : page.items
       setReports(current => cursor
         ? [...current, ...ready.filter(report => !current.some(item => item.id === report.id))]
         : ready)
@@ -61,19 +65,31 @@ export function QaWorkspace({
       }
     })
     return () => controller.abort()
-  }, [project.id, cursor, reload, onSessionExpired])
+  }, [project.id, cursor, destination, reload, onSessionExpired])
 
   const selected = reports.find(report => report.id === selectedId)
   const bugs = reports.map(report => ({
-    id: report.id, title: report.title, status: 'Ready for QA' as const, lastActivity: report.updatedAt,
+    id: report.id, title: report.title, status: statusLabels[report.status], lastActivity: report.updatedAt,
   }))
   const matching = bugs.filter(bug => matchesBugSearch(bug, search))
   const settings = area === 'settings'
+  const queueName = destination === 'all' ? 'All bugs' : 'Awaiting verification'
+
+  function selectDestination(next: typeof destination) {
+    setSelectedId('')
+    if (destination === next) return
+    setDestination(next)
+    setSearch('')
+    setReports([])
+    setNextCursor(null)
+    setCursor(null)
+    setState('loading')
+  }
 
   const pageControls = <div className="qa-page-controls">
     {state === 'loading' && <p role="status">Loading reports…</p>}
     {state === 'failed' && <>
-      <p role="alert">Could not load reports awaiting verification.</p>
+      <p role="alert">{destination === 'all' ? 'Could not load project bugs.' : 'Could not load reports awaiting verification.'}</p>
       <Button color="secondary" variant="outline" onClick={() => {
         setState('loading')
         setReload(value => value + 1)
@@ -88,7 +104,7 @@ export function QaWorkspace({
   return <AppShell items={items} activeId={area} onSelect={setArea}
     headerContent={<div className="qa-bug-header">
       {selected && !settings && <Button color="secondary" variant="ghost" uniform
-        aria-label="Back to verification queue" onClick={() => setSelectedId('')}><ArrowLeft /></Button>}
+        aria-label={destination === 'all' ? 'Back to all bugs' : 'Back to verification queue'} onClick={() => setSelectedId('')}><ArrowLeft /></Button>}
       <Folder aria-hidden="true" />
       <span>{!settings && selected ? selected.title : project.name}</span>
     </div>}
@@ -100,7 +116,11 @@ export function QaWorkspace({
             aria-label="Search review queue" placeholder="Search bugs" value={search}
             onChange={event => setSearch(event.target.value)} />
         </div>
-        <SidebarGroup title="Awaiting verification">
+        <SidebarItem label="Awaiting verification" icon={<Check />} selected={!selectedId && destination === 'awaiting'}
+          onSelect={() => { selectDestination('awaiting'); dismiss() }} />
+        <SidebarItem label="All bugs" icon={<Bug />} selected={!selectedId && destination === 'all'}
+          onSelect={() => { selectDestination('all'); dismiss() }} />
+        <SidebarGroup title={queueName}>
           {matching.map(bug => <SidebarItem key={bug.id} label={bug.title} icon={<Bug />}
             selected={selectedId === bug.id} onSelect={() => { setSelectedId(bug.id); dismiss() }} />)}
         </SidebarGroup>
@@ -126,10 +146,12 @@ export function QaWorkspace({
         <Button color="secondary" variant="outline" onClick={onChooseWorkspace}>Choose another project</Button>
       </section> : reports.length || state === 'ready' ? (
         <QaQueue items={bugs} search={search} onSearch={setSearch} onOpenBug={setSelectedId}
-          hidden={Boolean(selected)} awaitingOnly footer={pageControls} />
-      ) : <section className="qa-queue-view"><h1>Verification</h1>{pageControls}</section>}
+          hidden={Boolean(selected)} awaitingOnly allBugs={destination === 'all'} footer={pageControls} />
+      ) : <section className="qa-queue-view"><h1>{destination === 'all' ? queueName : 'Verification'}</h1>{pageControls}</section>}
       {selected && <QaReportSummary key={selected.id} project={project} reportId={selected.id}
-        onSessionExpired={onSessionExpired} />}
+        onSessionExpired={onSessionExpired} onAssignmentConfirmed={(id, result) => {
+          setReports(current => current.map(report => report.id === id && result.version > report.version ? { ...report, ...result } : report))
+        }} />}
     </>}
   </AppShell>
 }

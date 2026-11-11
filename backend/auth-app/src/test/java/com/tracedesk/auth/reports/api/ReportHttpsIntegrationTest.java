@@ -361,6 +361,9 @@ class ReportHttpsIntegrationTest {
                 assertEquals(keysBeforeFailure + 1, sql.queryForObject("select count(*) from td_report_idempotency", Integer.class));
                 assertEquals(auditsBeforeFailure + 1, sql.queryForObject("select count(*) from td_business_audit_events", Integer.class));
 
+                String assignmentPath = reports + "/" + parse(retryAfterRestore.body()).path("id").asText() + "/assignment";
+                verifyAssignmentApi(base, assignmentPath, qa, developer, foreignReporter, fixture, canaries);
+
                 // Error-event attribution must not invalidate session state before CSRF succeeds.
                 String otherSession = sql.queryForObject("select primary_id from spring_session where principal_name=?",
                         String.class, fixture.otherReporterId().toString());
@@ -390,6 +393,39 @@ class ReportHttpsIntegrationTest {
             }
         }
         for (String canary : canaries) assertFalse(output.getAll().contains(canary), "logs must not contain report text or auth canaries");
+    }
+
+    private void verifyAssignmentApi(URI base, String path, Session qa, Session developer, Session foreign,
+                                     Fixture fixture, List<String> canaries) throws Exception {
+        var candidates = request(qa, base, "GET", path, null, null);
+        assertEquals(200, candidates.statusCode());
+        var page = parse(candidates.body());
+        assertEquals(Set.of("assignedDeveloperId", "assignmentEligible", "version", "items", "nextCursor"),
+                Set.copyOf(onlyKeys(page)));
+        assertEquals(1, page.path("items").size());
+        assertEquals(Set.of("id"), Set.copyOf(onlyKeys(page.path("items").get(0))));
+        assertEquals(fixture.developerId().toString(), page.path("items").get(0).path("id").asText());
+        assertEquals(403, request(developer, base, "GET", path, null, null).statusCode());
+        assertEquals(404, request(foreign, base, "GET", path, null, null).statusCode());
+
+        String assign = json.writeValueAsString(Map.of("developerId", fixture.developerId(), "expectedVersion", 1));
+        assertEquals("CSRF_INVALID", errorCode(requestWithoutCsrf(qa, base, "PATCH", path, assign, null)));
+        assertEquals("FORBIDDEN", errorCode(request(developer, base, "PATCH", path, assign, null)));
+        String forged = json.writeValueAsString(Map.of("developerId", fixture.developerId(), "expectedVersion", 1, "status", "CLOSED"));
+        assertEquals("INVALID_REQUEST", errorCode(request(qa, base, "PATCH", path, forged, null)));
+        var assigned = request(qa, base, "PATCH", path, assign, null);
+        assertEquals(200, assigned.statusCode());
+        assertEquals(Set.of("assignedDeveloperId", "version", "updatedAt"), Set.copyOf(onlyKeys(parse(assigned.body()))));
+        assertEquals(2, parse(assigned.body()).path("version").asInt());
+        assertEquals("STALE_VERSION", errorCode(request(qa, base, "PATCH", path, assign, null)));
+        assertEquals("VALIDATION_ERROR", errorCode(request(qa, base, "PATCH", path, "{\"expectedVersion\":2}", null)));
+        String reason = "assignment-reason-private-canary";
+        canaries.add(reason);
+        var cleared = request(qa, base, "PATCH", path,
+                json.writeValueAsString(Map.of("expectedVersion", 2, "reason", reason)), null);
+        assertEquals(200, cleared.statusCode());
+        assertTrue(parse(cleared.body()).path("assignedDeveloperId").isNull());
+        assertFalse(cleared.body().contains(reason));
     }
 
     private Fixture seed(JdbcTemplate sql) {

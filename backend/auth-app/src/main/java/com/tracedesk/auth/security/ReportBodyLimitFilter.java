@@ -21,10 +21,11 @@ public final class ReportBodyLimitFilter extends OncePerRequestFilter {
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
         String method=request.getMethod(),path=request.getRequestURI();
         return !("POST".equals(method)&&path.matches("/api/projects/[^/]+/(reports|drafts|drafts/[^/]+/submit|(reports|drafts)/[^/]+/(suggestions|qa-suggestions))"))
-                && !("PATCH".equals(method)&&path.matches("/api/projects/[^/]+/(reports/[^/]+|drafts/[^/]+)"));
+                && !("PATCH".equals(method)&&path.matches("/api/projects/[^/]+/(reports/[^/]+(?:/assignment)?|drafts/[^/]+)"));
     }
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
-        int limit = request.getRequestURI().endsWith("suggestions") ? 8192 : LIMIT;
+        String path = request.getRequestURI();
+        int limit = path.endsWith("suggestions") || path.endsWith("/assignment") ? 8192 : LIMIT;
         byte[] body = request.getInputStream().readNBytes(limit + 1);
         if (body.length > limit) {
             try {
@@ -38,7 +39,7 @@ public final class ReportBodyLimitFilter extends OncePerRequestFilter {
     private static String routeTemplate(HttpServletRequest request) {
         String path=request.getRequestURI();
         if(path.endsWith("suggestions")) return path.contains("/drafts/") ? "/api/projects/{projectId}/drafts/{draftId}" : "/api/projects/{projectId}/reports/{reportId}";
-        if(path.matches("/api/projects/[^/]+/reports/[^/]+")) return "/api/projects/{projectId}/reports/{reportId}";
+        if(path.matches("/api/projects/[^/]+/reports/[^/]+(?:/assignment)?")) return "/api/projects/{projectId}/reports/{reportId}";
         if(path.matches("/api/projects/[^/]+/drafts/[^/]+/submit")) return "/api/projects/{projectId}/drafts/{draftId}/submit";
         if(path.matches("/api/projects/[^/]+/drafts/[^/]+")) return "/api/projects/{projectId}/drafts/{draftId}";
         if(path.matches("/api/projects/[^/]+/drafts")) return "/api/projects/{projectId}/drafts";
