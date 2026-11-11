@@ -1,0 +1,22 @@
+<section id="takeaways" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:48px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">What I will do differently</h2>
+<div style="display:flex;flex-direction:column;gap:0px">
+<div style="display:flex;gap:40px;align-items:baseline;border-top:2px solid #1B2430;padding:28px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;font-weight:700;color:#C8692B;width:220px">Change</p>
+<p style="font-size:36px;line-height:1.35">Stop giving a fixed reading list by default. Left free, the agent read 17–28 files, not all 98 linked docs.</p>
+</div>
+<div style="display:flex;gap:40px;align-items:baseline;border-top:2px solid #1B2430;padding:28px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;font-weight:700;color:#C8692B;width:220px">Add</p>
+<p style="font-size:36px;line-height:1.35">Ask agents to read in batches and run tests once. Steps cost tokens, files mostly don’t.</p>
+</div>
+<div style="display:flex;gap:40px;align-items:baseline;border-top:2px solid #1B2430;padding:28px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;font-weight:700;color:#2F6FB0;width:220px">Keep</p>
+<p style="font-size:36px;line-height:1.35">A blind, read-only checker for work with a detailed spec.</p>
+</div>
+<div style="display:flex;gap:40px;align-items:baseline;border-top:2px solid #1B2430;border-bottom:2px solid #1B2430;padding:28px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;font-weight:700;color:#C8692B;width:220px">Add</p>
+<p style="font-size:36px;line-height:1.35">Tests for the two problems the checker found, so the tests catch them next time.</p>
+</div>
+</div>
+<aside>So what did I learn about context? I expected the short list to give cheaper code. It didn't. It was only a bit cheaper when the spec covered everything, it missed a rule once, and in job 3 it cost more. When the agent could choose, it did not read everything. It read between 17 and 28 files per job, not the 98 documents that are linked from my rules. What really drove the token count was the number of steps, because each step sends the whole conversation again. So I'll stop giving a fixed list by default, and instead ask agents to read in batches and avoid running the tests over and over. I'll keep the blind checker for spec-heavy work, and add tests for the two problems it found. The feature code I kept passes all 55 tests.</aside>
+</section>

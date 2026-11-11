@@ -1,0 +1,20 @@
+<section id="feature" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:44px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">The feature: AI suggestions for the developer</h2>
+<p style="font-size:32px;line-height:1.4;color:#4A5568;width:1500px">TraceDesk is a bug tracker. When a developer is working on a bug, they can ask the AI for possible causes and next steps. The AI only gives advice. It cannot change the bug report.</p>
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#EAE8E1;border-radius:16px;padding:24px"><p style="font-size:24px;line-height:1.3">Developer picks what to send</p></div>
+<x-shape kind="arrow-right" style="background:#9AA6B2;width:40px;height:20px"></x-shape>
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:3px solid #2F6FB0;border-radius:16px;padding:24px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#2F6FB0">Job 3</p><p style="font-size:24px;line-height:1.3">Permission checks</p></div>
+<x-shape kind="arrow-right" style="background:#9AA6B2;width:40px;height:20px"></x-shape>
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:3px solid #2F6FB0;border-radius:16px;padding:24px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#2F6FB0">Job 2</p><p style="font-size:24px;line-height:1.3">Build what is sent</p></div>
+<x-shape kind="arrow-right" style="background:#9AA6B2;width:40px;height:20px"></x-shape>
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#EAE8E1;border-radius:16px;padding:24px"><p style="font-size:24px;line-height:1.3">Shared AI gateway calls the AI</p></div>
+<x-shape kind="arrow-right" style="background:#9AA6B2;width:40px;height:20px"></x-shape>
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:3px solid #2F6FB0;border-radius:16px;padding:24px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#2F6FB0">Job 1</p><p style="font-size:24px;line-height:1.3">Check the AI’s reply</p></div>
+<x-shape kind="arrow-right" style="background:#9AA6B2;width:40px;height:20px"></x-shape>
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#EAE8E1;border-radius:16px;padding:24px"><p style="font-size:24px;line-height:1.3">Preview; developer may edit and save as a note</p></div>
+</div>
+<p style="font-size:28px;line-height:1.4;color:#4A5568">The three boxes in blue are the core I built in this experiment. Permission checks also run again before sending and before showing the result.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7179">Spec: workflow/specs/developer-ai.md. Not built yet: the web endpoint, the screen, and saving as a note.</p>
+<aside>First, the feature I was building. TraceDesk is a bug tracker with three roles: reporter, developer and QA. My part is the developer side. This feature lets the developer who is assigned to a bug ask an AI for possible causes and next steps. The developer chooses which parts of the report go to the AI, for example the description, the logs or their own notes. The AI's answer is only advice: it cannot change the report or its status. If the developer likes a suggestion, they can edit it and save it as a private note. The three blue boxes are the core pieces I built during this experiment: the permission checks, building what is sent, and checking the AI's reply. The permission checks actually run three times: before anything is selected, before sending, and before showing the result, so if someone is removed from the bug mid-request, they don't get the answer. The web endpoint and the screen are the next step.</aside>
+</section>

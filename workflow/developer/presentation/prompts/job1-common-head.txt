@@ -1,0 +1,14 @@
+Implement one small piece of the DEV-AI feature in this repository.
+
+Job: make `InvestigationAiOutput.parse(String completion, Set<String> sentLabels)` in
+backend/auth-app/src/main/java/com/tracedesk/auth/investigation/ai/InvestigationAiOutput.java
+validate the AI model's reply exactly as the DEV-AI spec ("Model output" section) requires.
+The tests in InvestigationAiOutputTest.java define the expected API and error type.
+
+Rules:
+- Change only main code needed for this job. Do not edit any test file. Do not touch
+  InvestigationAiAccess or InvestigationAiContext.
+- Follow the spec, not just the tests: the tests are not complete.
+- Stay inside this folder. No .env files, no credentials, no network calls to AI providers.
+- Do not commit.
+

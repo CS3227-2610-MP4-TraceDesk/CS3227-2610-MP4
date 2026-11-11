@@ -1,0 +1,37 @@
+<section id="hiddentests" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:36px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">The 14 hidden tests</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:28px">
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:32px">
+<h3 style="font-size:30px;font-weight:600">Job 1 · Reply</h3>
+<ul style="font-size:24px;line-height:1.35;color:#4A5568">
+<li>Same key twice → reject</li>
+<li>300 emoji count as 300, not 600</li>
+<li>Control characters → reject</li>
+<li>Broken emoji half → reject</li>
+<li>Spaces and accents kept exactly</li>
+</ul>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:32px">
+<h3 style="font-size:30px;font-weight:600">Job 2 · What is sent</h3>
+<ul style="font-size:24px;line-height:1.35;color:#4A5568">
+<li>Fields in spec order, not request order</li>
+<li>Notes with same time sorted by id</li>
+<li>Instruction under 1500 bytes</li>
+<li>8000-byte limit counts bytes, not letters</li>
+<li>Edited note detected as out of date</li>
+</ul>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:32px">
+<h3 style="font-size:30px;font-weight:600">Job 3 · Permissions</h3>
+<ul style="font-size:24px;line-height:1.35;color:#4A5568">
+<li>Wrong developer refused before notes are read</li>
+<li>“Not allowed” beats “AI is off”</li>
+<li>Reassigned mid-request → not sent</li>
+<li>Second check re-reads the database</li>
+</ul>
+</div>
+</div>
+<p style="font-size:28px;line-height:1.4;color:#4A5568">Kept in a folder outside the repo. Copied in only after a writer finished. Every version passed all 14.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7179">Source: dev-ai-test-cases.md (cases V07 V11 V15 V17 V21, C02 C05 C09 C12 C13, A05 A11 A14 A16).</p>
+<aside>These are the 14 tests the agents never saw. They check the small rules in the spec that are easy to miss, like counting emoji correctly, or refusing the wrong developer before reading any notes. I kept them in a folder outside the repository, and only copied them in after an agent had finished, then removed them again. I also searched every agent's command log afterwards, and none of them looked in that folder. In the end every version passed all 14, so the hidden tests did not separate A and B. The one bug that did, in job 1, was something none of my tests checked.</aside>
+</section>

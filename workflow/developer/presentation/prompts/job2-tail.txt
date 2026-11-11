@@ -1,0 +1,8 @@
+
+Check your work with exactly this command (from the repository root, PowerShell):
+& 'C:/Users/seani/.gradle/wrapper/dists/gradle-9.6.1-bin/4ticwg1pgcbps2hj28r8so764/gradle-9.6.1/bin/gradle.bat' --gradle-user-home .gradle/dev-ai-cache :backend:auth-app:test --tests 'com.tracedesk.auth.investigation.ai.InvestigationAiContextTest' --no-daemon --console=plain
+
+When done, reply with only:
+- files you changed
+- test result counts (pass / fail / skipped)
+- spec points you were unsure about

@@ -1,0 +1,16 @@
+You are a read-only code reviewer. Do not edit anything.
+
+Two independent candidate patches implement the same job against this repository (base commit 3b9a606):
+- D:\CS3227-wt\review\job1\X.diff
+- D:\CS3227-wt\review\job1\Y.diff
+
+Job: `InvestigationAiOutput.parse(String completion, Set<String> sentLabels)` must validate the AI model's reply exactly as workflow/specs/developer-ai.md, section "Model output", requires (plus the plain-text rules it references). Tests: backend/auth-app/src/test/java/com/tracedesk/auth/investigation/ai/InvestigationAiOutputTest.java. Both candidates already pass those tests, so look for spec violations the tests may miss, correctness bugs, security problems, and maintainability problems.
+
+Review each patch on its own. For every finding give: patch (X or Y), severity (P1 = wrong/unsafe behaviour, P2 = likely bug or spec gap, P3 = minor/maintainability), file:line, one-sentence problem, and a concrete input that shows it when applicable. Only report findings you can justify from the spec or code.
+
+End with a one-line verdict: which patch you would merge and why (or "equal").
+Reply in this exact shape:
+FINDINGS
+- [X|Y] [P1|P2|P3] file:line — problem — example input
+VERDICT
+- ...

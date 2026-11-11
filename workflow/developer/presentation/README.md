@@ -1,5 +1,9 @@
 # Developer presentation evidence plan
 
+**To present:** open [deck/present.html](deck/present.html) (press `N` for notes) or
+[the PDF](deck/less-context-same-code.pdf); read along with the [script](script.md).
+The online deck is https://claude.ai/artifact/GHMTv6S2Bds6PGDhhKSFGC.
+
 The final presentation is individual. Build slides from verified project artifacts,
 not reconstructed memories or template files.
 

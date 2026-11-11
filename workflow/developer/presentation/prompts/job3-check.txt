@@ -1,0 +1,16 @@
+You are a read-only code reviewer. Do not edit anything.
+
+Two independent candidate patches implement the same job against this repository (base commit 0b5af0e):
+- D:\CS3227-wt\review\job3\X.diff
+- D:\CS3227-wt\review\job3\Y.diff
+
+Job: `InvestigationAiAccess` (constructor, `suggest`, `authorize`, `close`) must run the permission checks exactly as workflow/specs/developer-ai.md requires: "Authorization and integration" (checks 1-5, called before context selection, before dispatch and before delivery, from fresh reads; denial before admission means zero selection, reservation and provider calls; delivery denial still settles) and the "Errors" table (codes and their precedence, fixed messages). Tests: backend/auth-app/src/test/java/com/tracedesk/auth/investigation/ai/InvestigationAiAccessTest.java. Both candidates pass the same tests; both fail a17 only because of a known test-fixture defect, so ignore a17. Look for spec violations the tests may miss, correctness bugs, security problems (authorization bypass, information leaks, stale permissions), concurrency/resource problems and maintainability problems.
+
+Review each patch on its own. For every finding give: patch (X or Y), severity (P1 = wrong/unsafe behaviour, P2 = likely bug or spec gap, P3 = minor/maintainability), file:line, one-sentence problem, and a concrete scenario that shows it when applicable. Only report findings you can justify from the spec or code.
+
+End with a one-line verdict: which patch you would merge and why (or "equal").
+Reply in this exact shape:
+FINDINGS
+- [X|Y] [P1|P2|P3] file:line — problem — example scenario
+VERDICT
+- ...

@@ -1,0 +1,27 @@
+Implement one small piece of the DEV-AI feature in this repository.
+
+Job: implement `InvestigationAiAccess` (constructor, `suggest`, `authorize`, `close`) in
+backend/auth-app/src/main/java/com/tracedesk/auth/investigation/ai/InvestigationAiAccess.java
+so the permission checks run exactly as the DEV-AI spec requires: "Authorization and
+integration" (checks 1-5, called before context selection, before dispatch and before
+delivery, from fresh reads) and the "Errors" table (codes and their order). It uses the
+existing InvestigationAiContext and InvestigationAiOutput, which are already implemented.
+The tests in InvestigationAiAccessTest.java define the expected API and error type.
+
+Rules:
+- Change only main code needed for this job. Do not edit any test file. Do not change
+  InvestigationAiContext or InvestigationAiOutput.
+- Follow the spec, not just the tests: the tests are not complete.
+- Stay inside this folder. No .env files, no credentials, no network calls to AI providers.
+- Do not commit.
+
+Context: read whatever files in this repository you judge relevant.
+
+The tests need the local isolated test database that is already running. Check your work
+with exactly this command (from the repository root, PowerShell):
+$env:TRACEDESK_TEST_DATABASE_CONFIRM_ISOLATED='true'; $env:TRACEDESK_TEST_JDBC_URL='jdbc:postgresql://127.0.0.1:55437/tracedesk_dev_ai_test'; $env:TRACEDESK_TEST_DATABASE_USER='tracedesk_test'; $env:TRACEDESK_TEST_DATABASE_PASSWORD='<redacted>'; & 'C:/Users/seani/.gradle/wrapper/dists/gradle-9.6.1-bin/4ticwg1pgcbps2hj28r8so764/gradle-9.6.1/bin/gradle.bat' --gradle-user-home .gradle/dev-ai-cache :backend:auth-app:test --tests 'com.tracedesk.auth.investigation.ai.InvestigationAiAccessTest' --no-daemon --console=plain
+
+When done, reply with only:
+- files you changed
+- test result counts (pass / fail / skipped)
+- spec points you were unsure about

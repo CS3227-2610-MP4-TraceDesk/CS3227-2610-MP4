@@ -1,0 +1,20 @@
+<section id="checker" data-transition="fade" style="background:#1B2430;color:#F6F5F1;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#E09A5C">The checker</p>
+<h2 style="font-size:64px;font-weight:600;line-height:1.15;color:#F6F5F1">The checker found 2 problems the tests missed</h2>
+<div style="display:flex;gap:40px">
+<div style="flex:1;display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:96px;font-weight:700;color:#E09A5C">0.68M</p>
+<p style="font-size:32px;line-height:1.4;color:#C9D2DC">input tokens for all 3 reviews together</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:96px;font-weight:700;color:#E09A5C">⅓</p>
+<p style="font-size:32px;line-height:1.4;color:#C9D2DC">of a writer run’s tokens, per review on average</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:96px;font-weight:700;color:#E09A5C">2</p>
+<p style="font-size:32px;line-height:1.4;color:#C9D2DC">real problems: the blank-text bug, and a wrong error code</p>
+</div>
+</div>
+<p style="font-size:32px;line-height:1.4;color:#C9D2DC">I think it was worth it here: a small extra cost for problems no test caught.</p>
+<aside>For the second question, the three reviews together used about 680 thousand input tokens. On average, one review cost about a third of one writer run. They found two real problems that no test caught. One was the blank-text bug from job 1. The other was in job 3: if the database fails while usage is being recorded, the user sees "AI unavailable" instead of "service unavailable", which the spec does not allow. I checked each finding myself before counting it.</aside>
+</section>

@@ -1,0 +1,13 @@
+<section id="results" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">Results: A and B passed the same tests</h2>
+<table style="font-size:30px;color:#1B2430">
+<tr><th style="width:28%;text-align:left">Job</th><th style="width:18%;text-align:right">A focused, input</th><th style="width:18%;text-align:right">B broad, input</th><th style="width:36%;text-align:left">What differed</th></tr>
+<tr><td>1 · Check the reply</td><td style="text-align:right">324K</td><td style="text-align:right">400K</td><td>A missed one spec rule</td></tr>
+<tr style="background:#EAE8E1"><td>2 · Build what is sent</td><td style="text-align:right">338K</td><td style="text-align:right">456K</td><td>Nothing, same quality</td></tr>
+<tr><td>3 · Permission checks</td><td style="text-align:right">1,510K</td><td style="text-align:right">807K</td><td>A took 40 steps, B took 11</td></tr>
+<tr style="background:#EAE8E1"><td><b>Total</b></td><td style="text-align:right"><b>2,172K</b></td><td style="text-align:right"><b>1,662K</b></td><td><b>A used 31% more</b></td></tr>
+</table>
+<p style="font-size:32px;line-height:1.4;color:#4A5568">Both versions also passed all 14 hidden tests, so the tests could not tell them apart.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7179">Input tokens per writer run, from Codex’s JSON usage report; 84–97% of input was cache reads. Source: runs.md, measurements.jsonl.</p>
+<aside>Here are all three jobs in one table. In every job, both versions passed the same tests, including the 14 hidden ones. So the tests could not show which version was better. What I didn't expect was the total. A, the focused agent, used 31 percent more input tokens overall, and almost all of that came from job 3. Also, most of these input tokens are cache reads, which means the agent re-reading its own conversation, the same thing I found in my last update.</aside>
+</section>

@@ -1,0 +1,15 @@
+<section id="question" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:56px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">Two questions</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
+<div style="display:flex;flex-direction:column;gap:20px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#2F6FB0">Context · Lecture 9</p>
+<h3 style="font-size:44px;font-weight:600;line-height:1.2">If the agent reads less, is the code worse or just cheaper?</h3>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#C8692B">Checker · Lecture 8</p>
+<h3 style="font-size:44px;font-weight:600;line-height:1.2">Does a reviewer agent find enough to pay for itself?</h3>
+</div>
+</div>
+<p style="font-size:32px;line-height:1.4;color:#4A5568">I judged both by results: tests passed, bugs found, time taken. Not by how many tokens were used.</p>
+<aside>The first question is about context. My project rules tell the agent to read only what is relevant. Before, I measured that the files DEV-AI needs are about 14 times smaller than everything linked from the rules. But a smaller set only helps if the code is still correct. The second question is about the checker, which is the generator and verifier idea from Lecture 8. A reviewer agent costs tokens, so I wanted to see if it finds anything the tests miss. For both, I looked at results, not just token counts, because Lecture 9 says token counts alone don't tell you if it was worth it.</aside>
+</section>

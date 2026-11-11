@@ -1,0 +1,36 @@
+Implement one small piece of the DEV-AI feature in this repository.
+
+Job: make `InvestigationAiContext` (constructor and `build(Actor, Request)`) in
+backend/auth-app/src/main/java/com/tracedesk/auth/investigation/ai/InvestigationAiContext.java
+build the context sent to the AI exactly as the DEV-AI spec requires ("Context selection",
+including the size ceiling, and check 5 of "Authorization and integration": versions are
+checked on the values actually read). The tests in InvestigationAiContextTest.java define
+the expected API and error type.
+
+Rules:
+- Change only main code needed for this job. Do not edit any test file. Do not touch
+  InvestigationAiAccess or InvestigationAiOutput.
+- Follow the spec, not just the tests: the tests are not complete.
+- Stay inside this folder. No .env files, no credentials, no network calls to AI providers.
+- Do not commit.
+
+Context: read ONLY these files, and nothing else except Java types you must open to compile against (types referenced by these files):
+- AGENTS.md
+- .agents/skills/tracedesk-spec-development/SKILL.md
+- .agents/skills/tracedesk-ai-integration/SKILL.md
+- workflow/specs/developer-ai.md
+- workflow/specs/secured-ai-gateway.md
+- workflow/decisions/002-shared-role-contracts.md
+- docs/ai-policy.md
+- backend/auth-app/src/main/java/com/tracedesk/auth/investigation/ai/InvestigationAiContext.java
+- backend/auth-app/src/main/java/com/tracedesk/auth/investigation/ai/InvestigationAiSource.java
+- backend/auth-app/src/main/java/com/tracedesk/auth/investigation/ai/InvestigationAiSelection.java
+- backend/auth-app/src/test/java/com/tracedesk/auth/investigation/ai/InvestigationAiContextTest.java
+
+Check your work with exactly this command (from the repository root, PowerShell):
+& 'C:/Users/seani/.gradle/wrapper/dists/gradle-9.6.1-bin/4ticwg1pgcbps2hj28r8so764/gradle-9.6.1/bin/gradle.bat' --gradle-user-home .gradle/dev-ai-cache :backend:auth-app:test --tests 'com.tracedesk.auth.investigation.ai.InvestigationAiContextTest' --no-daemon --console=plain
+
+When done, reply with only:
+- files you changed
+- test result counts (pass / fail / skipped)
+- spec points you were unsure about

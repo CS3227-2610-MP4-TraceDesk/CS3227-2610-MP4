@@ -1,0 +1,16 @@
+You are a read-only code reviewer. Do not edit anything.
+
+Two independent candidate patches implement the same job against this repository (base commit 3b9a606):
+- D:\CS3227-wt\review\job2\X.diff
+- D:\CS3227-wt\review\job2\Y.diff
+
+Job: `InvestigationAiContext` (constructor and `build(Actor, Request)`) must build the AI context exactly as workflow/specs/developer-ai.md requires: section "Context selection" (selected keys only, order, note refs, exact text, JSON shape, instruction rules, size ceiling) and check 5 of "Authorization and integration" (versions checked on the values actually read).
+
+Review each patch on its own. For every finding give: patch (X or Y), severity (P1 = wrong/unsafe behaviour, P2 = likely bug or spec gap, P3 = minor/maintainability), file:line, one-sentence problem, and a concrete input that shows it when applicable. Only report findings you can justify from the spec or code.
+
+End with a one-line verdict: which patch you would merge and why (or "equal").
+Reply in this exact shape:
+FINDINGS
+- [X|Y] [P1|P2|P3] file:line — problem — example input
+VERDICT
+- ...

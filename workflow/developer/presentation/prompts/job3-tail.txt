@@ -1,0 +1,9 @@
+
+The tests need the local isolated test database that is already running. Check your work
+with exactly this command (from the repository root, PowerShell):
+$env:TRACEDESK_TEST_DATABASE_CONFIRM_ISOLATED='true'; $env:TRACEDESK_TEST_JDBC_URL='jdbc:postgresql://127.0.0.1:55437/tracedesk_dev_ai_test'; $env:TRACEDESK_TEST_DATABASE_USER='tracedesk_test'; $env:TRACEDESK_TEST_DATABASE_PASSWORD='<redacted>'; & 'C:/Users/seani/.gradle/wrapper/dists/gradle-9.6.1-bin/4ticwg1pgcbps2hj28r8so764/gradle-9.6.1/bin/gradle.bat' --gradle-user-home .gradle/dev-ai-cache :backend:auth-app:test --tests 'com.tracedesk.auth.investigation.ai.InvestigationAiAccessTest' --no-daemon --console=plain
+
+When done, reply with only:
+- files you changed
+- test result counts (pass / fail / skipped)
+- spec points you were unsure about

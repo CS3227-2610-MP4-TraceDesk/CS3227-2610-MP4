@@ -21,9 +21,11 @@ not "TD-DEV-27"). The user found earlier answers bloated; keep it tight.
 
 ## What exists already (all uncommitted on `feat/dev-ai-31-spec`)
 
-- Slide deck (9 slides, speaker notes = script), rebuilt 2026-11-11 around the
+- Slide deck (13 slides, speaker notes = script), rebuilt 2026-11-11 around the
   experiment: https://claude.ai/artifact/GHMTv6S2Bds6PGDhhKSFGC — "Less context, same code?"
   The earlier deck (BVCGhuLebgbaAGzy2YYtii) was deleted at the user's request.
+  A copy of the source, an offline presenter and a PDF are in [deck/](deck/README.md);
+  the exact experiment prompts are in [prompts/](prompts/README.md).
 - [script.md](script.md), [storyline.md](storyline.md).
 - [presentation-measurements.md](../evidence/presentation-measurements.md): M1–M5.
 - [presentation_measurements.py](../tools/presentation_measurements.py): reproduces

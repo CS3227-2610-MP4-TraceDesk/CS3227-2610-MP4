@@ -1,0 +1,18 @@
+<section id="missed" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#2F6FB0">Job 1 · Check the AI’s reply</p>
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">A missed a rule that was written in a file not on its list</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:44px">
+<h3 style="font-size:40px;font-weight:600;color:#2F6FB0">A, focused</h3>
+<p style="font-size:32px;line-height:1.4">Counted a reply made only of non-breaking spaces as real text.</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">"nextSteps": [" "] → accepted</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:44px">
+<h3 style="font-size:40px;font-weight:600;color:#C8692B">B, broad</h3>
+<p style="font-size:32px;line-height:1.4">Found the Reporter spec, where “blank” is defined, and the existing code for it.</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">"nextSteps": [" "] → rejected</p>
+</div>
+</div>
+<p style="font-size:32px;line-height:1.4;color:#4A5568">None of the 55 tests checked this. A was 19% cheaper but had one spec bug.</p>
+<aside>Job 1 shows where a short list can go wrong. The DEV-AI spec says text in the AI's reply cannot be blank, but it doesn't say what counts as blank. That is defined in another file, the Reporter spec, and in some existing helper code. A's list came from an earlier measurement, where I picked by hand the files DEV-AI needs, and the Reporter spec was not on it. So A used Java's normal isBlank check, which lets a non-breaking space through. B found the Reporter spec by itself and used the same rule as the existing code. None of my tests covered this case. The checker found it, and I confirmed it against the spec.</aside>
+</section>

@@ -1,0 +1,14 @@
+Context: read ONLY these files, and nothing else except Java types you must open to compile against (types referenced by these files):
+- AGENTS.md
+- .agents/skills/tracedesk-spec-development/SKILL.md
+- .agents/skills/tracedesk-ai-integration/SKILL.md
+- workflow/specs/developer-ai.md
+- workflow/specs/secured-ai-gateway.md
+- workflow/decisions/002-shared-role-contracts.md
+- docs/ai-policy.md
+- backend/auth-app/src/main/java/com/tracedesk/auth/investigation/ai/InvestigationAiAccess.java
+- backend/auth-app/src/main/java/com/tracedesk/auth/investigation/ai/InvestigationAiSource.java
+- backend/auth-app/src/main/java/com/tracedesk/auth/investigation/ai/InvestigationAiSelection.java
+- backend/auth-app/src/main/java/com/tracedesk/auth/investigation/ai/InvestigationAiContext.java
+- backend/auth-app/src/main/java/com/tracedesk/auth/investigation/ai/InvestigationAiOutput.java
+- backend/auth-app/src/test/java/com/tracedesk/auth/investigation/ai/InvestigationAiAccessTest.java

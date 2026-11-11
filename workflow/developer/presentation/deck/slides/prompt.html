@@ -1,0 +1,23 @@
+<section id="prompt" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:36px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">The prompts were the same except one line</h2>
+<div style="display:flex;flex-direction:column;gap:12px;background:#EAE8E1;border-radius:16px;padding:32px">
+<h3 style="font-size:30px;font-weight:600">Same for both</h3>
+<p style="font-size:26px;line-height:1.4;color:#4A5568">What to build · which test file defines it · “Follow the spec, not just the tests” · don’t edit tests · stay in this folder · don’t commit · the exact test command</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;gap:24px;align-items:baseline">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;color:#2F6FB0;width:150px">A</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.4;width:1490px">Context: read ONLY these files, and nothing else except Java types you must open to compile against: [the list]</p>
+</div>
+<div style="display:flex;gap:24px;align-items:baseline">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;color:#C8692B;width:150px">B</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.4;width:1490px">Context: read whatever files in this repository you judge relevant.</p>
+</div>
+<div style="display:flex;gap:24px;align-items:baseline">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;color:#2F6FB0;width:150px">Rerun</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.4;width:1490px">Same as A, plus: (read all of them together in one single command at the start)</p>
+</div>
+</div>
+<p style="font-size:28px;line-height:1.4;color:#4A5568">Both ran as: codex exec --json -m gpt-6.1-sol, effort medium, workspace-write sandbox.</p>
+<aside>To keep it fair, the two prompts were the same apart from one line. Both said what to build, which test file defines it, to follow the spec and not just the tests, not to edit tests, to stay in their own folder, not to commit, and the exact command to run the tests. The only difference is the context line you can see here. For the rerun of job 3 I added one more instruction to A's line, to read the whole list in one command. Everything ran through the Codex command line with the same model and effort.</aside>
+</section>

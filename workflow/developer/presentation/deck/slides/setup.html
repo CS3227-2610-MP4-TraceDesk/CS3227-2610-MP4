@@ -1,0 +1,23 @@
+<section id="setup" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:48px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">How I ran it</h2>
+<div style="display:flex;gap:24px;align-items:stretch">
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#EAE8E1;border-radius:16px;padding:36px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">1 · Tests first</p>
+<p style="font-size:30px;line-height:1.35">55 tests from the spec. Agents saw 41. I kept 14 outside the repo.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#EAE8E1;border-radius:16px;padding:36px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">2 · Three jobs</p>
+<p style="font-size:30px;line-height:1.35">Check the AI’s reply. Build what is sent. Permission checks.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#EAE8E1;border-radius:16px;padding:36px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">3 · Two writers</p>
+<p style="font-size:30px;line-height:1.35"><span style="color:#2F6FB0"><b>A</b></span>: 7 set docs. <span style="color:#C8692B"><b>B</b></span>: any file. Same time, separate folders.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#EAE8E1;border-radius:16px;padding:36px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">4 · Blind check</p>
+<p style="font-size:30px;line-height:1.35">A read-only agent reviews both, labelled X and Y.</p>
+</div>
+</div>
+<p style="font-size:32px;line-height:1.4;color:#4A5568">Kept the same: model, effort, starting commit, and the prompt except for one line. Token counts come from Codex itself.</p>
+<aside>I used Claude Code to plan the tests and launch the runs, and Codex wrote all the code. First, the tests. I turned the spec into 55 test cases before any code existed. The agents could see 41 of them. I kept 14 in a folder outside the repository, to check whether the code follows the spec and not just the tests it can see. Then I split the feature into three small jobs. For each job, two Codex agents started from the same commit, at the same time, each in its own git worktree so they could not see each other's work. Agent A was only allowed to read seven set documents plus the job's own files. Agent B could read anything. Their prompts were the same except for that one line. Finally a third agent, which could not edit anything, reviewed both versions labelled X and Y, so it did not know which was which. I ran everything from the Codex command line, which reports exact token counts.</aside>
+</section>

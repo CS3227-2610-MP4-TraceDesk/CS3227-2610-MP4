@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Less context, same code?</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#111;overflow:hidden}
+#stage{position:absolute;width:1920px;height:1080px;left:50%;top:50%;transform-origin:center}
+.slide{position:absolute;inset:0;display:none}
+.slide.on{display:block}
+.slide>section{position:absolute;inset:0;width:1920px;height:1080px}
+table{border-collapse:collapse;width:100%} th,td{padding:14px 16px;border-bottom:1px solid #DAD7CE}
+ul,ol{padding-left:1.2em}
+#notes{position:fixed;left:0;right:0;bottom:0;max-height:40%;overflow:auto;background:rgba(0,0,0,.88);color:#eee;font:20px/1.5 'IBM Plex Sans',Arial,sans-serif;padding:20px 28px;display:none}
+#num{position:fixed;right:16px;bottom:10px;color:#888;font:14px monospace}
+@page{size:1920px 1080px;margin:0}
+@media print{html,body{height:auto;overflow:visible;background:none}#stage{position:static;transform:none!important;width:1920px;height:auto}.slide{display:block!important;position:relative;width:1920px;height:1080px;break-after:page;overflow:hidden}#notes,#num{display:none!important}}
+</style></head><body>
+<div id="stage"><div class="slide" data-note="In my last update I only looked back at how I had used tokens, so nothing was really tested. This time I ran an experiment. I wanted to know two things. If I give the agent fewer files to read, do I get worse code or just cheaper code? And is it worth paying for a second agent to review the code? I did this on real work, the core of my DEV-AI feature, and the code I kept from these runs is now the feature code."><section id="cover" data-transition="fade" style="background:#1B2430;color:#F6F5F1;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center;gap:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;color:#E09A5C">TraceDesk · DEV-AI · Developer role</p>
+<h1 style="font-size:120px;font-weight:600;line-height:1.05;color:#F6F5F1">Less context,<br>same code?</h1>
+<p style="font-size:40px;line-height:1.4;color:#C9D2DC;width:1300px">I gave two coding agents the same jobs. One could only read a short list of files, the other could read anything. A third agent then reviewed both without knowing which was which.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1200px;font-size:24px;color:#9AA6B2">3 jobs · one pair each · GPT-6.1 Sol, medium effort · run 10–11 Nov 2026</p>
+
+</section>
+</div>
+<div class="slide" data-note="First, the feature I was building. TraceDesk is a bug tracker with three roles: reporter, developer and QA. My part is the developer side. This feature lets the developer who is assigned to a bug ask an AI for possible causes and next steps. The developer chooses which parts of the report go to the AI, for example the description, the logs or their own notes. The AI&#x27;s answer is only advice: it cannot change the report or its status. If the developer likes a suggestion, they can edit it and save it as a private note. The three blue boxes are the core pieces I built during this experiment: the permission checks, building what is sent, and checking the AI&#x27;s reply. The permission checks actually run three times: before anything is selected, before sending, and before showing the result, so if someone is removed from the bug mid-request, they don&#x27;t get the answer. The web endpoint and the screen are the next step."><section id="feature" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:44px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">The feature: AI suggestions for the developer</h2>
+<p style="font-size:32px;line-height:1.4;color:#4A5568;width:1500px">TraceDesk is a bug tracker. When a developer is working on a bug, they can ask the AI for possible causes and next steps. The AI only gives advice. It cannot change the bug report.</p>
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#EAE8E1;border-radius:16px;padding:24px"><p style="font-size:24px;line-height:1.3">Developer picks what to send</p></div>
+<x-shape kind="arrow-right" style="background:#9AA6B2;width:40px;height:20px"></x-shape>
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:3px solid #2F6FB0;border-radius:16px;padding:24px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#2F6FB0">Job 3</p><p style="font-size:24px;line-height:1.3">Permission checks</p></div>
+<x-shape kind="arrow-right" style="background:#9AA6B2;width:40px;height:20px"></x-shape>
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:3px solid #2F6FB0;border-radius:16px;padding:24px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#2F6FB0">Job 2</p><p style="font-size:24px;line-height:1.3">Build what is sent</p></div>
+<x-shape kind="arrow-right" style="background:#9AA6B2;width:40px;height:20px"></x-shape>
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#EAE8E1;border-radius:16px;padding:24px"><p style="font-size:24px;line-height:1.3">Shared AI gateway calls the AI</p></div>
+<x-shape kind="arrow-right" style="background:#9AA6B2;width:40px;height:20px"></x-shape>
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:3px solid #2F6FB0;border-radius:16px;padding:24px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#2F6FB0">Job 1</p><p style="font-size:24px;line-height:1.3">Check the AI’s reply</p></div>
+<x-shape kind="arrow-right" style="background:#9AA6B2;width:40px;height:20px"></x-shape>
+<div style="width:220px;display:flex;flex-direction:column;gap:8px;background:#EAE8E1;border-radius:16px;padding:24px"><p style="font-size:24px;line-height:1.3">Preview; developer may edit and save as a note</p></div>
+</div>
+<p style="font-size:28px;line-height:1.4;color:#4A5568">The three boxes in blue are the core I built in this experiment. Permission checks also run again before sending and before showing the result.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7179">Spec: workflow/specs/developer-ai.md. Not built yet: the web endpoint, the screen, and saving as a note.</p>
+
+</section>
+</div>
+<div class="slide" data-note="The first question is about context. My project rules tell the agent to read only what is relevant. Before, I measured that the files DEV-AI needs are about 14 times smaller than everything linked from the rules. But a smaller set only helps if the code is still correct. The second question is about the checker, which is the generator and verifier idea from Lecture 8. A reviewer agent costs tokens, so I wanted to see if it finds anything the tests miss. For both, I looked at results, not just token counts, because Lecture 9 says token counts alone don&#x27;t tell you if it was worth it."><section id="question" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:56px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">Two questions</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
+<div style="display:flex;flex-direction:column;gap:20px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#2F6FB0">Context · Lecture 9</p>
+<h3 style="font-size:44px;font-weight:600;line-height:1.2">If the agent reads less, is the code worse or just cheaper?</h3>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#C8692B">Checker · Lecture 8</p>
+<h3 style="font-size:44px;font-weight:600;line-height:1.2">Does a reviewer agent find enough to pay for itself?</h3>
+</div>
+</div>
+<p style="font-size:32px;line-height:1.4;color:#4A5568">I judged both by results: tests passed, bugs found, time taken. Not by how many tokens were used.</p>
+
+</section>
+</div>
+<div class="slide" data-note="I used Claude Code to plan the tests and launch the runs, and Codex wrote all the code. First, the tests. I turned the spec into 55 test cases before any code existed. The agents could see 41 of them. I kept 14 in a folder outside the repository, to check whether the code follows the spec and not just the tests it can see. Then I split the feature into three small jobs. For each job, two Codex agents started from the same commit, at the same time, each in its own git worktree so they could not see each other&#x27;s work. Agent A was only allowed to read seven set documents plus the job&#x27;s own files. Agent B could read anything. Their prompts were the same except for that one line. Finally a third agent, which could not edit anything, reviewed both versions labelled X and Y, so it did not know which was which. I ran everything from the Codex command line, which reports exact token counts."><section id="setup" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:48px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">How I ran it</h2>
+<div style="display:flex;gap:24px;align-items:stretch">
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#EAE8E1;border-radius:16px;padding:36px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">1 · Tests first</p>
+<p style="font-size:30px;line-height:1.35">55 tests from the spec. Agents saw 41. I kept 14 outside the repo.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#EAE8E1;border-radius:16px;padding:36px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">2 · Three jobs</p>
+<p style="font-size:30px;line-height:1.35">Check the AI’s reply. Build what is sent. Permission checks.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#EAE8E1;border-radius:16px;padding:36px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">3 · Two writers</p>
+<p style="font-size:30px;line-height:1.35"><span style="color:#2F6FB0"><b>A</b></span>: 7 set docs. <span style="color:#C8692B"><b>B</b></span>: any file. Same time, separate folders.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#EAE8E1;border-radius:16px;padding:36px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">4 · Blind check</p>
+<p style="font-size:30px;line-height:1.35">A read-only agent reviews both, labelled X and Y.</p>
+</div>
+</div>
+<p style="font-size:32px;line-height:1.4;color:#4A5568">Kept the same: model, effort, starting commit, and the prompt except for one line. Token counts come from Codex itself.</p>
+
+</section>
+</div>
+<div class="slide" data-note="This is the exact list agent A was given. These seven documents are the set I picked by hand for DEV-AI in my earlier measurement, about ten thousand tokens. I reused it as it was, without checking it again, because I wanted to test the kind of list I would really use. For each job, A could also open that job&#x27;s starter class and test file, and any Java type it needed so the code compiles. The important thing is what is missing. The Reporter spec is where the project defines what counts as blank text, and it is not on this list. That is where job 1&#x27;s bug came from."><section id="readinglist" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">What A was allowed to read</h2>
+<div style="display:grid;grid-template-columns:3fr 2fr;gap:48px">
+<table style="font-size:26px;color:#1B2430">
+<tr><th style="width:52%;text-align:left">File</th><th style="width:48%;text-align:left">What it is</th></tr>
+<tr><td style="font-family:'JetBrains Mono', 'Courier New', monospace">AGENTS.md</td><td>Project rules</td></tr>
+<tr style="background:#EAE8E1"><td style="font-family:'JetBrains Mono', 'Courier New', monospace">spec-development skill</td><td>How to build from a spec</td></tr>
+<tr><td style="font-family:'JetBrains Mono', 'Courier New', monospace">ai-integration skill</td><td>How to work on AI code</td></tr>
+<tr style="background:#EAE8E1"><td style="font-family:'JetBrains Mono', 'Courier New', monospace">developer-ai.md</td><td>The DEV-AI spec</td></tr>
+<tr><td style="font-family:'JetBrains Mono', 'Courier New', monospace">secured-ai-gateway.md</td><td>Shared AI gateway spec</td></tr>
+<tr style="background:#EAE8E1"><td style="font-family:'JetBrains Mono', 'Courier New', monospace">ADR 002</td><td>Shared role contracts</td></tr>
+<tr><td style="font-family:'JetBrains Mono', 'Courier New', monospace">ai-policy.md</td><td>Rules for AI features</td></tr>
+</table>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:32px">
+<h3 style="font-size:32px;font-weight:600">Plus, per job</h3>
+<p style="font-size:26px;line-height:1.4;color:#4A5568">That job’s starter class and test file, and any Java type needed to compile.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:32px">
+<h3 style="font-size:32px;font-weight:600;color:#C8692B">Not on the list</h3>
+<p style="font-size:26px;line-height:1.4;color:#4A5568">reporter-reports.md, which defines what “blank” text means. Job 1’s bug came from this gap.</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7179">The 7 docs are the set I picked by hand for DEV-AI in my earlier token measurement (9,848 tokens). Reused unchanged.</p>
+
+</section>
+</div>
+<div class="slide" data-note="These are the 14 tests the agents never saw. They check the small rules in the spec that are easy to miss, like counting emoji correctly, or refusing the wrong developer before reading any notes. I kept them in a folder outside the repository, and only copied them in after an agent had finished, then removed them again. I also searched every agent&#x27;s command log afterwards, and none of them looked in that folder. In the end every version passed all 14, so the hidden tests did not separate A and B. The one bug that did, in job 1, was something none of my tests checked."><section id="hiddentests" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:36px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">The 14 hidden tests</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:28px">
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:32px">
+<h3 style="font-size:30px;font-weight:600">Job 1 · Reply</h3>
+<ul style="font-size:24px;line-height:1.35;color:#4A5568">
+<li>Same key twice → reject</li>
+<li>300 emoji count as 300, not 600</li>
+<li>Control characters → reject</li>
+<li>Broken emoji half → reject</li>
+<li>Spaces and accents kept exactly</li>
+</ul>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:32px">
+<h3 style="font-size:30px;font-weight:600">Job 2 · What is sent</h3>
+<ul style="font-size:24px;line-height:1.35;color:#4A5568">
+<li>Fields in spec order, not request order</li>
+<li>Notes with same time sorted by id</li>
+<li>Instruction under 1500 bytes</li>
+<li>8000-byte limit counts bytes, not letters</li>
+<li>Edited note detected as out of date</li>
+</ul>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:32px">
+<h3 style="font-size:30px;font-weight:600">Job 3 · Permissions</h3>
+<ul style="font-size:24px;line-height:1.35;color:#4A5568">
+<li>Wrong developer refused before notes are read</li>
+<li>“Not allowed” beats “AI is off”</li>
+<li>Reassigned mid-request → not sent</li>
+<li>Second check re-reads the database</li>
+</ul>
+</div>
+</div>
+<p style="font-size:28px;line-height:1.4;color:#4A5568">Kept in a folder outside the repo. Copied in only after a writer finished. Every version passed all 14.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7179">Source: dev-ai-test-cases.md (cases V07 V11 V15 V17 V21, C02 C05 C09 C12 C13, A05 A11 A14 A16).</p>
+
+</section>
+</div>
+<div class="slide" data-note="To keep it fair, the two prompts were the same apart from one line. Both said what to build, which test file defines it, to follow the spec and not just the tests, not to edit tests, to stay in their own folder, not to commit, and the exact command to run the tests. The only difference is the context line you can see here. For the rerun of job 3 I added one more instruction to A&#x27;s line, to read the whole list in one command. Everything ran through the Codex command line with the same model and effort."><section id="prompt" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:36px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">The prompts were the same except one line</h2>
+<div style="display:flex;flex-direction:column;gap:12px;background:#EAE8E1;border-radius:16px;padding:32px">
+<h3 style="font-size:30px;font-weight:600">Same for both</h3>
+<p style="font-size:26px;line-height:1.4;color:#4A5568">What to build · which test file defines it · “Follow the spec, not just the tests” · don’t edit tests · stay in this folder · don’t commit · the exact test command</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;gap:24px;align-items:baseline">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;color:#2F6FB0;width:150px">A</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.4;width:1490px">Context: read ONLY these files, and nothing else except Java types you must open to compile against: [the list]</p>
+</div>
+<div style="display:flex;gap:24px;align-items:baseline">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;color:#C8692B;width:150px">B</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.4;width:1490px">Context: read whatever files in this repository you judge relevant.</p>
+</div>
+<div style="display:flex;gap:24px;align-items:baseline">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;color:#2F6FB0;width:150px">Rerun</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.4;width:1490px">Same as A, plus: (read all of them together in one single command at the start)</p>
+</div>
+</div>
+<p style="font-size:28px;line-height:1.4;color:#4A5568">Both ran as: codex exec --json -m gpt-6.1-sol, effort medium, workspace-write sandbox.</p>
+
+</section>
+</div>
+<div class="slide" data-note="Here are all three jobs in one table. In every job, both versions passed the same tests, including the 14 hidden ones. So the tests could not show which version was better. What I didn&#x27;t expect was the total. A, the focused agent, used 31 percent more input tokens overall, and almost all of that came from job 3. Also, most of these input tokens are cache reads, which means the agent re-reading its own conversation, the same thing I found in my last update."><section id="results" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">Results: A and B passed the same tests</h2>
+<table style="font-size:30px;color:#1B2430">
+<tr><th style="width:28%;text-align:left">Job</th><th style="width:18%;text-align:right">A focused, input</th><th style="width:18%;text-align:right">B broad, input</th><th style="width:36%;text-align:left">What differed</th></tr>
+<tr><td>1 · Check the reply</td><td style="text-align:right">324K</td><td style="text-align:right">400K</td><td>A missed one spec rule</td></tr>
+<tr style="background:#EAE8E1"><td>2 · Build what is sent</td><td style="text-align:right">338K</td><td style="text-align:right">456K</td><td>Nothing, same quality</td></tr>
+<tr><td>3 · Permission checks</td><td style="text-align:right">1,510K</td><td style="text-align:right">807K</td><td>A took 40 steps, B took 11</td></tr>
+<tr style="background:#EAE8E1"><td><b>Total</b></td><td style="text-align:right"><b>2,172K</b></td><td style="text-align:right"><b>1,662K</b></td><td><b>A used 31% more</b></td></tr>
+</table>
+<p style="font-size:32px;line-height:1.4;color:#4A5568">Both versions also passed all 14 hidden tests, so the tests could not tell them apart.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7179">Input tokens per writer run, from Codex’s JSON usage report; 84–97% of input was cache reads. Source: runs.md, measurements.jsonl.</p>
+
+</section>
+</div>
+<div class="slide" data-note="Job 1 shows where a short list can go wrong. The DEV-AI spec says text in the AI&#x27;s reply cannot be blank, but it doesn&#x27;t say what counts as blank. That is defined in another file, the Reporter spec, and in some existing helper code. A&#x27;s list came from an earlier measurement, where I picked by hand the files DEV-AI needs, and the Reporter spec was not on it. So A used Java&#x27;s normal isBlank check, which lets a non-breaking space through. B found the Reporter spec by itself and used the same rule as the existing code. None of my tests covered this case. The checker found it, and I confirmed it against the spec."><section id="missed" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#2F6FB0">Job 1 · Check the AI’s reply</p>
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">A missed a rule that was written in a file not on its list</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:44px">
+<h3 style="font-size:40px;font-weight:600;color:#2F6FB0">A, focused</h3>
+<p style="font-size:32px;line-height:1.4">Counted a reply made only of non-breaking spaces as real text.</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">"nextSteps": [" "] → accepted</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:44px">
+<h3 style="font-size:40px;font-weight:600;color:#C8692B">B, broad</h3>
+<p style="font-size:32px;line-height:1.4">Found the Reporter spec, where “blank” is defined, and the existing code for it.</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#4A5568">"nextSteps": [" "] → rejected</p>
+</div>
+</div>
+<p style="font-size:32px;line-height:1.4;color:#4A5568">None of the 55 tests checked this. A was 19% cheaper but had one spec bug.</p>
+
+</section>
+</div>
+<div class="slide" data-note="Job 3 surprised me, because the focused agent used almost twice as many tokens as the broad one. The reason is the number of steps. Every time an agent runs a command, the whole conversation so far is sent to the model again, so more steps means more tokens. A read its files one at a time, which took 40 steps. To check if that was the cause, I reran A with the same list but told it to read everything in one go. It dropped to 12 steps and 1.13 million tokens, so the reading pattern explains about half the gap. It was still 40 percent more than B, because it loaded the whole list at the start and carried it in every step, even the parts this job did not need."><section id="stuck" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#2F6FB0">Job 3 · Permission checks, plus one rerun</p>
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">More steps, more tokens: reading one file at a time was half of A’s extra cost</h2>
+<div style="display:flex;gap:32px">
+<div style="flex:1;display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:36px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:72px;font-weight:700;color:#2F6FB0">1.51M</p>
+<p style="font-size:28px;line-height:1.4">A: list, one file per step. 40 steps.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:36px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:72px;font-weight:700;color:#2F6FB0">1.13M</p>
+<p style="font-size:28px;line-height:1.4">A rerun: same list, read in one step. 12 steps.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:1px solid #DAD7CE;border-radius:16px;padding:36px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:72px;font-weight:700;color:#C8692B">0.81M</p>
+<p style="font-size:28px;line-height:1.4">B: chose its own files. 11 steps.</p>
+</div>
+</div>
+<p style="font-size:28px;line-height:1.4;color:#4A5568">Each step sends the whole conversation again. All three passed the same tests. The rerun still cost 40% more than B, because it carried the whole list in every step.</p>
+
+</section>
+</div>
+<div class="slide" data-note="For the second question, the three reviews together used about 680 thousand input tokens. On average, one review cost about a third of one writer run. They found two real problems that no test caught. One was the blank-text bug from job 1. The other was in job 3: if the database fails while usage is being recorded, the user sees &quot;AI unavailable&quot; instead of &quot;service unavailable&quot;, which the spec does not allow. I checked each finding myself before counting it."><section id="checker" data-transition="fade" style="background:#1B2430;color:#F6F5F1;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;color:#E09A5C">The checker</p>
+<h2 style="font-size:64px;font-weight:600;line-height:1.15;color:#F6F5F1">The checker found 2 problems the tests missed</h2>
+<div style="display:flex;gap:40px">
+<div style="flex:1;display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:96px;font-weight:700;color:#E09A5C">0.68M</p>
+<p style="font-size:32px;line-height:1.4;color:#C9D2DC">input tokens for all 3 reviews together</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:96px;font-weight:700;color:#E09A5C">⅓</p>
+<p style="font-size:32px;line-height:1.4;color:#C9D2DC">of a writer run’s tokens, per review on average</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:96px;font-weight:700;color:#E09A5C">2</p>
+<p style="font-size:32px;line-height:1.4;color:#C9D2DC">real problems: the blank-text bug, and a wrong error code</p>
+</div>
+</div>
+<p style="font-size:32px;line-height:1.4;color:#C9D2DC">I think it was worth it here: a small extra cost for problems no test caught.</p>
+
+</section>
+</div>
+<div class="slide" data-note="A few things limit what these results can show. First, I only ran three pairs, once each, so another run might come out differently. Second, I chose A&#x27;s file list myself. If I had added the Reporter spec, A might have got job 1 right, so the result partly tests my list and not just the idea. Third, the checker is the same model as the writers, so it might miss the same things. That&#x27;s why I checked every finding myself. Fourth, A and B ran at the same time on my laptop, so the times are only rough, but that does not change the token counts."><section id="limits" data-transition="fade" style="background:#EAE8E1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:44px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">How careful to be with these results</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:32px 64px">
+<div style="display:flex;flex-direction:column;gap:8px"><h3 style="font-size:36px;font-weight:600">Only 3 pairs, run once each</h3><p style="font-size:30px;line-height:1.4;color:#4A5568">Another run could come out differently. This is what I saw, not a rule.</p></div>
+<div style="display:flex;flex-direction:column;gap:8px"><h3 style="font-size:36px;font-weight:600">I picked A’s file list</h3><p style="font-size:30px;line-height:1.4;color:#4A5568">With the Reporter spec on it, A might have got job 1 right. So it partly tests my list.</p></div>
+<div style="display:flex;flex-direction:column;gap:8px"><h3 style="font-size:36px;font-weight:600">The checker is the same model</h3><p style="font-size:30px;line-height:1.4;color:#4A5568">It may share the writers’ blind spots. I checked every finding by hand.</p></div>
+<div style="display:flex;flex-direction:column;gap:8px"><h3 style="font-size:36px;font-weight:600">Times are rough</h3><p style="font-size:30px;line-height:1.4;color:#4A5568">A and B ran together on my laptop and shared its CPU. Token counts are not affected.</p></div>
+</div>
+</section>
+</div>
+<div class="slide" data-note="So what did I learn about context? I expected the short list to give cheaper code. It didn&#x27;t. It was only a bit cheaper when the spec covered everything, it missed a rule once, and in job 3 it cost more. When the agent could choose, it did not read everything. It read between 17 and 28 files per job, not the 98 documents that are linked from my rules. What really drove the token count was the number of steps, because each step sends the whole conversation again. So I&#x27;ll stop giving a fixed list by default, and instead ask agents to read in batches and avoid running the tests over and over. I&#x27;ll keep the blind checker for spec-heavy work, and add tests for the two problems it found. The feature code I kept passes all 55 tests."><section id="takeaways" data-transition="fade" style="background:#F6F5F1;color:#1B2430;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:48px">
+<h2 style="font-size:64px;font-weight:600;line-height:1.15">What I will do differently</h2>
+<div style="display:flex;flex-direction:column;gap:0px">
+<div style="display:flex;gap:40px;align-items:baseline;border-top:2px solid #1B2430;padding:28px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;font-weight:700;color:#C8692B;width:220px">Change</p>
+<p style="font-size:36px;line-height:1.35">Stop giving a fixed reading list by default. Left free, the agent read 17–28 files, not all 98 linked docs.</p>
+</div>
+<div style="display:flex;gap:40px;align-items:baseline;border-top:2px solid #1B2430;padding:28px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;font-weight:700;color:#C8692B;width:220px">Add</p>
+<p style="font-size:36px;line-height:1.35">Ask agents to read in batches and run tests once. Steps cost tokens, files mostly don’t.</p>
+</div>
+<div style="display:flex;gap:40px;align-items:baseline;border-top:2px solid #1B2430;padding:28px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;font-weight:700;color:#2F6FB0;width:220px">Keep</p>
+<p style="font-size:36px;line-height:1.35">A blind, read-only checker for work with a detailed spec.</p>
+</div>
+<div style="display:flex;gap:40px;align-items:baseline;border-top:2px solid #1B2430;border-bottom:2px solid #1B2430;padding:28px 0px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:32px;font-weight:700;color:#C8692B;width:220px">Add</p>
+<p style="font-size:36px;line-height:1.35">Tests for the two problems the checker found, so the tests catch them next time.</p>
+</div>
+</div>
+
+</section>
+</div></div>
+<div id="notes"></div><div id="num"></div>
+<script>
+const S=[...document.querySelectorAll('.slide')],st=document.getElementById('stage'),N=document.getElementById('notes'),num=document.getElementById('num');
+let i=Math.max(0,Math.min(S.length-1,(parseInt(location.hash.slice(1))||1)-1)),showN=false;
+function fit(){const k=Math.min(innerWidth/1920,innerHeight/1080);st.style.transform=`translate(-50%,-50%) scale(${k})`}
+function go(n){i=Math.max(0,Math.min(S.length-1,n));S.forEach((s,j)=>s.classList.toggle('on',j===i));N.textContent=S[i].dataset.note;N.style.display=showN?'block':'none';num.textContent=(i+1)+' / '+S.length;history.replaceState(null,'','#'+(i+1))}
+addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' '].includes(e.key))go(i+1);else if(['ArrowLeft','PageUp'].includes(e.key))go(i-1);else if(e.key==='Home')go(0);else if(e.key==='End')go(S.length-1);else if(e.key==='n'||e.key==='N'){showN=!showN;go(i)}else if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}});
+addEventListener('click',e=>{if(e.target.closest('#notes'))return;go(e.clientX>innerWidth/2?i+1:i-1)});
+addEventListener('resize',fit);fit();go(i);
+</script></body></html>
