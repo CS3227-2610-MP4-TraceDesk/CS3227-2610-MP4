@@ -9,5 +9,5 @@
 </table>
 <p style="font-size:32px;line-height:1.4;color:#4A5568">Both versions also passed all 14 hidden tests, so the tests could not tell them apart.</p>
 <p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7179">Input tokens per writer run, from Codex’s JSON usage report; 84–97% of input was cache reads. Source: runs.md, measurements.jsonl.</p>
-<aside>Here are all three jobs in one table. In every job, both versions passed the same tests, including the 14 hidden ones. So the tests could not show which version was better. What I didn't expect was the total. A, the focused agent, used 31 percent more input tokens overall, and almost all of that came from job 3. Also, most of these input tokens are cache reads, which means the agent re-reading its own conversation, the same thing I found in my last update.</aside>
+<aside>Here are all three jobs in one table. In every job, both versions passed the same tests, including the 14 hidden ones, so the tests could not show which version was better. What I didn't expect was the total. A, the focused agent, used 31 percent more input tokens overall, and almost all of that came from job 3. Also, most of these input tokens are cache reads: every time the agent takes a step, it sends the whole conversation so far again, and most of that is cached.</aside>
 </section>
