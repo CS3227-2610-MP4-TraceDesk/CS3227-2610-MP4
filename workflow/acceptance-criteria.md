@@ -29,6 +29,7 @@
 | [Authenticated QA queue and Summary](specs/qa-read.md) | TD-QAR-01 through TD-QAR-04 | Issue #50 |
 | [QA review suggestions and follow-up](specs/qa-ai.md) | TD-QAI-01 through TD-QAI-03 | Local signed-in browser and live SoCLaaS evidence in the specification |
 | [QA verification](specs/qa-verification.md) | TD-QAV-01 through TD-QAV-04 | Issue #58 |
+| [QA Developer assignment](specs/qa-assignment.md) | TD-ASG-01 through TD-ASG-05 | Issue #32 verification recorded in [evidence](qa/evidence/qa-assignment.md); PR #62 passed CI and merged |
 
 Add Reporter, Developer, QA and shared gateway specifications as their implementation
 begins. Do not declare unimplemented features accepted because their design is approved.

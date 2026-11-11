@@ -23,6 +23,18 @@ class ReportDataTest {
         assertNotNull(ReportData.validate(new ReportData("a\u0000", "d", "e", "s", "e", "a", "")));
     }
 
+    @Test void validatesAssignmentReasonPresenceUnicodeLengthAndCharacters() {
+        assertTrue(ReportData.validAssignmentReason(null, false));
+        assertFalse(ReportData.validAssignmentReason(null, true));
+        assertTrue(ReportData.validAssignmentReason("\u2003\u3000", false));
+        assertFalse(ReportData.validAssignmentReason("\u2003\u3000", true));
+        assertTrue(ReportData.validAssignmentReason("🙂".repeat(500), true));
+        assertFalse(ReportData.validAssignmentReason("🙂".repeat(501), true));
+        assertFalse(ReportData.validAssignmentReason("reason\u0000", true));
+        assertFalse(ReportData.validAssignmentReason("reason\ud800", true));
+        assertTrue(ReportData.validAssignmentReason("  reason \t\n", true));
+    }
+
     @Test void enforcesTheExactCodePointAndUtf8LimitForEveryField() {
         int[] limits={160,10000,4000,8000,4000,4000,16000};
         for(int field=0;field<limits.length;field++) {

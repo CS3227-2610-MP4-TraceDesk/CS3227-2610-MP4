@@ -34,6 +34,7 @@ begin
       (%s) or
       (event_code in ('QA_VERIFICATION_SAVED','QA_VERIFICATION_CLOSED','QA_VERIFICATION_SENT_BACK')
         and object_type = 'RESOLUTION' and project_id is not null and report_id is not null and draft_id is null
+        and prior_assignee_id is null and new_assignee_id is null
         and prior_status = 'READY_FOR_QA' and prior_version > 0
         and new_version = prior_version + 1 and resolution_revision > 0
         and new_status = case event_code

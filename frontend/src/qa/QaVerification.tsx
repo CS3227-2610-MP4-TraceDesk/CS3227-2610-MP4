@@ -11,6 +11,7 @@ import '../preview/qa/qa-review-workspace.css'
 type Props = {
   projectId: string
   reportId: string
+  reportVersion: number
   review: Verification | null
   setReview: (review: Verification | null) => void
   busy: boolean
@@ -20,7 +21,7 @@ type Props = {
   onSaved: (review: Verification) => void
 }
 
-export function QaVerification({ projectId, reportId, review, setReview, busy, setBusy,
+export function QaVerification({ projectId, reportId, reportVersion, review, setReview, busy, setBusy,
   onSessionExpired, onSummary, onSaved }: Props) {
   const [saved, setSaved] = useState<Verification | null>(null)
   const [layout, setLayout] = useState<'Board' | 'List'>('Board')
@@ -89,7 +90,8 @@ export function QaVerification({ projectId, reportId, review, setReview, busy, s
     }
   }, [])
 
-  const editable = review?.status === 'READY_FOR_QA' && !busy
+  const stale = Boolean(review && review.version < reportVersion)
+  const editable = review?.status === 'READY_FOR_QA' && !busy && !stale
   const names = review?.checks.map(check => check.title.trim().toLowerCase()) ?? []
   const valid = names.every(Boolean) && new Set(names).size === names.length &&
     (review?.checks.every(check => Array.from(check.title).length <= 300 &&
@@ -107,6 +109,7 @@ export function QaVerification({ projectId, reportId, review, setReview, busy, s
       </SegmentedControl>}
     </div>
     {error && <p role="alert">{error}</p>}
+    {stale && !error && <p role="status">The report changed. Reload verification before saving again.</p>}
     {notice && <p role="status">{notice}</p>}
     {busy && <p role="status">Working…</p>}
     {!review && !busy && <Button color="secondary" variant="outline" onClick={() => void loadOrSave()}>

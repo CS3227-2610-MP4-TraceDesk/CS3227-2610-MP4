@@ -25,6 +25,19 @@
   white-space: pre-wrap;
 }
 
+.qa-developer-assignment,
+.qa-assignment-form,
+.qa-assignment-form > div:has(> label) {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.qa-developer-assignment > p,
+.qa-assignment-form p { padding-inline-start: 0; }
+.qa-developer-assignment > button,
+.qa-assignment-form > button { justify-self: start; }
+
 .qa-authenticated-summary { container-type: inline-size; }
 
 .qa-authenticated-summary > .qa-review-toolbar {
