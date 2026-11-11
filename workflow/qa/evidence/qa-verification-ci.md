@@ -25,7 +25,7 @@ verification references for PR #59 after merge base `7f7563c`.
   committed.
 - Focused backend rerun command:
   `./gradlew :backend:auth-app:test --tests '*ReporterLiveBrowserGuardTest' --tests '*ReportAiQualityFixtureTest' --console=plain`
-  passed 10 tests after the byte restoration.
+  passed 6 tests after the byte restoration.
 - Local real-backend browser run passed all 3 tests.
 
 Remote CI and deployment acceptance are not claimed by this note.
