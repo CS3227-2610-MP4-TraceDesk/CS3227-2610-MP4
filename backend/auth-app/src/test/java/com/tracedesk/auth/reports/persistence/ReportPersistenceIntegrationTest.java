@@ -39,6 +39,11 @@ class ReportPersistenceIntegrationTest {
             var fields = new ReportData("Assignment test", "description", "environment", "steps", "expected", "actual", "");
             UUID report = reports.create(reporter, project, UUID.randomUUID(), fields, UUID.randomUUID(), now).id();
 
+            // Legacy membership roles are snapshots, never authorization authority.
+            sql.update("update td_project_memberships set role='REPORTER' where project_id=? and user_id in (?,?)",
+                    project, qa, first);
+            sql.update("update td_project_memberships set role='DEVELOPER' where project_id=? and user_id=?", project, reporter);
+
             assertEquals(2, reports.assignmentCandidates(qa, project, report, null, 25).items().size());
             var firstPage = reports.assignmentCandidates(qa, project, report, null, 1);
             var lastPage = reports.assignmentCandidates(qa, project, report, firstPage.items().getFirst(), 1);
@@ -157,6 +162,7 @@ class ReportPersistenceIntegrationTest {
 
     private static UUID member(JdbcTemplate sql, UUID project, String label, String role) {
         UUID id = user(sql, "assignment-" + label + "@example.test");
+        sql.update("update td_users set account_role=? where id=?", role, id);
         sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,?,'ACTIVE')",
                 project, id, role);
         return id;

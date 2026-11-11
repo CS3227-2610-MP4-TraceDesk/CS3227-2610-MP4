@@ -35,7 +35,7 @@ public class ReportStore implements ReportRepository {
     }
 
     private static final String ASSIGNMENT_MEMBERSHIP = """
-            select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',m.role
+            select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role
               from td_projects p
               join td_project_memberships m on m.project_id=p.id
               join td_users u on u.id=m.user_id
@@ -44,7 +44,7 @@ public class ReportStore implements ReportRepository {
     private static final String ELIGIBLE_DEVELOPERS = """
             select m.user_id
               from td_project_memberships m join td_users u on u.id=m.user_id
-             where m.project_id=? and m.role='DEVELOPER' and m.state='ACTIVE' and u.enabled
+             where m.project_id=? and u.account_role='DEVELOPER' and m.state='ACTIVE' and u.enabled
             """;
 
     private record AssignmentState(UUID developer, String status, int version) {
