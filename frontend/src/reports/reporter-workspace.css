@@ -95,8 +95,6 @@
 .report-settings-group > h2 { font-size: 16px; font-weight: 600; }
 .report-settings-group > p { font-size: 13px; }
 .report-theme-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
-.report-area-unavailable { margin: 32px auto; }
-.report-area-unavailable > svg { width: 22px; height: 22px; color: var(--td-muted); }
 
 @media (max-width: 700px) {
   .report-gate { padding: 24px 12px 20px; }
@@ -117,7 +115,6 @@
   .report-version-review .report-form-actions { align-items: stretch; flex-direction: column; }
   .report-project-row { align-items: stretch; flex-direction: column; }
   .report-project-row > * { width: 100%; }
-  .report-area-unavailable { margin: 24px 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
