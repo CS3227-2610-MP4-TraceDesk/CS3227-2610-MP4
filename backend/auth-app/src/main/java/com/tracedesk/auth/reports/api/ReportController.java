@@ -20,6 +20,7 @@ import java.util.*;
 public class ReportController {
     private static final String REPORTS = "/api/projects/{projectId}/reports";
     private static final String DETAIL = "/api/projects/{projectId}/reports/{reportId}";
+    private static final String ASSIGNMENT = DETAIL + "/assignment";
     private static final String CONTEXT = "/api/projects/{projectId}/reporter-context";
     private static final String DRAFTS = "/api/projects/{projectId}/drafts";
     private static final String DRAFT = "/api/projects/{projectId}/drafts/{draftId}";
@@ -74,6 +75,58 @@ public class ReportController {
             var m=service.reporterContext(actor,project);
             return ResponseEntity.ok(Map.of("project",Map.of("id",m.projectId(),"name",m.projectName()),"role","REPORTER"));
         } catch(ReportService.Failure f) { return failure(f,CONTEXT,actor,null); }
+    }
+
+    @GetMapping(ASSIGNMENT)
+    public ResponseEntity<?> assignment(@PathVariable String projectId, @PathVariable String reportId,
+                                        @RequestParam(required = false) String cursor, HttpServletRequest request) {
+        UUID project = parseUuid(projectId);
+        UUID report = parseUuid(reportId);
+        validateQuery(request, Set.of("cursor"));
+        UUID actor = TrustedSessionActor.resolve(request, clock);
+        if (actor == null) return denied("UNAUTHENTICATED", DETAIL, 401, null, null, "UNAUTHENTICATED");
+        try {
+            var result = service.assignmentCandidates(actor, project, report, cursor);
+            var page = result.candidates();
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("assignedDeveloperId", page.assignedDeveloperId());
+            response.put("assignmentEligible", page.assignmentEligible());
+            response.put("items", page.items().stream().map(id -> Map.of("id", id)).toList());
+            response.put("nextCursor", result.nextCursor());
+            response.put("version", page.version());
+            return ResponseEntity.ok(response);
+        } catch (ReportService.Failure failure) {
+            return failure(failure, DETAIL, actor, project);
+        }
+    }
+
+    @PatchMapping(ASSIGNMENT)
+    public ResponseEntity<?> changeAssignment(@PathVariable String projectId, @PathVariable String reportId,
+                                              @RequestBody String rawBody, HttpServletRequest request) {
+        UUID project = parseUuid(projectId);
+        UUID report = parseUuid(reportId);
+        validateQuery(request, Set.of());
+        JsonNode body = strictBody(rawBody);
+        int version = expectedVersion(body);
+        if (!Set.of("expectedVersion", "developerId", "reason").containsAll(body.propertyNames())) {
+            throw new ReportService.Failure("INVALID_REQUEST", 400);
+        }
+        JsonNode developerNode = body.get("developerId");
+        JsonNode reasonNode = body.get("reason");
+        if ((developerNode != null && !developerNode.isTextual()) || (reasonNode != null && !reasonNode.isTextual())) {
+            throw new ReportService.Failure("INVALID_REQUEST", 400);
+        }
+        UUID developer = developerNode == null ? null : parseUuid(developerNode.textValue());
+        String reason = reasonNode == null ? null : reasonNode.textValue();
+        if (!csrf(request)) return denied("CSRF_INVALID", DETAIL, 403, trustedActor(request), project, "CSRF_INVALID");
+        UUID actor = TrustedSessionActor.resolve(request, clock);
+        if (actor == null) return denied("UNAUTHENTICATED", DETAIL, 401, null, null, "UNAUTHENTICATED");
+        try {
+            var assignment = service.changeAssignment(actor, project, report, developer, reason, version, UUID.randomUUID());
+            return ResponseEntity.ok(assignment);
+        } catch (ReportService.Failure failure) {
+            return failure(failure, DETAIL, actor, project);
+        }
     }
 
     @PostMapping(DRAFTS)
