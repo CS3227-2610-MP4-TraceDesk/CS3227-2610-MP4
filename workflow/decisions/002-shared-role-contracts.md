@@ -6,9 +6,17 @@ API signatures, schema details, and acceptance tests before implementation.
 
 ## Authentication and authorization
 
+Registration extension (user decision, 2026-11-12): new users may choose exactly
+Reporter, Developer or QA reviewer at account creation, as specified in
+[account registration](../specs/account-registration.md). The server validates
+and persists the initial choice; existing accounts cannot self-change roles.
+Operator-assigned accounts and historical migration rules below remain supported.
+Subsequent authorization always uses trusted persisted role and active membership.
+
+
 - Use server-side sessions. Resolve the authenticated user ID from trusted
   server-side session context, never from a request body or browser-supplied role.
-- Store one operator-assigned role (`REPORTER`, `DEVELOPER`, or `QA_REVIEWER`)
+- Store one server-validated account role (`REPORTER`, `DEVELOPER`, or `QA_REVIEWER`)
   on each account, before project selection. The same account role applies in
   every project. Project membership records project access and state, not a
   source of role authority. For compatibility during migration, an old
@@ -16,9 +24,9 @@ API signatures, schema details, and acceptance tests before implementation.
   routing may read it.
 - Every role operation checks the enabled account's fresh role, active project
   membership, and applicable object-level permission on the server. A role
-  name alone does not grant project or bug access. Role assignment is an
-  operator provisioning responsibility; browser values never assign or change
-  it. A committed role change invalidates all sessions for that user in the
+  name alone does not grant project or bug access. Initial role assignment follows the bounded registration extension above or
+  explicit operator provisioning; no browser role value changes an existing
+  account. A committed role change invalidates all sessions for that user in the
   same transaction.
 - Any enabled authenticated role may create a project and explicitly join an
   enabled project. Creation gives only the creator's ordinary active

@@ -69,6 +69,56 @@ describe('login and server session flow', () => {
     expect(fetchMock.mock.calls[5][0]).toBe('/api/projects?limit=50')
   })
 
+  it('registers with the selected initial role, clears secrets and returns to sign in', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(reply(401, { error: { code: 'UNAUTHENTICATED' } }))
+      .mockResolvedValueOnce(reply(200, { token: 'registration-csrf' }))
+      .mockResolvedValueOnce(reply(201, { registered: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Create account' }))
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new@example.test' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'long-password-123' } })
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'long-password-123' } })
+    fireEvent.change(screen.getByLabelText('Account role'), { target: { value: 'QA_REVIEWER' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByText('Account created. Sign in to continue.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toHaveValue('new@example.test')
+    expect(screen.getByLabelText('Password', { selector: 'input' })).toHaveValue('')
+    expect(fetchMock.mock.calls[2][0]).toBe('/api/session/register')
+    expect(fetchMock.mock.calls[2][1]).toMatchObject({
+      method: 'POST',
+      credentials: 'same-origin',
+      body: JSON.stringify({ login: 'new@example.test', password: 'long-password-123', role: 'QA_REVIEWER' }),
+    })
+    expect(new Headers(fetchMock.mock.calls[2][1]?.headers).get('X-CSRF-TOKEN')).toBe('registration-csrf')
+  })
+
+  it('retries registration once only after a confirmed CSRF rejection', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(reply(401, { error: { code: 'UNAUTHENTICATED' } }))
+      .mockResolvedValueOnce(reply(200, { token: 'stale-csrf' }))
+      .mockResolvedValueOnce(reply(403, { error: { code: 'CSRF_INVALID' } }))
+      .mockResolvedValueOnce(reply(200, { token: 'fresh-csrf' }))
+      .mockResolvedValueOnce(reply(201, { registered: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Create account' }))
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'retry@example.test' } })
+    fireEvent.change(screen.getByLabelText('Password', { selector: 'input' }), { target: { value: 'long-password-123' } })
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'long-password-123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByText('Account created. Sign in to continue.')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.filter(call => call[0] === '/api/session/register')).toHaveLength(2)
+    expect(new Headers(fetchMock.mock.calls[2][1]?.headers).get('X-CSRF-TOKEN')).toBe('stale-csrf')
+    expect(new Headers(fetchMock.mock.calls[4][1]?.headers).get('X-CSRF-TOKEN')).toBe('fresh-csrf')
+  })
+
   it('keeps login available and lets the user retry when session lookup is unavailable', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(reply(503, { error: { code: 'SERVICE_UNAVAILABLE' } }))

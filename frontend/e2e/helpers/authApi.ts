@@ -9,6 +9,7 @@ export type AuthRequest = {
 
 export async function mockAuthApi(page: Page, options: {
   loginStatus?: number
+  registrationStatus?: number
   logoutStatus?: number
   sessionStatuses?: number[]
   workspaces?: { project: { id: string; name: string }; role: 'REPORTER' | 'DEVELOPER' | 'QA_REVIEWER' }[]
@@ -64,6 +65,19 @@ export async function mockAuthApi(page: Page, options: {
         const code = status === 401 ? 'INVALID_CREDENTIALS' : status === 403 ? 'CSRF_INVALID' : 'SERVICE_UNAVAILABLE'
         await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: { code, message: 'Service unavailable' } }) })
       }
+      return
+    }
+
+    if (path === '/api/session/register' && request.method() === 'POST') {
+      const status = options.registrationStatus ?? 201
+      await route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: status === 201 ? '{"registered":true}' : JSON.stringify({ error: {
+          code: status === 409 ? 'ACCOUNT_UNAVAILABLE' : status === 403 ? 'CSRF_INVALID' : 'SERVICE_UNAVAILABLE',
+          message: 'Request failed',
+        } }),
+      })
       return
     }
 

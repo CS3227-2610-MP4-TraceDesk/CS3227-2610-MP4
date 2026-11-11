@@ -10,10 +10,17 @@ provisioning, or broader product work.
 
 ## Goal, actors, and boundary
 
+Extension: [account registration](account-registration.md) now permits new users
+to choose one of the three roles during validated registration, per the user's
+2026-11-12 decision. This supersedes this historical slice's public-registration
+exclusion and operator-only assignment rule for new registered accounts. Existing
+account role changes and authorization remain server-owned.
+
+
 Provide local password sign-in for pre-provisioned synthetic users, a PostgreSQL
 server-side session, current project-membership authorization, and one minimal
 protected project read. A trusted session establishes the user identity. The
-account record establishes the user's one operator-assigned role before
+account record establishes the user's one validated role before
 project selection. The role is constant across projects. Project membership
 establishes access to a project, not the user's role. A role alone never grants
 project access, and no identity, role, or membership claim in the browser is
@@ -22,8 +29,9 @@ authoritative. This updates the original first-slice contract through issue
 the [shared project contract](project-discovery-joining.md).
 
 The only roles are `REPORTER`, `DEVELOPER`, and `QA_REVIEWER`. Each enabled
-account has exactly one role assigned by an operator; there is no browser role
-selection or application role-change API. During the account-role migration,
+account has exactly one role assigned by an operator or validated at initial
+registration. Only the registration form may select an initial role; there is
+no application role-change API for existing accounts. During the account-role migration,
 unambiguous historical membership roles may be backfilled; conflicts and
 accounts with no membership require an explicit reviewed operator mapping. An
 unmapped account cannot log in or use any role/project endpoint. Historical
@@ -39,7 +47,7 @@ membership. Project IDs and users are UUIDs. Project names are nonblank, at most
 120 Unicode code points, and are treated as plain text by clients. This read is
 the whole protected business-data surface of this slice.
 
-Out of scope: public registration, invitations, membership administration,
+Out of scope for the original slice: invitations, membership administration,
 account provisioning, password recovery, SSO, account lockout policy, bug data or
 lifecycle, AI invocation, role UI/journeys, deployment, and production seed data.
 All test users, projects, memberships, and credentials are synthetic fixtures.
@@ -64,7 +72,8 @@ email. Accept 3–254 UTF-8 bytes after normalization, with exactly one `@`, a
 nonempty local and domain part, no control characters or whitespace, and treat a syntactically present but format-invalid or out-of-bounds identifier as invalid credentials, with the exact same public response and session behavior as a bad password. Malformed JSON, missing fields, wrong types, or unknown fields remain request-shape errors. The identifier is
 not returned by any endpoint. Passwords are 12–128 Unicode code points and at
 most 512 UTF-8 bytes; do not trim, normalize, or silently truncate them. A
-synthetic account must be provisioned outside the application API.
+synthetic fixture may be provisioned outside the application API; real new users
+may use the separately specified registration endpoint.
 
 Hash passwords with Argon2id, unique random salt, and at least 19 MiB memory,
 2 iterations, parallelism 1. Store a self-describing encoded hash so parameters

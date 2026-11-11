@@ -26,6 +26,40 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import com.tracedesk.auth.security.LoginBodyLimitFilter;
 
 class AuthControllerTest {
+ @Test void registrationCreatesOnlyWithCsrfAndStoresNormalizedIdentityAndSelectedRole() throws Exception {
+  AuthStore store=mock(AuthStore.class); PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
+  when(store.register(any(UUID.class),eq("new.user@example.test"),anyString(),eq("DEVELOPER"),any(UUID.class))).thenReturn(true);
+  MockMvc mvc=MockMvcBuilders.standaloneSetup(controller(store,encoder)).setControllerAdvice(new ApiFailureHandler(store)).build();
+  MockHttpSession session=new MockHttpSession(); session.setAttribute(AuthController.CSRF,"known-token");
+  mvc.perform(post("/api/session/register").session(session).header("X-CSRF-TOKEN","known-token").contentType("application/json")
+      .content("{\"login\":\" New.User@Example.Test \",\"password\":\"long-password-123\",\"role\":\"DEVELOPER\"}"))
+      .andExpect(status().isCreated()).andExpect(jsonPath("$.registered").value(true));
+  var hash=org.mockito.ArgumentCaptor.forClass(String.class);
+  verify(store).register(any(UUID.class),eq("new.user@example.test"),hash.capture(),eq("DEVELOPER"),any(UUID.class));
+  assertTrue(encoder.matches("long-password-123",hash.getValue()));
+ }
+
+ @Test void registrationRejectsBadRoleDuplicateAndAuthenticatedActor() throws Exception {
+  AuthStore store=mock(AuthStore.class); PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
+  MockMvc mvc=MockMvcBuilders.standaloneSetup(controller(store,encoder)).setControllerAdvice(new ApiFailureHandler(store)).build();
+  MockHttpSession anonymous=new MockHttpSession(); anonymous.setAttribute(AuthController.CSRF,"known-token");
+  mvc.perform(post("/api/session/register").session(anonymous).header("X-CSRF-TOKEN","known-token").contentType("application/json")
+      .content("{\"login\":\"person@example.test\",\"password\":\"long-password-123\",\"role\":\"ADMIN\"}"))
+      .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+  mvc.perform(post("/api/session/register").session(anonymous).header("X-CSRF-TOKEN","known-token").contentType("application/json")
+      .content("{\"login\":\"person@example.test\",\"login\":\"other@example.test\",\"password\":\"long-password-123\",\"role\":\"REPORTER\"}"))
+      .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+  when(store.register(any(UUID.class),eq("person@example.test"),anyString(),eq("REPORTER"),any(UUID.class))).thenReturn(false);
+  mvc.perform(post("/api/session/register").session(anonymous).header("X-CSRF-TOKEN","known-token").contentType("application/json")
+      .content("{\"login\":\"person@example.test\",\"password\":\"long-password-123\",\"role\":\"REPORTER\"}"))
+      .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("ACCOUNT_UNAVAILABLE"));
+  UUID actor=UUID.randomUUID(); MockHttpSession signedIn=authenticatedSession(actor); signedIn.setAttribute(AuthController.CSRF,"known-token");
+  mvc.perform(post("/api/session/register").session(signedIn).header("X-CSRF-TOKEN","known-token").contentType("application/json")
+      .content("{\"login\":\"other@example.test\",\"password\":\"long-password-123\",\"role\":\"QA_REVIEWER\"}"))
+      .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("ALREADY_AUTHENTICATED"));
+  verify(store,never()).register(any(),eq("other@example.test"),anyString(),anyString(),any());
+ }
+
  @Test void csrfRequiredBeforeCredentialsAndBadCredentialShapeIsUniform() throws Exception {
   AuthStore store=mock(AuthStore.class); PasswordEncoder encoder=new Argon2PasswordEncoder(16,32,1,19456,2);
   when(store.user("nobody@example.test")).thenReturn(Optional.empty());

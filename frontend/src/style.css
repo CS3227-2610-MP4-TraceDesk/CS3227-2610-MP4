@@ -116,6 +116,13 @@ h2 { font-size: 14px; font-weight: 650; }
 .sign-in-field > div { background: var(--td-sidebar); box-shadow: inset 0 0 0 1px var(--td-login-input-outline); }
 .sign-in-field > div:has(> input:focus-visible) { outline: 2px solid #4588f3; outline-offset: 2px; }
 .sign-in-field input:focus-visible { outline: none; }
+.sign-in-role { width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid var(--td-login-input-outline); border-radius: 10px; background: var(--td-sidebar); color: var(--td-ink); font: inherit; }
+.sign-in-role:focus-visible { outline: 2px solid #4588f3; outline-offset: 2px; }
+.sign-in-password-help { margin-top: -10px; font-size: 12px; }
+.sign-in-success { margin-top: 12px; color: #18794e; font-size: 13px; }
+:root[data-theme="dark"] .sign-in-success { color: #79d9a5; }
+.sign-in-mode-switch { margin-top: 16px; color: var(--td-muted); text-align: center; }
+.sign-in-mode-switch button { padding: 0; border: 0; background: transparent; color: var(--td-ink); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .sign-in-form > button { margin-top: 4px; }
 .sign-in-error { color: var(--color-text-danger-soft, #ba2623); font-size: 13px; }
 .sign-in-notice { margin-top: 16px; color: var(--td-muted); font-size: 13px; }

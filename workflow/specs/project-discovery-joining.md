@@ -4,14 +4,21 @@ Status: implementation candidate for issue #55. Human owner: not supplied.
 
 ## Goal and trusted role contract
 
-Allow any authenticated, enabled account whose operator-assigned role is
+Extension: [account registration](account-registration.md) permits new accounts
+to select an initial Reporter, Developer or QA role through the validated server
+registration endpoint (user decision, 2026-11-12). This supersedes the original
+registration exclusion/operator-only initial-role rule; project membership and
+all subsequent authorization still use the persisted account role.
+
+
+Allow any authenticated, enabled account whose persisted account role is
 `REPORTER`, `DEVELOPER`, or `QA_REVIEWER` to create a project, browse the
 authenticated project directory, join an enabled project immediately, and open
 any project where they have active membership. The role belongs to the account
-and remains the same in every project. It is set during account provisioning,
-before project selection. There is no application API or UI to register an
-account, select/change a role, administer a project, or grant another user
-membership. Project creation grants only the creator's normal membership; it
+and remains the same in every project. It is set during operator provisioning
+or validated initial account registration, before project selection. Existing
+accounts cannot change their role through the application. There is no API to
+administer a project or grant another user membership. Project creation grants only the creator's normal membership; it
 does not confer owner powers.
 
 The server obtains the actor UUID from the authenticated session, checks the
@@ -163,17 +170,18 @@ require active membership and freshly loaded role-specific permissions.
 | **TD-PROJ-03** | Any enabled authenticated role can create a bounded project with creator membership/account role and metadata audit in one transaction. | API/DB all-role create; malformed/CSRF/role-spoof denial; repeat/concurrent idempotency; audit rollback. |
 | **TD-PROJ-04** | Any enabled authenticated user gets a bounded paginated directory of every enabled project name/UUID and their own membership state only; anonymous access is denied. | API privacy, stable ordering/cursor, invalid cursor, page-boundary, anonymous/session-expiry and multi-user tests. |
 | **TD-PROJ-05** | Explicit CSRF-protected join immediately creates one active membership with trusted role and audit; repeats/concurrency are idempotent; disabled memberships cannot be reactivated; deleted memberships require a new explicit join. | All-role API/DB tests with synchronized concurrent join, replay, denial and audit failure. |
-| **TD-PROJ-06** | Every role can create, discover, join and open their active memberships with truthful workspace routing and visible loading/validation/denied/expired/unavailable/retry states; no client role selector. | Frontend state/API tests and real browser journeys for all preassigned roles, including create/join/reopen. |
+| **TD-PROJ-06** | Every role can create, discover, join and open their active memberships with truthful workspace routing and visible loading/validation/denied/expired/unavailable/retry states; no role selector for an existing account. | Frontend state/API tests and real browser journeys for all preassigned roles, including create/join/reopen. |
 | **TD-PROJ-07** | Discovery exposes no report/draft/note/member/credential/private-role data; directory alone grants no content access; existing ownership, assignment and QA boundaries remain enforced. | Cross-project/object denial and response/log/audit canary checks across roles. |
 | **TD-PROJ-08** | Required pure policy, session/CSRF API, isolated PostgreSQL migration/concurrency/rollback, browser, and independent review evidence records exact revision and actual outcomes. | Focused commands; evidence distinguishes pass/fail/skip/unavailable and records resolved findings. |
 
 ## Boundaries and handoff
 
 Coordinate the global-role source and membership contract with Developer and QA
-workspace owners. No new fourth role, public registration, role self-selection,
+workspace owners. Registration and initial role selection are owned by the
+separate registration extension. No new fourth role, existing-account role change,
 membership approval, invitations, membership administration, project deletion,
 notifications, AI or deployment work is included. Existing account
-provisioning remains an operator responsibility. No real database is used to
+provisioning supports operator setup or the validated registration endpoint. No real database is used to
 derive mappings or fixtures.
 
 Before behavior changes, update ADR 002, `auth-membership.md`,

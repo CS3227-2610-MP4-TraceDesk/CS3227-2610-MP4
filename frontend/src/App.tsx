@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { SignIn } from './login/SignIn'
-import { AuthApiError, getSession, login, logout } from './auth/sessionApi'
+import { AuthApiError, getSession, login, logout, register, type RegistrationRole } from './auth/sessionApi'
 import { ReporterWorkspace } from './reports/ReporterWorkspace'
 import { DeveloperWorkspace } from './developer/DeveloperWorkspace'
 import { QaWorkspace } from './qa/QaWorkspace'
@@ -116,6 +116,10 @@ export function App() {
     setAuthState('signed-in')
   }
 
+  async function handleRegister(email: string, password: string, role: RegistrationRole) {
+    await register(email, password, role)
+  }
+
   async function handleSignOut() {
     setLogoutBusy(true)
     setLogoutError(null)
@@ -215,6 +219,7 @@ export function App() {
       theme={theme}
       onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       onSignIn={handleSignIn}
+      onRegister={handleRegister}
       serviceNotice={serviceNotice}
       onRetryConnection={() => void restoreSession()}
     />

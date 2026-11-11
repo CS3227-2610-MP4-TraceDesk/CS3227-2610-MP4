@@ -43,7 +43,21 @@ public class AuthController {
         String password() { return password; }
         boolean hasInvalidField() { return invalidField; }
     }
+    public static final class RegistrationRequest {
+        private String login;
+        private String password;
+        private String role;
+        private boolean invalidField;
+        private boolean loginSeen, passwordSeen, roleSeen;
+        @JsonProperty("login") public void readLogin(Object value) { if (loginSeen||!(value instanceof String)) invalidField=true; loginSeen=true; if(value instanceof String text)login=text; }
+        @JsonProperty("password") public void readPassword(Object value) { if (passwordSeen||!(value instanceof String)) invalidField=true; passwordSeen=true; if(value instanceof String text)password=text; }
+        @JsonProperty("role") public void readRole(Object value) { if (roleSeen||!(value instanceof String)) invalidField=true; roleSeen=true; if(value instanceof String text)role=text; }
+        @com.fasterxml.jackson.annotation.JsonAnySetter public void unknown(String name,Object value) { invalidField=true; }
+        String login(){return login;} String password(){return password;} String role(){return role;}
+        boolean hasInvalidField(){return invalidField;}
+    }
     record LoginReply(UUID userId) { }
+    record RegistrationReply(boolean registered) { }
     record SessionReply(UUID userId, String role) { }
     record CsrfReply(String token) { }
     record ProjectReply(UUID id, String name) { }
@@ -56,7 +70,10 @@ public class AuthController {
         return ResponseEntity.status(status).body(new ErrorBody(new Error(code, switch(code) {
             case "INVALID_CREDENTIALS" -> "Invalid credentials"; case "UNAUTHENTICATED" -> "Authentication required";
             case "NOT_FOUND" -> "Not found"; case "CSRF_INVALID" -> "Invalid request";
-            case "INVALID_REQUEST" -> "Invalid request"; default -> "Service unavailable";
+            case "INVALID_REQUEST" -> "Invalid request";
+            case "ACCOUNT_UNAVAILABLE" -> "Account could not be created with these details";
+            case "ALREADY_AUTHENTICATED" -> "Sign out before creating another account";
+            default -> "Service unavailable";
         })));
     }
     boolean csrf(HttpServletRequest req) {
@@ -80,6 +97,20 @@ public class AuthController {
         HttpSession session=req.getSession(true); req.changeSessionId(); session=req.getSession(false);
         session.setAttribute(USER,user.get().id()); session.setAttribute(org.springframework.session.FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME,user.get().id().toString()); session.setAttribute(AUTH_AT,clock.millis()); session.setAttribute(CSRF,UUID.randomUUID().toString()+UUID.randomUUID());
         return ResponseEntity.ok(new LoginReply(user.get().id()));
+    }
+    @PostMapping("/api/session/register") public ResponseEntity<?> register(@RequestBody RegistrationRequest body,HttpServletRequest req) {
+        if(body==null||body.hasInvalidField()||body.login()==null||!LoginPolicy.validPassword(body.password())||
+                body.role()==null||!java.util.Set.of("REPORTER","DEVELOPER","QA_REVIEWER").contains(body.role())||LoginPolicy.normalize(body.login())==null) {
+            denied("REGISTRATION_INVALID_REQUEST","/api/session/register",400,null,null);
+            return error(HttpStatus.BAD_REQUEST,"INVALID_REQUEST");
+        }
+        if(!csrf(req)){denied("CSRF_INVALID","/api/session/register",403,csrfEventActor(req),null);return error(HttpStatus.FORBIDDEN,"CSRF_INVALID");}
+        UUID existingActor=actor(req);
+        if(existingActor!=null){denied("REGISTRATION_DENIED","/api/session/register",409,existingActor,null);return error(HttpStatus.CONFLICT,"ALREADY_AUTHENTICATED");}
+        UUID id=UUID.randomUUID();
+        boolean created=store.register(id,LoginPolicy.normalize(body.login()),encoder.encode(body.password()),body.role(),UUID.randomUUID());
+        if(!created){denied("REGISTRATION_DENIED","/api/session/register",409,null,null);return error(HttpStatus.CONFLICT,"ACCOUNT_UNAVAILABLE");}
+        return ResponseEntity.status(HttpStatus.CREATED).body(new RegistrationReply(true));
     }
     private void invalidateAndExpire(HttpServletRequest req,HttpServletResponse res) {
         HttpSession existing=req.getSession(false); if(existing!=null) existing.invalidate();

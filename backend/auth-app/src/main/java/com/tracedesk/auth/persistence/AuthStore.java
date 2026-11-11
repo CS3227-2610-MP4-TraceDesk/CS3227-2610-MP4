@@ -28,6 +28,22 @@ public class AuthStore implements ProjectAccessRepository, WorkspaceMembershipRe
         return jdbc.query("select id,password_hash,enabled,account_role from td_users where login_normalized=?", rs -> rs.next()
                 ? Optional.of(new User(rs.getObject(1, UUID.class),rs.getString(2),rs.getBoolean(3),rs.getString(4))) : Optional.empty(), normalizedLogin);
     }
+    /** Creates the account and its business audit atomically. Returns false only for a normalized-login collision. */
+    public boolean register(UUID id, String normalizedLogin, String passwordHash, String role, UUID requestId) {
+        return transactions.execute(status -> {
+            int inserted = jdbc.update("""
+                    insert into td_users(id,login_normalized,password_hash,enabled,account_role)
+                    values(?,?,?,true,?) on conflict(login_normalized) do nothing
+                    """, id, normalizedLogin, passwordHash, role);
+            if (inserted == 0) return false;
+            jdbc.update("""
+                    insert into td_business_audit_events
+                      (event_code,request_id,actor_id,object_type,object_id,new_status,outcome)
+                    values('ACCOUNT_REGISTERED',?,?, 'ACCOUNT',?,?,'SUCCESS')
+                    """, requestId, id, id, role);
+            return true;
+        });
+    }
     public Optional<String> accountRole(UUID id) {
         return jdbc.query("select account_role from td_users where id=? and enabled", rs -> rs.next()
                 ? Optional.ofNullable(rs.getString(1)) : Optional.empty(), id);

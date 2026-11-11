@@ -76,7 +76,12 @@ export async function csrfProtectedRequest(
       headers,
       ...(body === undefined ? {} : { body }),
     })
-    if (response.status === 403 && attempt === 0) continue
+    if (response.status === 403 && attempt === 0 &&
+      await response.clone().json().then((body: unknown) =>
+        typeof body === 'object' && body !== null &&
+        typeof (body as { error?: { code?: unknown } }).error?.code === 'string' &&
+        (body as { error: { code: string } }).error.code === 'CSRF_INVALID',
+      ).catch(() => false)) continue
     return response
   }
   throw new AuthApiError(403, 'CSRF_INVALID')
@@ -85,6 +90,18 @@ export async function csrfProtectedRequest(
 export async function login(login: string, password: string): Promise<void> {
   const response = await csrfProtectedRequest('/api/session/login', JSON.stringify({ login, password }))
   if (!response.ok) return fail(response)
+}
+
+export type RegistrationRole = 'REPORTER' | 'DEVELOPER' | 'QA_REVIEWER'
+
+export async function register(login: string, password: string, role: RegistrationRole): Promise<void> {
+  const response = await csrfProtectedRequest('/api/session/register', JSON.stringify({ login, password, role }))
+  if (response.status !== 201) return fail(response)
+  const body: unknown = await response.json().catch(() => null)
+  if (typeof body !== 'object' || body === null || (body as { registered?: unknown }).registered !== true ||
+    Object.keys(body).length !== 1) {
+    throw new AuthApiError(502, 'INVALID_RESPONSE')
+  }
 }
 
 export async function logout(): Promise<void> {
