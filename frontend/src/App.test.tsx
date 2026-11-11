@@ -342,10 +342,13 @@ describe('login and server session flow', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input)
       if (path === '/api/csrf') return reply(200, { token: 'synthetic-csrf' })
-      if (path === '/api/session') return reply(200, { userId: user })
+      if (path === '/api/session') return reply(200, { userId: user, role: 'QA_REVIEWER' })
       if (path === '/api/workspaces') return reply(200, { items: [
         { project: { id: project, name: 'QA Assignment Project' }, role: 'QA_REVIEWER' },
       ], hasMore: false })
+      if (path === '/api/projects?limit=50') return reply(200, {
+        items: [{ id: project, name: 'QA Assignment Project', membership: 'ACTIVE' }], nextCursor: null, hasMore: false,
+      })
       if (path.startsWith(`/api/projects/${project}/reports?`)) {
         return reply(200, { items: path.includes('status=READY_FOR_QA') ? [] : [report], nextCursor: null })
       }
@@ -369,7 +372,7 @@ describe('login and server session flow', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'QA Assignment Project' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open QA Assignment Project' }))
     expect(await screen.findByText('No tickets in this queue.')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'All bugs' }))
     fireEvent.click(await screen.findByRole('button', { name: /Refund display duplicates.*Open/ }))
