@@ -27,8 +27,9 @@
 | [Developer investigation workspace](specs/developer-investigation.md#dev-ui-28-executable-acceptance-criteria) | TD-DEV-11 through TD-DEV-15 | Candidate unit/build, routed-browser and corrected same-candidate isolated real-backend checks and the PR #46 CI pass recorded in [evidence](developer/evidence/developer-ui.md); no deployment or production acceptance claimed |
 | [Developer proposed resolution and QA handoff](specs/developer-investigation.md#dev-resolution-30-executable-acceptance-criteria) | TD-DEV-21 through TD-DEV-25 | Candidate checks and independent agent review for issue #30 recorded in [evidence](developer/evidence/developer-resolution.md); CI remains pending; no runtime acceptance claimed. Clarification criteria TD-DEV-16 through TD-DEV-20 were descoped on 2026-11-09 |
 | [Authenticated QA queue and Summary](specs/qa-read.md) | TD-QAR-01 through TD-QAR-04 | Issue #50 |
-| [QA review suggestions](specs/qa-ai.md) | Issue #53 | Read-only QA planning through the shared gateway |
-| [QA Developer assignment](specs/qa-assignment.md) | TD-ASG-01 through TD-ASG-05 | Issue #32 local verification recorded in [evidence](qa/evidence/qa-assignment.md); CI pending, no deployment or production acceptance claimed |
+| [QA review suggestions and follow-up](specs/qa-ai.md) | TD-QAI-01 through TD-QAI-03 | Local signed-in browser and live SoCLaaS evidence in the specification |
+| [QA verification](specs/qa-verification.md) | TD-QAV-01 through TD-QAV-04 | Issue #58 |
+| [QA Developer assignment](specs/qa-assignment.md) | TD-ASG-01 through TD-ASG-05 | Issue #32 verification recorded in [evidence](qa/evidence/qa-assignment.md); PR #62 passed CI and merged |
 
 Add Reporter, Developer, QA and shared gateway specifications as their implementation
 begins. Do not declare unimplemented features accepted because their design is approved.

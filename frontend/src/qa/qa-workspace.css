@@ -7,6 +7,10 @@
 }
 
 .qa-authenticated-summary {
+  --qa-review-divider: color-mix(in srgb, var(--td-ink) 10%, var(--td-line));
+  display: flex;
+  flex-direction: column;
+  min-block-size: 100%;
   overflow-wrap: anywhere;
 }
 
@@ -36,18 +40,43 @@
 
 .qa-authenticated-summary { container-type: inline-size; }
 
+.qa-authenticated-summary > .qa-review-toolbar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  background: var(--td-page);
+}
+
+.qa-authenticated-summary:has(> .qa-ai-layout) {
+  block-size: 100%;
+}
+
+.qa-authenticated-summary:has(> .qa-ai-layout) > .qa-review-toolbar {
+  flex-shrink: 0;
+  border-block-end: 1px solid var(--qa-review-divider);
+}
+
 .qa-ai-layout {
   display: grid;
+  flex: 1;
+  min-block-size: 0;
   grid-template-columns: minmax(240px, 2fr) minmax(0, 3fr);
-  align-items: start;
+}
+
+.qa-ai-layout > .qa-ai-panel,
+.qa-ai-layout > .qa-review-summary {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
 }
 
 .qa-ai-panel {
   display: grid;
+  align-content: start;
   gap: 12px;
   padding: 16px;
   min-width: 0;
-  border-inline-end: 1px solid var(--td-line);
+  border-inline-end: 1px solid var(--qa-review-divider);
 }
 
 .qa-ai-panel header { display: flex; align-items: center; justify-content: space-between; }
@@ -57,8 +86,25 @@
 .qa-ai-panel ol { list-style: decimal; }
 .qa-ai-panel ul { list-style: disc; }
 .qa-ai-panel li { white-space: pre-wrap; margin-block-end: 6px; }
+.qa-ai-panel .qa-ai-checks { list-style: none; padding-inline-start: 0; }
+.qa-ai-chat, .qa-ai-chat form, .qa-ai-turn { display: grid; gap: 8px; min-width: 0; }
+.qa-ai-chat, .qa-ai-turn { border-block-start: 1px solid var(--td-line); padding-block-start: 12px; }
+.qa-ai-chat button { justify-self: start; }
+.qa-ai-turn p { white-space: pre-wrap; }
 
 @container (max-width: 640px) {
-  .qa-ai-layout { grid-template-columns: minmax(0, 1fr); }
-  .qa-ai-panel { border-inline-end: 0; border-block-end: 1px solid var(--td-line); }
+  .qa-ai-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+  .qa-ai-layout > .qa-ai-panel,
+  .qa-ai-layout > .qa-review-summary { overflow-y: visible; }
+  .qa-ai-panel { border-inline-end: 0; border-block-end: 1px solid var(--qa-review-divider); }
 }
+
+
+.qa-authenticated-summary .qa-verification-content { padding: 12px 24px 24px; }
+.qa-authenticated-summary .qa-decision { flex-wrap: wrap; }
+.qa-authenticated-summary .qa-add-check { margin-bottom: 12px; }
