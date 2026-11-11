@@ -21,6 +21,7 @@ function ListIcon() {
 type QaQueueProps = {
   items: readonly Pick<QaBug, 'id' | 'title' | 'status' | 'lastActivity' | 'reviewedByMe'>[]
   awaitingOnly?: boolean
+  allBugs?: boolean
   footer?: React.ReactNode
   search: string
   onSearch: (value: string) => void
@@ -28,12 +29,12 @@ type QaQueueProps = {
   hidden: boolean
 }
 
-export function QaQueue({ items, search, onSearch, onOpenBug, hidden, awaitingOnly, footer }: QaQueueProps) {
+export function QaQueue({ items, search, onSearch, onOpenBug, hidden, awaitingOnly, allBugs, footer }: QaQueueProps) {
   const [queue, setQueue] = useState<(typeof qaQueues)[number]>(qaQueues[0])
   const [layout, setLayout] = useState<'list' | 'grid'>('list')
   const [sort, setSort] = useState<'recent' | 'name'>('recent')
   const [showStatus, setShowStatus] = useState(true)
-  const bugs = items.filter(bug => queue.matches(bug) && matchesBugSearch(bug, search))
+  const bugs = items.filter(bug => (allBugs || queue.matches(bug)) && matchesBugSearch(bug, search))
     .sort((left, right) => sort === 'name'
       ? left.title.localeCompare(right.title)
       : right.lastActivity.localeCompare(left.lastActivity))
@@ -41,7 +42,7 @@ export function QaQueue({ items, search, onSearch, onOpenBug, hidden, awaitingOn
   return (
     <section className="qa-queue-view" aria-labelledby="qa-queue-title" hidden={hidden}>
       <header className="qa-queue-heading">
-        <h1 id="qa-queue-title">Verification</h1>
+        <h1 id="qa-queue-title">{allBugs ? 'All bugs' : 'Verification'}</h1>
         <div className="qa-queue-controls">
           <AnimatedPopover label="Sort bugs" className="qa-library-options" trigger={
             <Button color="secondary" variant="ghost" size="md" uniform aria-label="Sort bugs" title="Sort bugs"><Filter /></Button>
