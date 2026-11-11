@@ -82,7 +82,7 @@ public class VerificationStore {
 
     private Report authorize(UUID actor, UUID project, UUID report, boolean write) {
         String role = jdbc.query("""
-                select m.role from td_projects p join td_project_memberships m on m.project_id=p.id
+                select u.account_role from td_projects p join td_project_memberships m on m.project_id=p.id
                 join td_users u on u.id=m.user_id
                 where p.id=? and u.id=? and p.enabled and u.enabled and m.state='ACTIVE'
                 for share of p,u,m

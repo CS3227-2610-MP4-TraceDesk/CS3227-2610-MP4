@@ -44,6 +44,11 @@ class ResolutionPersistenceIntegrationTest {
             membership(sql, project, reporter, "REPORTER");
             membership(sql, project, developer, "DEVELOPER");
             membership(sql, project, qa, "QA_REVIEWER");
+            sql.update("update td_users set account_role='REPORTER' where id=?", reporter);
+            sql.update("update td_users set account_role='DEVELOPER' where id=?", developer);
+            // Current account roles override conflicting historical membership snapshots.
+            sql.update("update td_project_memberships set role='REPORTER' where project_id=? and user_id=?", project, qa);
+            sql.update("update td_project_memberships set role='QA_REVIEWER' where project_id=? and user_id=?", project, developer);
             UUID report = report(sql, project, reporter, developer, "IN_PROGRESS", 2);
             developerStore.propose(developer, project, report, VALID, 2, UUID.randomUUID(), NOW);
 
