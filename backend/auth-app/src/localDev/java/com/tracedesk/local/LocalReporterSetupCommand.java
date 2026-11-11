@@ -140,7 +140,7 @@ public final class LocalReporterSetupCommand {
     private Result runLocked(String mode, String url, String user, String password, Path credentialPath, DataSource ds) {
         try {
             migrateSilently(ds);
-        } catch (Exception e) { throw new SafeFailure("TraceDesk migrations could not be applied"); }
+        } catch (Exception e) { throw new SafeFailure("TraceDesk migrations could not be applied (" + migrationFailureSummary(e) + ")"); }
         LocalReporterCredentialFile files = new LocalReporterCredentialFile(credentialPath, account.login);
         if (mode.equals("provision")) {
             if (files.exists()) {
@@ -190,6 +190,30 @@ public final class LocalReporterSetupCommand {
     private static void migrateSilently(DataSource ds) {
         Flyway.configure().dataSource(ds).loggers(new String[0])
                 .locations("classpath:db/migration").load().migrate();
+    }
+
+    static String migrationFailureSummary(Throwable failure) {
+        String flywayType = "FlywayException";
+        String sqlState = null;
+        Integer migrationLine = null;
+        Throwable current = failure;
+        for (int depth = 0; current != null && depth < 16; depth++, current = current.getCause()) {
+            String simpleName = current.getClass().getSimpleName();
+            if (current.getClass().getName().startsWith("org.flywaydb.") && simpleName.matches("[A-Za-z0-9]+"))
+                flywayType = simpleName;
+            if (current.getClass().getName().equals("org.flywaydb.core.internal.sqlscript.FlywaySqlScriptException")) {
+                try {
+                    Object line = current.getClass().getMethod("getLineNumber").invoke(current);
+                    if (line instanceof Integer number && number > 0) migrationLine = number;
+                } catch (ReflectiveOperationException ignored) {
+                    // Keep diagnostics safe and compatible across Flyway versions.
+                }
+            }
+            if (current instanceof SQLException sql && sql.getSQLState() != null && sql.getSQLState().matches("[0-9A-Z]{5}"))
+                sqlState = sql.getSQLState();
+        }
+        return flywayType + (migrationLine == null ? "" : ", migration line " + migrationLine)
+                + (sqlState == null ? "" : ", SQLSTATE " + sqlState);
     }
 
     private static void validateUrl(String url) {
