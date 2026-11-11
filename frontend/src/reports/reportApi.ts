@@ -251,3 +251,34 @@ export async function submitDraft(projectId: string, draftId: string, version: n
 export async function updateReport(projectId: string, reportId: string, body: string, signal?: AbortSignal): Promise<ReportDetail> {
   return mutationJson(await mutate(`/api/projects/${projectId}/reports/${reportId}`, 'PATCH', body, undefined, signal), (value): value is ReportDetail => isReportDetail(value, projectId) && value.id === reportId)
 }
+
+export type AssignmentResult = Pick<ReportSummary, 'assignedDeveloperId' | 'version' | 'updatedAt'>
+export type AssignmentPage = Omit<AssignmentResult, 'updatedAt'> & {
+  assignmentEligible: boolean
+  items: { id: string }[]
+  nextCursor: string | null
+}
+
+function isAssignmentState(value: unknown): value is Record<string, unknown> & Omit<AssignmentResult, 'updatedAt'> {
+  return isObject(value) && (value.assignedDeveloperId === null ||
+    (typeof value.assignedDeveloperId === 'string' && isCanonicalUuid(value.assignedDeveloperId))) &&
+    Number.isSafeInteger(value.version) && Number(value.version) > 0
+}
+
+export async function fetchAssignment(projectId: string, reportId: string, cursor: string | null, signal: AbortSignal): Promise<AssignmentPage> {
+  const query = cursor ? '?' + new URLSearchParams({ cursor }).toString() : ''
+  const response = await request(`/api/projects/${projectId}/reports/${reportId}/assignment${query}`, signal)
+  return jsonOrThrow(response, (value): value is AssignmentPage => isAssignmentState(value) &&
+    typeof value.assignmentEligible === 'boolean' && Array.isArray(value.items) &&
+    value.items.every(item => isObject(item) && typeof item.id === 'string' && isCanonicalUuid(item.id)) &&
+    (value.nextCursor === null || (typeof value.nextCursor === 'string' && value.nextCursor.length > 0)))
+}
+
+export async function saveAssignment(projectId: string, reportId: string, change: {
+  expectedVersion: number; developerId?: string; reason?: string
+}, signal: AbortSignal): Promise<AssignmentResult> {
+  const response = await mutate(`/api/projects/${projectId}/reports/${reportId}/assignment`, 'PATCH', JSON.stringify(change), undefined, signal)
+  return mutationJson(response, (value): value is AssignmentResult => isAssignmentState(value) &&
+    value.assignedDeveloperId === (change.developerId ?? null) && value.version > change.expectedVersion &&
+    typeof value.updatedAt === 'string' && Number.isFinite(Date.parse(value.updatedAt)))
+}
