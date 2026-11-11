@@ -29,3 +29,9 @@ verification references for PR #59 after merge base `7f7563c`.
 - Local real-backend browser run passed all 3 tests.
 
 Remote CI and deployment acceptance are not claimed by this note.
+
+PR #62 subsequently landed first and installed assignment at V14. The pending
+verification migration moved to V15. The merged workspace keeps assignment in
+Summary and verification in its own tab. The resolution integration test now
+applies V14, records a real assignment audit event, and upgrades to V15 before
+exercising verification writes.
