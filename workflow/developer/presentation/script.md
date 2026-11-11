@@ -57,9 +57,9 @@ This is the exact list agent A was given. These seven documents are the set I pi
 hand for DEV-AI in my earlier measurement, about ten thousand tokens. I reused it as it
 was, without checking it again, because I wanted to test the kind of list I would really
 use. For each job, A could also open that job's starter class and test file, and any
-Java type it needed so the code compiles. The important thing is what is missing. The
-Reporter spec is where the project defines what counts as blank text, and it is not on
-this list. That is where job 1's bug came from.
+Java type it needed so the code compiles. The important thing is what is missing. Our
+project defines what counts as blank text inside the Reporter spec, not in a shared
+document, so it is not on this list. That is where job 1's bug came from.
 
 ## 6. The 14 hidden tests (40 s)
 
@@ -92,13 +92,16 @@ found in my last update.
 ## 9. A missed a rule that was written in a file not on its list (70 s)
 
 Job 1 shows where a short list can go wrong. The DEV-AI spec says text in the AI's reply
-cannot be blank, but it doesn't say what counts as blank. That is defined in another
-file, the Reporter spec, and in some existing helper code. A's list came from an earlier
-measurement, where I picked by hand the files DEV-AI needs, and the Reporter spec was
-not on it. So A used Java's normal isBlank check, which lets a non-breaking space
-through. B found the Reporter spec by itself and used the same rule as the existing
-code. None of my tests covered this case. The checker found it, and I confirmed it
-against the spec.
+cannot be blank, but it doesn't say what counts as blank. To be honest, that's a gap in
+our own documents, not just in A's list. Every feature uses the same idea of blank, but
+we never put it in one shared place. The Reporter spec defines it, the investigation
+spec repeats it, and the DEV-AI spec, which we wrote, left it out. A's list was the
+files I picked by hand for DEV-AI, so the Reporter spec wasn't on it, and A used Java's
+normal isBlank check, which lets a non-breaking space through. B went looking, found the
+Reporter spec and the existing helper code, and used the same rule. None of my tests
+covered this case either. The checker found it, and I confirmed it against the spec. The
+real fix is to move shared rules like this into one shared document, so a short list is
+enough.
 
 ## 10. More steps, more tokens: reading one file at a time was half of A’s extra cost (80 s)
 
@@ -123,12 +126,13 @@ each finding myself before counting it.
 ## 12. How careful to be with these results (45 s)
 
 A few things limit what these results can show. First, I only ran three pairs, once
-each, so another run might come out differently. Second, I chose A's file list myself.
-If I had added the Reporter spec, A might have got job 1 right, so the result partly
-tests my list and not just the idea. Third, the checker is the same model as the
-writers, so it might miss the same things. That's why I checked every finding myself.
-Fourth, A and B ran at the same time on my laptop, so the times are only rough, but that
-does not change the token counts.
+each, so another run might come out differently. Second, I chose A's file list myself,
+and the rule A missed was kept in a Reporter document instead of a shared one. With that
+rule in the right place, A might have got job 1 right, so job 1 partly tests our
+documents and not just the idea of a short list. Third, the checker is the same model as
+the writers, so it might miss the same things. That's why I checked every finding
+myself. Fourth, A and B ran at the same time on my laptop, so the times are only rough,
+but that does not change the token counts.
 
 ## 13. What I will do differently (60 s)
 
@@ -141,3 +145,22 @@ each step sends the whole conversation again. So I'll stop giving a fixed list b
 default, and instead ask agents to read in batches and avoid running the tests over and
 over. I'll keep the blind checker for spec-heavy work, and add tests for the two
 problems it found. The feature code I kept passes all 55 tests.
+
+## If asked
+
+**"Why does a Developer feature need a Reporter document?"**
+It shouldn't. Every feature uses the same rule for what counts as blank text, but we
+only wrote it down inside each role's own spec. The Reporter spec defines it, the
+investigation spec repeats it, and the DEV-AI spec left it out. That's a gap in our
+documentation, not a reason for DEV-AI to depend on Reporter. The fix is to move shared
+rules like this into one shared contract (for example the shared role contracts
+decision) and have each feature spec point to it.
+
+**"So wasn't job 1 unfair to A?"**
+Partly, and I say so on the limits slide. But it's also a realistic result: in a real
+project, rules end up in the wrong place, and a fixed short list can't know that. The
+broad agent found the rule because it was allowed to look.
+
+**"Then why not just give A a better list?"**
+I could, but I'd only know what to add after seeing the bug. That's the point: a short
+list is only as good as the documents behind it.

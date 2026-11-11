@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Less context, same code?</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#111;overflow:hidden}
+#stage{position:absolute;width:1920px;height:1080px;left:50%;top:50%;transform-origin:center}
+.slide{position:absolute;inset:0;display:none}
+.slide.on{display:block}
+.slide>section{position:absolute;inset:0;width:1920px;height:1080px}
+table{border-collapse:collapse;width:100%} th,td{padding:14px 16px;border-bottom:1px solid #DAD7CE}
+ul,ol{padding-left:1.2em}
+#notes{position:fixed;left:0;right:0;bottom:0;max-height:40%;overflow:auto;background:rgba(0,0,0,.88);color:#eee;font:20px/1.5 'IBM Plex Sans',Arial,sans-serif;padding:20px 28px;display:none}
+#num{position:fixed;right:16px;bottom:10px;color:#888;font:14px monospace}
+@page{size:1920px 1080px;margin:0}
+@media print{html,body{height:auto;overflow:visible;background:none}#stage{position:static;transform:none!important;width:1920px;height:auto}.slide{display:block!important;position:relative;width:1920px;height:1080px;break-after:page;overflow:hidden}#notes,#num{display:none!important}}
+</style></head><body>
+<div id="stage">@@SLIDES@@</div>
+<div id="notes"></div><div id="num"></div>
+<script>
+const S=[...document.querySelectorAll('.slide')],st=document.getElementById('stage'),N=document.getElementById('notes'),num=document.getElementById('num');
+let i=Math.max(0,Math.min(S.length-1,(parseInt(location.hash.slice(1))||1)-1)),showN=false;
+function fit(){const k=Math.min(innerWidth/1920,innerHeight/1080);st.style.transform=`translate(-50%,-50%) scale(${k})`}
+function go(n){i=Math.max(0,Math.min(S.length-1,n));S.forEach((s,j)=>s.classList.toggle('on',j===i));N.textContent=S[i].dataset.note;N.style.display=showN?'block':'none';num.textContent=(i+1)+' / '+S.length;history.replaceState(null,'','#'+(i+1))}
+addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' '].includes(e.key))go(i+1);else if(['ArrowLeft','PageUp'].includes(e.key))go(i-1);else if(e.key==='Home')go(0);else if(e.key==='End')go(S.length-1);else if(e.key==='n'||e.key==='N'){showN=!showN;go(i)}else if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}});
+addEventListener('click',e=>{if(e.target.closest('#notes'))return;go(e.clientX>innerWidth/2?i+1:i-1)});
+addEventListener('resize',fit);fit();go(i);
+</script></body></html>

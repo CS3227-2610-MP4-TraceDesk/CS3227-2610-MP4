@@ -10,8 +10,8 @@ Copy of the slide deck at https://claude.ai/artifact/GHMTv6S2Bds6PGDhhKSFGC
 | `less-context-same-code.pdf` | Backup, one 16:9 page per slide, no notes. |
 | `deck.json`, `slides/*.html` | Source in the Claude Slides format (order, sections, fonts; one file per slide with `<aside>` notes). Edit these, then rebuild the two files above. |
 
-Rebuilding: `present.html` concatenates `slides/*.html` in `deck.json` order and
-moves each `<aside>` into the notes panel. The PDF was printed from it with headless
+Rebuilding: run `python build.py`. It fills `_template.txt` with `slides/*.html` in
+`deck.json` order and moves each `<aside>` into the notes panel. The PDF was printed from it with headless
 Edge (`--print-to-pdf`) while serving this folder with `python -m http.server`.
 Scripts do not run when the file is opened through some preview panes; a normal
 browser is fine.
