@@ -7,19 +7,6 @@ Use the evolving [storyline and content guide](storyline.md) to decide which evi
 to capture. The operational rationale is summarized in the
 [Developer workflow principles](../workflow-principles.md).
 
-## Suggested narrative
-
-1. TraceDesk problem, three roles and shared lifecycle.
-2. Developer-owned features and interfaces with Reporter/QA.
-3. Specification-driven criteria and security boundaries.
-4. One real multi-agent run: trigger, roles, context, handoffs and integration.
-5. One finding or failed attempt and the resulting correction.
-6. Developer AI authorization, prompt/context boundary and resource controls.
-7. Focused-versus-broad context experiment with measurements and limitations.
-8. Coordination benefits, idle/blocking/retry costs and when a single agent was better.
-9. Deployment separation and same-revision verification evidence.
-10. Personal contribution and lessons learned.
-
 ## Capture during development
 
 - Stable criterion IDs and issue links.

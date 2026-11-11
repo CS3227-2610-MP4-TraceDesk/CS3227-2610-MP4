@@ -1,6 +1,7 @@
 # Developer context and resource experiment plan
 
-Status: planned; no Developer results collected yet.
+Status: development comparison run 2026-11-10/11 (3 jobs, one pair each); see
+[runs.md](runs.md). Application comparison not started.
 Owner: Developer contributor.
 
 ## Application comparison

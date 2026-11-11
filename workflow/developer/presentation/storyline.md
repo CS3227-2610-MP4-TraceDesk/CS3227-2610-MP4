@@ -1,119 +1,32 @@
-# Developer presentation storyline and content guide
+# Developer presentation storyline
 
-Status: evolving outline. Evidence slots are deliberately marked pending. Do not turn
-them into claims until linked artifacts and results exist.
+**Topic: Less context, same code?**
+A controlled test of Lecture 9's context advice and Lecture 8's generator–verifier
+pattern on real DEV-AI work, judged by outcomes (Lecture 9) with harness lessons
+(Lecture 10).
 
-## Central story
+Deck: https://claude.ai/artifact/GHMTv6S2Bds6PGDhhKSFGC (13 slides, speaker notes =
+script). Full talk: [script](script.md). Data: [experiment runs](../experiments/agentic-se/runs.md),
+[measurements](../experiments/agentic-se/measurements.jsonl),
+[test cases](../experiments/agentic-se/dev-ai-test-cases.md).
 
-**We turned an underspecified Developer role into a secure, testable investigation
-workflow, and used Codex as an engineered multi-agent development process whose
-quality, context and resource costs we could inspect.**
+| Slide | Lecture | Point | Data |
+| --- | --- | --- | --- |
+| Cover | — | Two agents, same jobs, one reads less; a blind third reviews | runs.md |
+| The feature | — | DEV-AI: assigned developer asks AI for causes and next steps; advice only; 3 blue boxes = the jobs | developer-ai.md |
+| Two questions | 8, 9 | Worse code or just cheaper? Is the checker worth it? | — |
+| How I ran it | 8 (isolation), 9 | Tests first (41 visible, 14 hidden); 3 jobs; same model, commit, prompt; own worktrees | dev-ai-test-cases.md, runs.md |
+| A's reading list | 9 | The exact 7 docs (M1 focused set) + job files; reporter-reports.md missing | presentation-measurements.md M1, method-report.md §6 |
+| 14 hidden tests | — | Plain-English list per job; kept outside repo; all versions passed | dev-ai-test-cases.md |
+| One line differed | — | A, B and rerun context lines; shared prompt rules | method-report.md §5 |
+| Results | 9 | All code passed all tests; focused total 2,172K vs broad 1,662K input tokens (+31%) | measurements.jsonl |
+| Job 1 | 9 | Focused missed a rule defined in another file (non-breaking space counted as text) | runs.md job 1 |
+| Job 3 + rerun | 9 | Steps drive tokens: A 40 steps 1.51M; A rerun reading in one step 12 steps 1.13M; B 11 steps 0.81M | runs.md job 3 and rerun |
+| Checker | 8 | 0.68M tokens for 3 reviews; 2 real problems no test caught; each review about ⅓ of a writer run | runs.md |
+| How careful to be | 10 | 3 pairs, one run each; my list; same-model checker; rough times | runs.md |
+| Takeaways | 8, 9, 10 | Stop fixed lists by default (agent chose 17–28 files, not 98); batch reads, fewer test runs; keep blind checker; add tests for its 2 findings | runs.md |
 
-The presentation should feel like one causal story, not a catalogue of AI tools:
+## Rules
 
-`initial ambiguity -> specification -> coordinated implementation -> adversarial
-feedback -> correction -> measured trade-off -> deployed evidence -> reflection`
-
-## Proposed slide sequence
-
-### 1. Problem and personal ownership
-
-- One-sentence TraceDesk purpose and the three application roles.
-- Lifecycle: `OPEN -> IN_PROGRESS -> READY_FOR_QA -> CLOSED`, including QA rejection.
-- Clearly identify the Developer-owned slice and team-level contributions.
-- Evidence slot: product/architecture links and final contribution map — **pending**.
-
-### 2. Why the Developer slice was difficult
-
-- Trusted assignment, project/object authorization and lifecycle concurrency.
-- Investigation notes and clarification have different visibility rules.
-- AI is useful for hypotheses but must remain advisory.
-- Evidence slot: final Developer threat/decision table — **pending**.
-
-### 3. Specification before implementation
-
-- Show one stable criterion covering normal, denied, stale and failed behavior.
-- Explain how it maps to interface, code, test and evidence.
-- Evidence slot: `workflow/specs/developer-investigation.md` and acceptance index —
-  **pending**.
-
-### 4. The coordination pattern
-
-- Explain why a generator–verifier pattern was used for quality-critical changes.
-- Use orchestrator–subagent or parallel agents only for bounded, independent work.
-- Show an actual handoff with minimal context, file ownership and stop condition.
-- Evidence slot: selected run under `workflow/developer/runs/` — **pending**.
-
-### 5. Codex as a harness, not just a chatbot
-
-- Feedforward: AGENTS, ADRs, role specification, skills and task handoff.
-- Feedback: tests, architecture checks, security negatives and independent review.
-- Show one harness weakness discovered and the rule/check added to prevent recurrence.
-- Evidence slot: before/after harness change and executable check — **pending**.
-
-### 6. A concrete failure and correction
-
-- Pick one meaningful finding: authorization, stale version, transaction rollback,
-  unsafe context selection, or misleading UI success.
-- Show symptom, reviewer/test evidence, correction and same-revision rerun.
-- Evidence slot: candidate manifest, concise diff and result — **pending**.
-
-### 7. Securing the Developer AI capability
-
-- Authorization before selecting context and again before delivery.
-- Allowlisted text-only context; prompt/version/output/resource bounds.
-- Preview plus explicit version-checked apply; no code execution or status mutation.
-- Injection, malformed output, permission change and unavailable-provider tests.
-- Evidence slot: gateway/context diagram and fake-provider security results — **pending**.
-
-### 8. Context engineering experiment
-
-- Compare focused versus broader sanitized context on a pinned bounded task.
-- Hold criteria, model and tools constant where possible.
-- Measure correctness, defects, retrieval effort, latency/calls/tokens when available.
-- Explain inherited-context and learning-effect limitations.
-- Evidence slot: Developer measurement JSONL/chart/rubric — **pending**.
-
-### 9. Resource-aware outcome
-
-- Frame the question as value: did extra agents/context improve quality or risk enough
-  to justify time and token overhead?
-- Include idle/blocked time, retries, unknown metrics and an unfavorable result if real.
-- State when a single agent was the better choice.
-- Evidence slot: paired comparison plus coordination timeline — **pending**.
-
-### 10. Integrated product and deployment
-
-- Demonstrate the real Developer journey against Reporter and QA handoffs.
-- Show development/production separation, deployed revision and security smoke checks.
-- Avoid relying on mock data or screenshots as proof of backend behavior.
-- Evidence slot: deployed URL, revision and same-candidate checks — **pending**.
-
-### 11. Reflection and takeaway
-
-- What coordination pattern worked, what failed and why.
-- Which context belonged upfront versus on-demand.
-- How the harness evolved after mistakes.
-- One concrete future improvement.
-- Evidence slot: `docs/Reflections.md` with linked examples — **pending**.
-
-## Evidence selection rules
-
-Choose a small number of high-quality artifacts. Prefer one end-to-end evidence chain
-over many screenshots. Every quantitative claim needs a source, candidate identity,
-sample size and limitation. Every “multi-agent” claim needs actual roles and handoffs.
-Every security claim needs a test or review result, not just an instruction.
-
-Do not include private reasoning, credentials, raw prompts/responses, real user data,
-session identifiers or unreadable full-screen logs. Redact synthetic canaries after
-their expected behavior has been recorded.
-
-## Incremental update cadence
-
-After each meaningful slice:
-
-1. Add or update its run, evidence and interaction summary.
-2. Select at most one presentation-worthy decision, finding or measurement.
-3. Link it into the pending evidence slot above.
-4. Remove weaker or duplicate examples.
-5. Recheck that the storyline still reflects the released product and personal work.
+Every number needs a source. No credentials, raw prompts, session IDs or real user
+data. Say so when something was not measured. One pair per job is "what I saw", not proof.
