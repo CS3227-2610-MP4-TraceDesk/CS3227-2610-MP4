@@ -4,6 +4,7 @@ import com.tracedesk.auth.investigation.domain.InvestigationNoteData;
 import com.tracedesk.auth.investigation.domain.ProposedResolutionData;
 import com.tracedesk.auth.reports.application.ReportService;
 import com.tracedesk.auth.reports.domain.ReportData;
+import com.tracedesk.auth.reports.persistence.ReportStore;
 import com.tracedesk.testing.IsolatedPostgres;
 import com.tracedesk.auth.verification.VerificationStore;
 import com.tracedesk.auth.verification.VerificationCommand;
@@ -33,7 +34,7 @@ class ResolutionPersistenceIntegrationTest {
 
     @Test void qaSavesClosesAndSendsBackWithVersionAndResolutionIsolation() throws Exception {
         try (IsolatedPostgres db = IsolatedPostgres.open(System.getenv())) {
-            Flyway.configure().dataSource(db).locations("classpath:db/migration").load().migrate();
+            Flyway.configure().dataSource(db).locations("classpath:db/migration").target("14").load().migrate();
             var sql = new JdbcTemplate(db);
             var developerStore = new InvestigationStore(sql);
             var qaStore = new VerificationStore(sql, java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC));
@@ -51,6 +52,16 @@ class ResolutionPersistenceIntegrationTest {
             sql.update("update td_project_memberships set role='QA_REVIEWER' where project_id=? and user_id=?", project, developer);
             UUID report = report(sql, project, reporter, developer, "IN_PROGRESS", 2);
             developerStore.propose(developer, project, report, VALID, 2, UUID.randomUUID(), NOW);
+
+            UUID unassignedReport = report(sql, project, reporter, null, "OPEN", 1);
+            new ReportStore(sql)
+                    .changeAssignment(qa, project, unassignedReport, developer, null, 1, UUID.randomUUID(), NOW);
+            var migration = Flyway.configure().dataSource(db).locations("classpath:db/migration").target("15").load().migrate();
+            assertEquals(1, migration.migrationsExecuted);
+            assertEquals(developer, sql.queryForObject("""
+                    select new_assignee_id from td_business_audit_events
+                    where report_id=? and event_code='REPORT_ASSIGNED'
+                    """, UUID.class, unassignedReport));
 
             var pending = new VerificationCommand.Check("Refresh the payment", Pending, "");
             var passed = new VerificationCommand.Check(pending.title(), Pass, "Observed once");
