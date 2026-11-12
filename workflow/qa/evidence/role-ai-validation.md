@@ -63,3 +63,87 @@ checkout converted it to CRLF. Comparing the checkout to the Git blob
 confirmed the newline difference, and testing with the exact Git blob
 bytes resolved both failures. The checkout fixture was restored afterward.
 This was an offline test run with zero live requests.
+
+## Run the QA evaluation
+
+The dedicated Gradle task runs the shipped QA service against the secured
+gateway with two built-in synthetic reports and their proposed fixes.
+Each case runs planning once and follow-up once with that plan, for a
+maximum of four completion attempts and 36,800 reserved gateway units.
+Catalog refresh is separate. Failure stops the run without retries.
+
+Start from a clean, reviewed checkout of the exact commit to be evaluated.
+Use the existing [SoCLaaS settings](../../../docs/ai-enablement.md) with a
+fresh approved model and sponsorship expiry. Set both global and actor
+daily unit ceilings to 36,800. Supply the isolated PostgreSQL configuration
+from the [test database guide](../../../docs/test-database.md). The command
+creates synthetic accounts and reports in a disposable schema. Supply the
+provider key through the backend process environment.
+
+The operator records their approval in the ignored file
+`workflow/qa/runs/qa-live-approval.json`. Replace the placeholder values
+with the approved full Git SHA, exact model ID and future UTC expiry. The
+record below is unapproved.
+
+```json
+{
+  "approved": false,
+  "revision": "<approved full Git SHA>",
+  "model": "<approved model ID>",
+  "expiresAt": "<approved UTC expiry>",
+  "maxAttempts": 4,
+  "maxResourceUnits": 36800,
+  "caseIds": ["QAL-01", "QAL-02"],
+  "stopOnFailure": true
+}
+```
+
+Only after approval and environment setup, run the following from the
+repository root:
+
+```powershell
+$env:AI_ENABLED = 'true'
+$env:TRACEDESK_QA_LIVE_CONFIRM = 'qa-synthetic-only-4'
+.\gradlew.bat :backend:auth-app:qaAiLiveEvaluation --no-daemon --console=plain
+```
+
+The task atomically consumes the approval before database or provider work.
+The run's expiry can only shorten the gateway sponsorship window. A failed
+setup after the claim still consumes the approval. Ordinary tests exercise
+the runner with synthetic responses and do not invoke the live task.
+
+The local JSONL records exact instruction and selected-context UTF-8 bytes
+when context was built, end-to-end service latency, a settled ticket's
+accounting fields when available, and structural validation status. The
+gateway ledger exposes aggregate units and does not expose split provider
+token counts to this runner. Missing measurements are marked unknown.
+
+The automated score is a two-point coverage signal for each response.
+QAL-01 checks for vocabulary about distinct refunds and comparison or refresh.
+QAL-02 checks for boundary vocabulary and evidence or export vocabulary.
+These are lexical indicators. Semantic fidelity is left unassessed in the
+automated record. Raw responses, follow-up text, prompts and actor IDs are
+excluded from the output.
+
+### Runner verification on 2026-11-12
+
+On the working tree based on `f7a2455`, Java 25 and the Gradle wrapper,
+ran the following against an isolated PostgreSQL test database with
+`AI_ENABLED=false` and a synthetic provider:
+
+```powershell
+.\gradlew.bat :backend:auth-app:test --tests '*QaAiLiveEvaluationTest' --tests '*QaEvaluationApprovalTest' --tests '*QaAiTest' --console=plain
+```
+
+**11 passed, zero failures or skips** (runner 3, approval 4, existing QA 4).
+The runner test exercises real report and investigation stores, migrations,
+the QA service and the JDBC gateway ledger. It checks all four attempts,
+follow-up context, exact context and instruction byte counts, accounting,
+and exclusion of response text and actor identifiers from observations.
+The remaining tests cover expiry, failure stopping, strict approval bounds,
+single-use claims and changed approval bytes. A test fixture initially
+failed compilation because it passed a string to a byte-array argument;
+that fixture was corrected before this successful run.
+
+This is offline implementation evidence. Live model quality, human fidelity
+scores and Developer evaluation remain pending under #70.
