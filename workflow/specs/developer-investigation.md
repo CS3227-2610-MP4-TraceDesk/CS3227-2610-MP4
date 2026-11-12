@@ -173,20 +173,16 @@ report; a 51st proposal returns `409 RESOLUTION_LIMIT` and commits nothing.
 
 ### QA rejection representation
 
-Decided by the Developer contributor on 2026-11-09 so that DEV-RESOLUTION does not
-wait for a separate QA specification. A rejection is its own record, because
-resolution revisions are immutable. Exactly one rejection may exist per resolution
-revision, and it persists `id UUID`, `project_id UUID`, `report_id UUID`,
-`resolution_id UUID`, `reviewer_user_id UUID`, `reason` and `created_at`. `reason`
-follows TD-RPT: required, nonblank, at most 500 code points and 2,000 UTF-8 bytes.
+The original DEV-RESOLUTION decision kept QA feedback separate so resolution
+revisions stay immutable. QA verification (#58) persists the reason on the
+verification for that resolution revision and records the reviewer and timestamp
+in the matching send-back audit event. The reason follows the
+[QA verification contract](qa-verification.md).
 
-Rejections are readable by all staff, like resolutions, and are not shown to the
-Reporter. When the reject command ships, each resolution list item gains a nullable
-`rejection` object of `{reason, reviewerUserId, createdAt}`. The assignment does not
-change on rejection, and the audit event carries no reason text.
-
-DEV-RESOLUTION #30 records this decision only. The table, the reject command and
-the rendering of the reason ship together with the QA reject slice.
+Resolution history exposes a nullable `rejection` object of
+`{reason, reviewerUserId, createdAt}` to active project staff. The Developer
+workspace displays the reason on its revision. Assignment is preserved and
+the audit event carries no reason text.
 
 ### Request bodies
 

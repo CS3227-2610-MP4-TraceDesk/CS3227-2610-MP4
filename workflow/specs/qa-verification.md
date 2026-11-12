@@ -16,8 +16,20 @@ latest proposed resolution. Each resolution starts with its own checklist.
   rejected, and prior resolution checks never carry over automatically.
 
 The awaiting-verification queue removes a report after a decision. The
-send-back reason is stored with its resolution. Displaying that reason in the
-Developer workspace and adding a QA review history are follow-up work.
+send-back reason is stored with its resolution. QA review history is tracked in
+issue #64.
+
+## Developer handoff (issue #63)
+
+- **TD-QAV-05** The staff-only resolution list returns `rejection: null` until
+  QA sends back that revision. After send-back it returns `reason`,
+  `reviewerUserId`, and `createdAt` from the saved verification and its matching
+  audit event. This reads existing records and accepts reasons saved under the
+  current verification limit. It adds no new writes or lifecycle transitions.
+- **TD-QAV-06** The Developer sees the reason as plain text beside the relevant
+  revision, including in Earlier revisions. Later revisions do not inherit it.
+  Reporter and nonmember requests remain denied. The response excludes
+  checklist results and private verification notes.
 
 AI suggestions can be added to the Verification draft through explicit
 selection. Templates and discussion are separate slices.
