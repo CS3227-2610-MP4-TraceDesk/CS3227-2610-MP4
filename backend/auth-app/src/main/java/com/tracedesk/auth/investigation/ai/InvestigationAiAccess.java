@@ -15,6 +15,10 @@ import static com.tracedesk.ai.gateway.GatewayTypes.*;
 
 /** Request-local role policy around the shared secured gateway. */
 public final class InvestigationAiAccess implements Authorizer, AutoCloseable {
+    public record SourceNote(String ref, UUID id, int version) { }
+    public record Suggestion(String capability, String promptVersion, UUID reportId, int reportVersion,
+                             List<String> reportFields, List<SourceNote> sourceNotes,
+                             List<InvestigationAiOutput.Hypothesis> hypotheses, List<String> nextSteps) { }
     private final InvestigationAiSource source;
     private final SecuredAiGateway gateway;
     private final ThreadLocal<Invocation> current = new ThreadLocal<>();
@@ -55,6 +59,11 @@ public final class InvestigationAiAccess implements Authorizer, AutoCloseable {
     }
     public InvestigationAiOutput.Result suggest(UUID project, UUID report, int expectedVersion,
             InvestigationAiSelection selection, Supplier<UUID> liveActor) {
+        Suggestion suggestion = suggestWithProvenance(project, report, expectedVersion, selection, liveActor);
+        return new InvestigationAiOutput.Result(suggestion.hypotheses(), suggestion.nextSteps());
+    }
+    public Suggestion suggestWithProvenance(UUID project, UUID report, int expectedVersion,
+            InvestigationAiSelection selection, Supplier<UUID> liveActor) {
         if (project == null || report == null || expectedVersion < 1 || liveActor == null
                 || selection == null || selection.reportFields() == null || selection.notes() == null)
             throw new Failure("INVALID_REQUEST", 400);
@@ -71,7 +80,10 @@ public final class InvestigationAiAccess implements Authorizer, AutoCloseable {
             var suggestion = gateway.suggest(request);
             var labels = new HashSet<>(snapshot.reportFields());
             for (int i = 1; i <= snapshot.notes().size(); i++) labels.add("note" + i);
-            return InvestigationAiOutput.parse(suggestion.text(), labels);
+            var output = InvestigationAiOutput.parse(suggestion.text(), labels);
+            return new Suggestion(Capability.INVESTIGATION.name(), InvestigationAiContext.PROMPT_VERSION,
+                    report, expectedVersion, snapshot.reportFields(), invocation.context.sourceNotes(),
+                    output.hypotheses(), output.nextSteps());
         } catch (GatewayFailure failure) {
             if (invocation.failure != null) throw invocation.failure;
             throw translate(failure);
