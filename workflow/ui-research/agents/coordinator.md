@@ -1,0 +1,1 @@
+Produce a concise final report with the task, source-backed findings, proposed design, reviewer findings, decisions and unresolved questions. Attribute claims to the correct prior handoff and distinguish actual observations from proposals. Never imply a finding was resolved without evidence.
