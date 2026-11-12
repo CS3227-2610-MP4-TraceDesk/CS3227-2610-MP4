@@ -1,6 +1,7 @@
 package com.tracedesk.auth.investigation.ai;
 
 import com.tracedesk.ai.gateway.SecuredAiGateway;
+import com.tracedesk.auth.ai.configuration.SoclaasEnablementManager;
 import com.tracedesk.auth.ai.persistence.JdbcAiLedger;
 import com.tracedesk.testing.IsolatedPostgres;
 import org.flywaydb.core.Flyway;
@@ -13,7 +14,6 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
@@ -43,6 +43,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.tracedesk.ai.gateway.GatewayPorts.Provider;
 import static com.tracedesk.ai.gateway.GatewayTypes.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 /** Full DEV-AI HTTP boundary checks over HTTPS and a fresh, owned PostgreSQL schema. */
 @ExtendWith(OutputCaptureExtension.class)
@@ -52,6 +54,8 @@ class InvestigationAiHttpsIntegrationTest {
     private static final String LOG_CANARY = "dev-ai-log-canary-19af";
     private static final String NOTE_CANARY = "dev-ai-note-canary-c024";
     private static final String REPLY_CANARY = "dev-ai-reply-canary-5e8b";
+    private static final String OTHER_REPORT_CANARY = "dev-ai-other-report-canary-a91d";
+    private static final String ACCOUNT_CANARY = "dev-ai-account-canary@example.test";
     private static final String ROUTE = "/api/projects/{projectId}/reports/{reportId}/investigation/suggestions";
 
     @Test
@@ -102,11 +106,16 @@ class InvestigationAiHttpsIntegrationTest {
                     Map.entry("TRACEDESK_DATABASE_PASSWORD", System.getenv("TRACEDESK_TEST_DATABASE_PASSWORD")),
                     Map.entry("spring.flyway.schemas", db.schema()),
                     Map.entry("spring.flyway.default-schema", db.schema()),
-                    Map.entry("logging.level.root", "WARN")));
+                    Map.entry("logging.level.root", "TRACE"),
+                    Map.entry("logging.level.org.springframework.jdbc.core.StatementCreatorUtils", "OFF")));
 
             try (ConfigurableApplicationContext context = app.run()) {
                 JdbcTemplate sql = context.getBean(JdbcTemplate.class);
                 TestAiProvider provider = context.getBean(TestAiProvider.class);
+                SoclaasEnablementManager enablement = context.getBean(SoclaasEnablementManager.class);
+                assertEquals(1, context.getBeansOfType(InvestigationAiAccess.class).size(),
+                        "Spring must use the production InvestigationConfiguration bean");
+                verify(enablement).createGateway(any(), isA(InvestigationAiAccess.class), any());
                 UUID developer = UUID.randomUUID(), secondDeveloper = UUID.randomUUID(), reporter = UUID.randomUUID();
                 UUID project = UUID.randomUUID(), report = UUID.randomUUID(), note = UUID.randomUUID();
                 seed(sql, developer, secondDeveloper, reporter, project, report, note);
@@ -117,13 +126,25 @@ class InvestigationAiHttpsIntegrationTest {
                         + "\"notes\":[{\"id\":\"" + note + "\",\"expectedVersion\":1}]}";
 
                 SessionClient valid = login(base, clientTls);
+                BusinessCounts businessBefore = businessCounts(sql);
                 HttpResponse<String> success = send(valid.client(), base, "POST", path, body, valid.csrf());
                 assertEquals(200, success.statusCode(), success.body());
                 assertTrue(success.body().contains(REPLY_CANARY));
+                assertEquals(businessBefore, businessCounts(sql),
+                        "suggestions must not create or change business or business-audit rows");
                 assertNotNull(provider.lastContext.get());
-                assertTrue(provider.lastContext.get().dataJson().contains(REPORT_CANARY));
-                assertTrue(provider.lastContext.get().dataJson().contains(LOG_CANARY));
-                assertTrue(provider.lastContext.get().dataJson().contains(NOTE_CANARY));
+                String expectedContext = "{\"report\":{\"description\":\"" + REPORT_CANARY
+                        + "\",\"textLogs\":\"" + LOG_CANARY + "\"},\"notes\":[{\"ref\":\"note1\",\"body\":\""
+                        + NOTE_CANARY + "\"}]}";
+                assertEquals(expectedContext, provider.lastContext.get().dataJson(),
+                        "provider context must be exact, ordered, and limited to the selection");
+                for (String forbidden : List.of(developer.toString(), secondDeveloper.toString(), reporter.toString(),
+                        project.toString(), report.toString(), note.toString(), ACCOUNT_CANARY,
+                        "Synthetic title", "Synthetic environment", "Synthetic steps", "Synthetic expected",
+                        "Synthetic actual", OTHER_REPORT_CANARY)) {
+                    assertFalse(provider.lastContext.get().dataJson().contains(forbidden),
+                            "provider context must exclude server-owned, unselected, account, and unrelated data");
+                }
 
                 SessionClient expired = login(base, clientTls);
                 provider.beforeMetadata.set(() -> sql.update(
@@ -149,8 +170,9 @@ class InvestigationAiHttpsIntegrationTest {
                 assertSettledSuccess(sql, ticketsBeforeSessionRevocation);
 
                 SessionClient mutationClient = login(base, clientTls);
-                for (String scenario : List.of("membership", "reassignment", "status")) {
-                    restore(sql, developer, project, report);
+                for (String scenario : List.of("membership", "reassignment", "status", "report-version",
+                        "note-edit", "note-delete")) {
+                    restore(sql, developer, project, report, note);
                     long ticketsBefore = terminalSuccessTickets(sql);
                     provider.insideCompletion.set(() -> {
                         switch (scenario) {
@@ -160,21 +182,28 @@ class InvestigationAiHttpsIntegrationTest {
                             case "reassignment" -> sql.update(
                                     "update td_reports set assigned_developer_id=? where id=?", secondDeveloper, report);
                             case "status" -> sql.update("update td_reports set status='READY_FOR_QA' where id=?", report);
+                            case "report-version" -> sql.update(
+                                    "update td_reports set version=version+1 where id=?", report);
+                            case "note-edit" -> sql.update(
+                                    "update td_investigation_notes set body='synthetic changed note',version=version+1 where id=?",
+                                    note);
+                            case "note-delete" -> sql.update("delete from td_investigation_notes where id=?", note);
                             default -> throw new AssertionError(scenario);
                         }
                     });
                     HttpResponse<String> denied = send(mutationClient.client(), base, "POST", path, body,
                             mutationClient.csrf());
-                    int expectedStatus = scenario.equals("membership") ? 404
+                    int expectedStatus = scenario.equals("membership") || scenario.equals("note-delete") ? 404
                             : scenario.equals("reassignment") ? 403 : 409;
-                    String expectedCode = scenario.equals("membership") ? "NOT_FOUND"
-                            : scenario.equals("reassignment") ? "FORBIDDEN" : "INVALID_STATE";
+                    String expectedCode = scenario.equals("membership") || scenario.equals("note-delete") ? "NOT_FOUND"
+                            : scenario.equals("reassignment") ? "FORBIDDEN"
+                            : scenario.equals("status") ? "INVALID_STATE" : "STALE_VERSION";
                     assertError(denied, expectedStatus, expectedCode);
                     assertFalse(denied.body().contains(REPLY_CANARY), scenario);
                     assertSettledSuccess(sql, ticketsBefore);
                 }
 
-                restore(sql, developer, project, report);
+                restore(sql, developer, project, report, note);
                 provider.reply.set("{\"hypotheses\":[{\"statement\":\"" + REPLY_CANARY
                         + "\",\"rationale\":\"synthetic\",\"sources\":[\"description\"]}],"
                         + "\"nextSteps\":[],\"unexpected\":true}");
@@ -204,14 +233,15 @@ class InvestigationAiHttpsIntegrationTest {
     }
 
     private static List<String> canaries() {
-        return List.of(REPORT_CANARY, LOG_CANARY, NOTE_CANARY, REPLY_CANARY);
+        return List.of(REPORT_CANARY, LOG_CANARY, NOTE_CANARY, REPLY_CANARY,
+                OTHER_REPORT_CANARY, ACCOUNT_CANARY);
     }
 
     private static void seed(JdbcTemplate sql, UUID developer, UUID secondDeveloper, UUID reporter,
                              UUID project, UUID report, UUID note) {
         Argon2PasswordEncoder encoder = new Argon2PasswordEncoder(16, 32, 1, 19456, 2);
         sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,?,'DEVELOPER')",
-                developer, "dev-ai-developer@example.test", encoder.encode(PASSWORD));
+                developer, ACCOUNT_CANARY, encoder.encode(PASSWORD));
         sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,?,'DEVELOPER')",
                 secondDeveloper, "dev-ai-second@example.test", encoder.encode(PASSWORD));
         sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,?,'REPORTER')",
@@ -229,6 +259,12 @@ class InvestigationAiHttpsIntegrationTest {
                 values(?,?,?,?,'IN_PROGRESS','Synthetic title',?,'Synthetic environment','Synthetic steps',
                   'Synthetic expected','Synthetic actual',?)
                 """, report, project, reporter, developer, REPORT_CANARY, LOG_CANARY);
+        sql.update("""
+                insert into td_reports(id,project_id,reporter_user_id,assigned_developer_id,status,title,
+                  description,environment,reproduction_steps,expected_behavior,actual_behavior,text_logs)
+                values(?,?,?,?,'IN_PROGRESS','Unrelated title',?,'Unrelated environment','Unrelated steps',
+                  'Unrelated expected','Unrelated actual','Unrelated logs')
+                """, UUID.randomUUID(), project, reporter, developer, OTHER_REPORT_CANARY);
         Instant now = Instant.parse("2026-11-13T00:00:00Z");
         sql.update("""
                 insert into td_investigation_notes(id,project_id,report_id,author_user_id,body,created_at,updated_at)
@@ -237,12 +273,33 @@ class InvestigationAiHttpsIntegrationTest {
                 java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
     }
 
-    private static void restore(JdbcTemplate sql, UUID developer, UUID project, UUID report) {
+    private static void restore(JdbcTemplate sql, UUID developer, UUID project, UUID report, UUID note) {
         sql.update("update td_project_memberships set state='ACTIVE' where project_id=? and user_id=?",
                 project, developer);
-        sql.update("update td_reports set assigned_developer_id=?,status='IN_PROGRESS' where id=?",
+        sql.update("update td_reports set assigned_developer_id=?,status='IN_PROGRESS',version=1 where id=?",
                 developer, report);
+        Instant now = Instant.parse("2026-11-13T00:00:00Z");
+        sql.update("""
+                insert into td_investigation_notes
+                  (id,project_id,report_id,author_user_id,last_edited_by_user_id,body,created_at,updated_at,version)
+                values(?,?,?,?,null,?,?,?,1)
+                on conflict (id) do update set body=excluded.body,last_edited_by_user_id=null,
+                  updated_at=excluded.updated_at,version=1
+                """, note, project, report, developer, NOTE_CANARY,
+                java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
     }
+
+    private static BusinessCounts businessCounts(JdbcTemplate sql) {
+        return new BusinessCounts(
+                sql.queryForObject("select count(*) from td_reports", Long.class),
+                sql.queryForObject("select count(*) from td_investigation_notes", Long.class),
+                sql.queryForObject("select count(*) from td_investigation_note_idempotency", Long.class),
+                sql.queryForObject("select count(*) from td_report_resolutions", Long.class),
+                sql.queryForObject("select count(*) from td_business_audit_events", Long.class));
+    }
+
+    private record BusinessCounts(long reports, long notes, long noteIdempotency,
+                                  long resolutions, long auditEvents) { }
 
     private static void deleteSessions(JdbcTemplate sql, UUID actor) {
         sql.update("delete from spring_session where principal_name=?", actor.toString());
@@ -272,7 +329,7 @@ class InvestigationAiHttpsIntegrationTest {
                 .connectTimeout(Duration.ofSeconds(5)).build();
         String anonymousCsrf = jsonField(send(client, base, "GET", "/api/csrf", null, null).body(), "token");
         HttpResponse<String> login = send(client, base, "POST", "/api/session/login",
-                "{\"login\":\"dev-ai-developer@example.test\",\"password\":\"" + PASSWORD + "\"}",
+                "{\"login\":\"" + ACCOUNT_CANARY + "\",\"password\":\"" + PASSWORD + "\"}",
                 anonymousCsrf);
         assertEquals(200, login.statusCode(), login.body());
         HttpResponse<String> csrf = send(client, base, "GET", "/api/csrf", null, null);
@@ -337,14 +394,15 @@ class InvestigationAiHttpsIntegrationTest {
         @Bean TestAiProvider testAiProvider(Clock clock) { return new TestAiProvider(clock); }
 
         @Bean(destroyMethod = "close")
-        @Primary
-        InvestigationAiAccess testInvestigationAiAccess(InvestigationAiSource source, Clock clock,
-                                                        JdbcTemplate sql, TestAiProvider provider) {
+        SoclaasEnablementManager testSoclaasEnablementManager(Clock clock, JdbcTemplate sql,
+                                                              TestAiProvider provider) {
             Policy policy = new Policy(true, 9_001, 1_000_000, 500_000, 4, 1, Duration.ofSeconds(60));
             JdbcAiLedger ledger = new JdbcAiLedger(sql);
-            return new InvestigationAiAccess(source, clock,
-                    (actors, authorizer, contexts) -> new SecuredAiGateway(
-                            actors, authorizer, contexts, provider, ledger, policy, clock));
+            SoclaasEnablementManager manager = mock(SoclaasEnablementManager.class);
+            when(manager.createGateway(any(), any(), any())).thenAnswer(invocation -> new SecuredAiGateway(
+                    invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2),
+                    provider, ledger, policy, clock));
+            return manager;
         }
     }
 
