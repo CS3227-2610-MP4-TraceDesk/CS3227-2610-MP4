@@ -137,10 +137,13 @@ class InvestigationControllerTest {
         UUID actor=UUID.randomUUID(), project=UUID.randomUUID(), report=UUID.randomUUID(), resolutionId=UUID.randomUUID();
         InvestigationRepository repository=mock(InvestigationRepository.class); AuthStore events=mock(AuthStore.class);
         when(repository.membership(actor,project)).thenReturn(Optional.of(membership(project,"DEVELOPER")));
-        var resolution=new InvestigationRepository.Resolution(resolutionId,report,actor,1,"cause","change","verify","branch",NOW);
+        var resolution=new InvestigationRepository.Resolution(resolutionId,report,actor,1,"cause","change","verify","branch",NOW,null);
+        UUID reviewer=UUID.randomUUID();
+        var rejectedResolution=new InvestigationRepository.Resolution(resolutionId,report,actor,1,"cause","change","verify","branch",NOW,
+                new InvestigationRepository.Rejection("Still duplicated",reviewer,NOW));
         when(repository.propose(eq(actor),eq(project),eq(report),eq(new ProposedResolutionData("cause","change","verify","branch")),eq(2),any(),eq(NOW)))
                 .thenReturn(new InvestigationRepository.Proposal(report(report,project,actor,"READY_FOR_QA",3),resolution));
-        when(repository.resolutions(actor,project,report,25,null)).thenReturn(new InvestigationRepository.ResolutionPage(List.of(resolution),false));
+        when(repository.resolutions(actor,project,report,25,null)).thenReturn(new InvestigationRepository.ResolutionPage(List.of(rejectedResolution),false));
         MockMvc mvc=mvc(repository,events); MockHttpSession session=session(actor);
 
         mvc.perform(post(RESOLUTIONS,project,report).session(session).header("X-CSRF-TOKEN","known-token")
@@ -153,7 +156,12 @@ class InvestigationControllerTest {
         when(repository.membership(actor,project)).thenReturn(Optional.of(membership(project,"QA_REVIEWER")));
         mvc.perform(get(RESOLUTIONS,project,report).session(session))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(resolutionId.toString()))
-                .andExpect(jsonPath("$.items[0].body").doesNotExist()).andExpect(jsonPath("$.nextCursor").isEmpty());
+                .andExpect(jsonPath("$.items[0].body").doesNotExist())
+                .andExpect(jsonPath("$.items[0].rejection.reason").value("Still duplicated"))
+                .andExpect(jsonPath("$.items[0].rejection.reviewerUserId").value(reviewer.toString()))
+                .andExpect(jsonPath("$.items[0].rejection.createdAt").value(NOW.toString()))
+                .andExpect(jsonPath("$.items[0].checklist").doesNotExist())
+                .andExpect(jsonPath("$.items[0].notes").doesNotExist()).andExpect(jsonPath("$.nextCursor").isEmpty());
     }
 
     @Test void proposalOmittingFixReferenceIsEmptyAndForgedOrMalformedBodiesAreRejected() throws Exception {
@@ -162,7 +170,7 @@ class InvestigationControllerTest {
         when(repository.membership(actor,project)).thenReturn(Optional.of(membership(project,"DEVELOPER")));
         when(repository.propose(any(),any(),any(),eq(new ProposedResolutionData("cause","change","verify","")),eq(2),any(),eq(NOW)))
                 .thenReturn(new InvestigationRepository.Proposal(report(report,project,actor,"READY_FOR_QA",3),
-                        new InvestigationRepository.Resolution(UUID.randomUUID(),report,actor,1,"cause","change","verify","",NOW)));
+                        new InvestigationRepository.Resolution(UUID.randomUUID(),report,actor,1,"cause","change","verify","",NOW,null)));
         MockMvc mvc=mvc(repository,events); MockHttpSession session=session(actor);
         mvc.perform(post(RESOLUTIONS,project,report).session(session).header("X-CSRF-TOKEN","known-token").contentType("application/json")
                         .content("{\"rootCause\":\"cause\",\"changeSummary\":\"change\",\"verificationSteps\":\"verify\",\"expectedVersion\":2}"))
@@ -214,7 +222,7 @@ class InvestigationControllerTest {
         UUID actor=UUID.randomUUID(), other=UUID.randomUUID(), project=UUID.randomUUID(), report=UUID.randomUUID();
         InvestigationRepository repository=mock(InvestigationRepository.class);
         when(repository.membership(any(),eq(project))).thenReturn(Optional.of(membership(project,"DEVELOPER")));
-        var first=new InvestigationRepository.Resolution(UUID.randomUUID(),report,actor,1,"cause","change","verify","",NOW);
+        var first=new InvestigationRepository.Resolution(UUID.randomUUID(),report,actor,1,"cause","change","verify","",NOW,null);
         when(repository.resolutions(actor,project,report,1,null)).thenReturn(new InvestigationRepository.ResolutionPage(List.of(first),true));
         when(repository.resolutions(actor,project,report,1,first.id())).thenReturn(new InvestigationRepository.ResolutionPage(List.of(),false));
         InvestigationService service=new InvestigationService(repository,new ReportCursorSigner(),CLOCK);

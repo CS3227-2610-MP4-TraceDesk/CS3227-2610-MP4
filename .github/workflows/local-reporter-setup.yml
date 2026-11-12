@@ -1,0 +1,54 @@
+name: Local Reporter setup
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  local-setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: tracedesk_dev
+          POSTGRES_USER: tracedesk_dev
+          POSTGRES_PASSWORD: synthetic_local_setup_database_password
+        ports:
+          - 55419:5432
+        options: >-
+          --health-cmd "pg_isready -U tracedesk_dev -d tracedesk_dev"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      AI_ENABLED: 'false'
+      TRACEDESK_LOCAL_CONFIRM: 'true'
+      TRACEDESK_LOCAL_JDBC_URL: jdbc:postgresql://127.0.0.1:55419/tracedesk_dev
+      TRACEDESK_LOCAL_DATABASE_USER: tracedesk_dev
+      TRACEDESK_LOCAL_DATABASE_PASSWORD: synthetic_local_setup_database_password
+      TRACEDESK_LOCAL_SMOKE_CONFIRM_DISPOSABLE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Guard, persistence, credential and reset tests
+        run: ./gradlew :backend:auth-app:localDevTest :backend:auth-app:bootJar --no-daemon --console=plain
+      - name: Install locked frontend and browser
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Real local Reporter setup journey
+        run: python3 tools/local-reporter-smoke.py

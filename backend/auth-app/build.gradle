@@ -24,10 +24,59 @@ dependencies {
     testImplementation project(':backend:db-test-support')
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
+
+sourceSets {
+    localDev {
+        java.srcDir 'src/localDev/java'
+        resources.srcDir 'src/localDev/resources'
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += output + compileClasspath
+    }
+    localDevTest {
+        java.srcDir 'src/localDevTest/java'
+        resources.srcDir 'src/localDevTest/resources'
+        compileClasspath += sourceSets.main.output + sourceSets.localDev.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+configurations {
+    localDevImplementation.extendsFrom implementation
+    localDevRuntimeOnly.extendsFrom runtimeOnly
+    localDevTestImplementation.extendsFrom testImplementation
+    localDevTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+tasks.register('localDevTest', Test) {
+    description = 'Runs isolated tests for the explicit local Reporter provisioner.'
+    testClassesDirs = sourceSets.localDevTest.output.classesDirs
+    classpath = sourceSets.localDevTest.runtimeClasspath
+    useJUnitPlatform()
+}
+
+tasks.register('localReporterSetup', JavaExec) {
+    group = 'local development'
+    description = 'Explicitly provisions or resets the synthetic local Reporter account.'
+    dependsOn tasks.named('localDevClasses')
+    classpath = sourceSets.localDev.runtimeClasspath
+    mainClass = 'com.tracedesk.local.LocalReporterSetupCommand'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+    workingDir = rootProject.projectDir
+}
+tasks.register('localSampleAccountsSetup', JavaExec) {
+    group = 'local development'
+    description = 'Explicitly provisions Reporter, Developer and QA sample accounts, or resets one owned account.'
+    dependsOn tasks.named('localDevClasses')
+    classpath = sourceSets.localDev.runtimeClasspath
+    mainClass = 'com.tracedesk.local.LocalSampleAccountsSetupCommand'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+    workingDir = rootProject.projectDir
+}
+
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
     // Ordinary tests must never opt into a provider because the parent shell enables AI.
     environment 'AI_ENABLED', 'false'
+    environment 'TRACEDESK_LIVE_BROWSER_TEST', 'false'
 }
 
 tasks.register('reporterBrowserFixture', JavaExec) {
@@ -38,6 +87,17 @@ tasks.register('reporterBrowserFixture', JavaExec) {
     mainClass = 'com.tracedesk.auth.api.ReporterBrowserFixture'
     javaLauncher = javaToolchains.launcherFor(java.toolchain)
     environment 'AI_ENABLED', 'false'
+    environment 'TRACEDESK_LIVE_BROWSER_TEST', 'false'
+}
+
+tasks.register('reporterLiveBrowserFixture', JavaExec) {
+    group = 'verification'
+    description = 'Runs the separately authorized, one-completion live Reporter browser backend.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.tracedesk.auth.api.ReporterBrowserFixture'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+    environment 'TRACEDESK_LIVE_BROWSER_TEST', 'true'
 }
 
 tasks.register('reporterAiLiveEvaluation', JavaExec) {
@@ -46,5 +106,24 @@ tasks.register('reporterAiLiveEvaluation', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.tracedesk.auth.reports.ai.ReporterAiLiveEvaluation'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+}
+
+// Disposable negative browser fixture; not part of either application runtime.
+tasks.register('localReporterBrowserProbe', JavaExec) {
+    group = 'verification'
+    dependsOn tasks.named('localDevTestClasses')
+    classpath = sourceSets.localDevTest.runtimeClasspath
+    mainClass = 'com.tracedesk.local.LocalReporterBrowserProbe'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('qaAiLiveEvaluation', JavaExec) {
+    group = 'verification'
+    description = 'Explicit opt-in, four-attempt synthetic QA live evaluation.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.tracedesk.auth.reports.ai.QaAiLiveEvaluation'
     javaLauncher = javaToolchains.launcherFor(java.toolchain)
 }

@@ -12,8 +12,10 @@ public interface InvestigationRepository {
     record Note(UUID id, UUID reportId, UUID authorUserId, UUID lastEditedByUserId,
                 String body, Instant createdAt, Instant updatedAt, int version) { }
     record NotePage(List<Note> items, boolean hasMore) { }
+    record Rejection(String reason, UUID reviewerUserId, Instant createdAt) { }
     record Resolution(UUID id, UUID reportId, UUID authorUserId, int revision, String rootCause,
-                      String changeSummary, String verificationSteps, String fixReference, Instant createdAt) { }
+                      String changeSummary, String verificationSteps, String fixReference, Instant createdAt,
+                      Rejection rejection) { }
     record ResolutionPage(List<Resolution> items, boolean hasMore) { }
     record Proposal(ReportRepository.Report report, Resolution resolution) { }
     Optional<ReportRepository.Membership> membership(UUID actor, UUID project);

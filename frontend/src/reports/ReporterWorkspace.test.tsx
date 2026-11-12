@@ -60,6 +60,35 @@ afterEach(() => {
 })
 
 describe('Reporter workspace request isolation', () => {
+  it('keeps confirmed report status visible while activity loads and cancels it on navigation', async () => {
+    let resolveActivity!: (value: Response) => void
+    let activitySignal: AbortSignal | undefined
+    const pending = new Promise<Response>(resolve => { resolveActivity = resolve })
+    const summary = reportPage('Owner report').items[0]
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, options?: RequestInit) => {
+      const path = String(input)
+      if (path.endsWith('/reporter-context')) return Promise.resolve(response(200, projectContext(projectOne, 'First project')))
+      if (path.includes('/activity?')) { activitySignal = options?.signal as AbortSignal; return pending }
+      if (path === `/api/projects/${projectOne}/reports/${summary.id}`) return Promise.resolve(response(200, {
+        ...summary, description: 'Report description', environment: 'Browser', reproductionSteps: 'Open page', expectedBehavior: 'Works', actualBehavior: 'Fails', textLogs: '',
+      }))
+      if (path.includes('/reports?')) return Promise.resolve(response(200, { items: [summary], nextCursor: null }))
+      return Promise.resolve(response(200, { items: [], nextCursor: null }))
+    }))
+    window.history.replaceState(null, '', `/?project=${projectOne}`)
+    render(<ReporterWorkspace {...workspaceProps()} />)
+    await screen.findByText('Reports for First project')
+    fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: /Owner report/ }))
+    await screen.findByRole('heading', { name: 'Owner report' })
+    await waitFor(() => expect(activitySignal).toBeDefined())
+    expect(within(screen.getByRole('main')).getByText('Open', { exact: true })).toBeVisible()
+    expect(screen.getByText('Loading activity…')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to reports' }))
+    expect(activitySignal?.aborted).toBe(true)
+    resolveActivity(response(200, { items: [], nextCursor: null }))
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Activity' })).not.toBeInTheDocument())
+  })
+
   it('does not render a late list response from the previous project after switching', async () => {
     let resolveOldList!: (value: Response) => void
     const oldListResponse = new Promise<Response>(resolve => { resolveOldList = resolve })
@@ -159,10 +188,10 @@ describe('Reporter workspace request isolation', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Environments' }))
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Environments' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Reports' }))
     expect(screen.getByRole('heading', { name: 'New report' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Change project' }))
     expect(screen.getByText('The report is still being submitted. Wait for the save outcome before changing projects or reports.')).toBeInTheDocument()
     expect(screen.getByLabelText(/Title/)).toHaveValue('Cannot save report')
   })

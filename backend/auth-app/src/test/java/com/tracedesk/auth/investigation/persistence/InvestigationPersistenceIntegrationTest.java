@@ -310,7 +310,7 @@ class InvestigationPersistenceIntegrationTest {
         return false;
     }
     private static UUID user(JdbcTemplate sql,String login) {
-        UUID id=UUID.randomUUID(); sql.update("insert into td_users(id,login_normalized,password_hash) values(?,?,?)",id,login,"$argon2id$v=19$m=19456,t=2,p=1$synthetic$hash"); return id;
+        UUID id=UUID.randomUUID(); String role=login.contains("dev-")?"DEVELOPER":login.contains("qa")?"QA_REVIEWER":"REPORTER"; sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,?,?)",id,login,"$argon2id$v=19$m=19456,t=2,p=1$synthetic$hash",role); return id;
     }
     private static void membership(JdbcTemplate sql,UUID project,UUID user,String role) {
         sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,?,'ACTIVE')",project,user,role);

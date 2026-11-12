@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@openai/apps-sdk-ui/components/Badge'
 import { Button } from '@openai/apps-sdk-ui/components/Button'
-import { Bug, FileDocument, Folder, Plus } from '@openai/apps-sdk-ui/components/Icon'
+import { Bug, FileDocument, Plus } from '@openai/apps-sdk-ui/components/Icon'
 import { Input } from '@openai/apps-sdk-ui/components/Input'
 import { Textarea } from '@openai/apps-sdk-ui/components/Textarea'
 import { AppShell } from '../shell/AppShell'
@@ -10,9 +10,10 @@ import type { TrayItem } from '../shell/IconTray'
 import { createDraft, createReport, deleteDraft, fetchDraft, fetchDrafts, fetchProjectContext, fetchReport, fetchReports, isCanonicalUuid, ReportApiError, submitDraft, updateDraft, updateReport, type DraftDetail, type DraftSummary, type ProjectContext, type ReportDetail, type ReportStatus, type ReportSummary } from './reportApi'
 import { emptyReport, reportFieldRules, reportFields, validateReport, type FieldErrors, type ReportField, type ReportValues } from './reportValidation'
 import { ReporterAiPanel } from './ReporterAiPanel'
+import { ReportActivity } from './ReportActivity'
 import './reporter-workspace.css'
 
-type WorkspaceArea = 'reports' | 'environments' | 'settings'
+type WorkspaceArea = 'reports' | 'settings'
 type ReportView = 'list' | 'new' | 'detail'
 type SubmissionState = 'editing' | 'pending' | 'unconfirmed' | 'conflict'
 type Attempt = { body: string; key: string; values: ReportValues }
@@ -29,7 +30,6 @@ const statuses: { value: ReportStatus | ''; label: string }[] = [
 
 const trayItems: readonly TrayItem[] = [
   { id: 'reports', label: 'Reports', icon: <Bug /> },
-  { id: 'environments', label: 'Environments', icon: <Folder /> },
 ]
 
 function initialProjectId(): string {
@@ -111,6 +111,7 @@ export function ReporterWorkspace({
   const [detail, setDetail] = useState<ReportDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
+  const [detailRefresh, setDetailRefresh] = useState(0)
   const [values, setValues] = useState<ReportValues>(emptyReport)
   const [editorBaseValues, setEditorBaseValues] = useState<ReportValues>(emptyReport)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
@@ -464,7 +465,7 @@ export function ReporterWorkspace({
       if (!controller.signal.aborted && epoch === detailEpoch.current) setDetailLoading(false)
     })
     return () => controller.abort()
-  }, [context, handleProtectedFailure, projectId, selectedReportId, view])
+  }, [context, detailRefresh, handleProtectedFailure, projectId, selectedReportId, view])
 
   const beginNewReport = useCallback(() => {
     if (view === 'new') return true
@@ -559,18 +560,8 @@ export function ReporterWorkspace({
   }, [])
 
   const handleAreaSelect = useCallback((next: string) => {
-    const nextArea = next as WorkspaceArea
-    if (nextArea === 'environments' && view === 'new') {
-      const dirty = composerDirty || draftAttempt !== null || submissionState === 'pending' || submissionState === 'unconfirmed' || submissionState === 'conflict'
-      if (!leaveComposer('Opening Environments')) return
-      if (dirty) {
-        const previousEditor = editorKind
-        resetComposer()
-        setView(previousEditor === 'report' ? 'detail' : 'list')
-      }
-    }
-    setArea(nextArea)
-  }, [composerDirty, draftAttempt, editorKind, leaveComposer, resetComposer, submissionState, view])
+    if (next === 'reports' || next === 'settings') setArea(next)
+  }, [])
 
   const handleSignOut = useCallback(() => {
     clearProtectedProject()
@@ -686,9 +677,7 @@ export function ReporterWorkspace({
     setView('detail')
     detailEpoch.current += 1
     activeDetailController.current?.abort()
-    // Changing the selection to the same value would not retrigger the effect.
-    setSelectedReportId(null)
-    requestAnimationFrame(() => setSelectedReportId(selectedReportId))
+    setDetailRefresh(value => value + 1)
   }, [selectedReportId])
 
   const persistDraft = useCallback(async (aiValues?: ReportValues) => {
@@ -1182,6 +1171,7 @@ export function ReporterWorkspace({
             </div>
           ))}
         </dl>
+        <ReportActivity key={`${projectId}:${detail.id}:${detail.version}`} projectId={projectId} reportId={detail.id} onProtectedFailure={handleProtectedFailure} onRefresh={retryDetail} />
       </article>
     )
   }
@@ -1322,9 +1312,7 @@ export function ReporterWorkspace({
         </div>
       )}
     >
-      {area === 'reports' ? renderReports() : area === 'environments' ? (
-        <section className="report-notice report-area-unavailable"><Folder /><h1>Environments</h1><p>Saved environments are not available yet.</p><Button color="secondary" variant="outline" onClick={() => setArea('reports')}>Back to reports</Button></section>
-      ) : (
+      {area === 'reports' ? renderReports() : (
         <section className="report-settings" aria-labelledby="settings-heading">
           <h1 id="settings-heading">Settings</h1>
           <section className="report-settings-group">

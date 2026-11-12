@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createReport, isCanonicalUuid, ReportApiError } from './reportApi'
+import { createReport, fetchReportActivity, isCanonicalUuid, ReportApiError } from './reportApi'
 
 const projectId = '44b10495-a536-4c6e-a410-93bd2d9330fd'
 const reportId = '76989078-9c82-4ac5-9218-fc2b262f47e9'
@@ -93,5 +93,32 @@ describe('report submission transport', () => {
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0][0]).toBe('/api/csrf')
+  })
+})
+
+describe('report activity transport', () => {
+  const item = { id: '9223372036854775800', eventCode: 'REPORT_CREATED', occurredAt: '2026-11-12T00:00:00Z', priorStatus: null, newStatus: 'OPEN', priorVersion: null, newVersion: 1 }
+  it.each(['QA_VERIFICATION_SAVED', 'QA_VERIFICATION_CLOSED', 'QA_VERIFICATION_SENT_BACK'])('accepts approved QA event %s without private fields', async eventCode => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply(200, { items: [{ ...item, eventCode }], nextCursor: null })))
+    await expect(fetchReportActivity(projectId, reportId, null)).resolves.toMatchObject({ items: [{ eventCode }] })
+  })
+  it('uses a read-only same-origin bounded request and preserves bigint IDs as strings', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reply(200, { items: [item], nextCursor: 'next' }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(fetchReportActivity(projectId, reportId, 'signed+cursor')).resolves.toEqual({ items: [item], nextCursor: 'next' })
+    expect(fetchMock).toHaveBeenCalledWith(`/api/projects/${projectId}/reports/${reportId}/activity?limit=25&cursor=signed%2Bcursor`, expect.objectContaining({ credentials: 'same-origin', cache: 'no-store' }))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+  it.each([
+    { ...item, actorId: projectId },
+    { ...item, body: '<script>private</script>' },
+    { ...item, eventCode: 'INVESTIGATION_NOTE_CREATED' },
+    { ...item, id: 42 },
+    { ...item, id: '9223372036854775808' },
+    { ...item, newVersion: -1 },
+    { ...item, newStatus: 'REOPENED' },
+  ])('rejects private fields, unsupported events or invalid metadata', async invalid => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply(200, { items: [invalid], nextCursor: null })))
+    await expect(fetchReportActivity(projectId, reportId, null)).rejects.toMatchObject({ status: 502, code: 'INVALID_RESPONSE' })
   })
 })

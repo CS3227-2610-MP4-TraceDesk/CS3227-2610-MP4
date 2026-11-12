@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,16 +28,118 @@ public class ReportStore implements ReportRepository {
 
     @Override public Optional<Membership> membership(UUID actor, UUID project) {
         return jdbc.query("""
-                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',m.role
+                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role
                 from td_projects p join td_project_memberships m on m.project_id=p.id
                 join td_users u on u.id=m.user_id where m.user_id=? and p.id=?
                 """, rs -> rs.next() ? Optional.of(new Membership(rs.getObject(1,UUID.class),rs.getString(2),rs.getBoolean(3),rs.getBoolean(4),rs.getBoolean(5),rs.getString(6))) : Optional.empty(), actor, project);
     }
 
+    private static final String ASSIGNMENT_MEMBERSHIP = """
+            select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role
+              from td_projects p
+              join td_project_memberships m on m.project_id=p.id
+              join td_users u on u.id=m.user_id
+             where m.user_id=? and p.id=?
+            """;
+    private static final String ELIGIBLE_DEVELOPERS = """
+            select m.user_id
+              from td_project_memberships m join td_users u on u.id=m.user_id
+             where m.project_id=? and u.account_role='DEVELOPER' and m.state='ACTIVE' and u.enabled
+            """;
+
+    private record AssignmentState(UUID developer, String status, int version) {
+        boolean editable() {
+            return switch (status) {
+                case "OPEN", "IN_PROGRESS", "READY_FOR_QA" -> true;
+                default -> false;
+            };
+        }
+    }
+
+    @Override
+    public AssignmentCandidates assignmentCandidates(UUID actor, UUID project, UUID report, UUID after, int limit) {
+        requireQa(membership(actor, project).orElse(null));
+        AssignmentState current = assignmentState(project, report, false);
+        boolean eligible = current.developer() != null && !jdbc.query(
+                ELIGIBLE_DEVELOPERS + " and m.user_id=?", (rs, row) -> rs.getObject(1, UUID.class),
+                project, current.developer()).isEmpty();
+        if (!current.editable()) {
+            return new AssignmentCandidates(current.developer(), eligible, current.version(), List.of(), false);
+        }
+        String keyset = after == null ? "" : " and m.user_id>?";
+        Object[] args = after == null ? new Object[]{project, limit + 1} : new Object[]{project, after, limit + 1};
+        List<UUID> candidates = jdbc.query(ELIGIBLE_DEVELOPERS + keyset + " order by m.user_id limit ?",
+                (rs, row) -> rs.getObject(1, UUID.class), args);
+        boolean more = candidates.size() > limit;
+        return new AssignmentCandidates(current.developer(), eligible, current.version(),
+                List.copyOf(more ? candidates.subList(0, limit) : candidates), more);
+    }
+
+    @Override
+    public Assignment changeAssignment(UUID actor, UUID project, UUID report, UUID developer, String reason,
+                                       int expectedVersion, UUID requestId, Instant now) {
+        return transactions.execute(transaction -> {
+            requireQa(lockAssignmentMembership(actor, project));
+            Membership target = developer == null ? null : lockAssignmentMembership(developer, project);
+            AssignmentState current = assignmentState(project, report, true);
+            if (current.version() != expectedVersion) {
+                throw new ReportService.Failure("STALE_VERSION", 409, current.version());
+            }
+            if (!current.editable() || Objects.equals(current.developer(), developer)) {
+                throw new ReportService.Failure("INVALID_STATE", 409);
+            }
+            if (!ReportData.validAssignmentReason(reason, current.developer() != null)) {
+                throw new ReportService.Failure("VALIDATION_ERROR", 400);
+            }
+            if (developer != null && (!active(target) || !"DEVELOPER".equals(target.role()))) {
+                throw new ReportService.Failure("INVALID_TARGET", 400);
+            }
+            int version = current.version() + 1;
+            jdbc.update("""
+                    update td_reports set assigned_developer_id=?, updated_at=?, version=?
+                     where project_id=? and id=?
+                    """, developer, ts(now), version, project, report);
+            String event = current.developer() == null ? "REPORT_ASSIGNED"
+                    : developer == null ? "REPORT_ASSIGNMENT_CLEARED" : "REPORT_REASSIGNED";
+            jdbc.update("""
+                    insert into td_business_audit_events
+                      (event_code,request_id,actor_id,project_id,report_id,object_type,object_id,
+                       prior_version,new_version,prior_assignee_id,new_assignee_id,outcome)
+                    values (?,?,?,?,?,'REPORT',?,?,?,?,?,'SUCCESS')
+                    """, event, requestId, actor, project, report, report, current.version(), version,
+                    current.developer(), developer);
+            return new Assignment(developer, version, now);
+        });
+    }
+
+    private Membership lockAssignmentMembership(UUID user, UUID project) {
+        return jdbc.query(ASSIGNMENT_MEMBERSHIP + " for share of p,u,m", rs -> rs.next()
+                ? new Membership(rs.getObject(1, UUID.class), rs.getString(2), rs.getBoolean(3),
+                                 rs.getBoolean(4), rs.getBoolean(5), rs.getString(6))
+                : null, user, project);
+    }
+
+    private AssignmentState assignmentState(UUID project, UUID report, boolean lock) {
+        String sql = "select assigned_developer_id,status,version from td_reports where project_id=? and id=?";
+        return jdbc.query(sql + (lock ? " for update" : ""), rs -> {
+            if (!rs.next()) throw new ReportService.Failure("NOT_FOUND", 404);
+            return new AssignmentState(rs.getObject(1, UUID.class), rs.getString(2), rs.getInt(3));
+        }, project, report);
+    }
+
+    private static void requireQa(Membership membership) {
+        if (!active(membership)) throw new ReportService.Failure("NOT_FOUND", 404);
+        if (!"QA_REVIEWER".equals(membership.role())) throw new ReportService.Failure("FORBIDDEN", 403);
+    }
+
+    private static boolean active(Membership membership) {
+        return membership != null && membership.userEnabled() && membership.projectEnabled() && membership.active();
+    }
+
     @Override public Report create(UUID actor, UUID project, UUID key, ReportData data, UUID requestId, Instant now) {
         return transactions.execute(status -> {
             Membership membership = jdbc.query("""
-                    select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',m.role
+                    select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role
                     from td_projects p join td_project_memberships m on m.project_id=p.id
                     join td_users u on u.id=m.user_id where m.user_id=? and p.id=?
                     for update of p,u,m
@@ -190,7 +293,7 @@ public class ReportStore implements ReportRepository {
     }
 
     private void lockReporter(UUID actor, UUID project) {
-        Membership m=jdbc.query("select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',m.role from td_projects p join td_project_memberships m on m.project_id=p.id join td_users u on u.id=m.user_id where m.user_id=? and p.id=? for update of p,u,m",
+        Membership m=jdbc.query("select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role from td_projects p join td_project_memberships m on m.project_id=p.id join td_users u on u.id=m.user_id where m.user_id=? and p.id=? for update of p,u,m",
                 rs->rs.next()?new Membership(rs.getObject(1,UUID.class),rs.getString(2),rs.getBoolean(3),rs.getBoolean(4),rs.getBoolean(5),rs.getString(6)):null,actor,project);
         if(m==null||!m.userEnabled()||!m.projectEnabled()||!m.active()) throw new ReportService.Failure("NOT_FOUND",404);
         if(!"REPORTER".equals(m.role())) throw new ReportService.Failure("FORBIDDEN",403);
@@ -248,6 +351,34 @@ public class ReportStore implements ReportRepository {
 
     @Override public Optional<Report> detail(UUID actor, UUID project, UUID report) {
         return loadReport(actor, project, report, true);
+    }
+    @Override public ActivityPage activity(UUID actor, UUID project, UUID report, int limit, Instant afterOccurredAt, Long afterId) {
+        return transactions.execute(tx -> {
+            lockReporter(actor, project);
+            Integer visible=jdbc.query("select 1 from td_reports where id=? and project_id=? and reporter_user_id=?",
+                    rs -> rs.next()?1:null, report, project, actor);
+            if (visible==null) throw new ReportService.Failure("NOT_FOUND",404);
+            List<Activity> rows=jdbc.query("""
+                    select id::text as id,event_code,occurred_at,prior_status,new_status,prior_version,new_version
+                    from td_business_audit_events
+                    where project_id=? and report_id=? and outcome='SUCCESS'
+                      and event_code in ('REPORT_CREATED','REPORT_EDITED','DRAFT_SUBMITTED','REPORT_INVESTIGATION_STARTED','REPORT_RESOLUTION_PROPOSED','QA_VERIFICATION_SAVED','QA_VERIFICATION_CLOSED','QA_VERIFICATION_SENT_BACK')
+                      and (cast(? as timestamptz) is null or occurred_at>cast(? as timestamptz)
+                        or (occurred_at=cast(? as timestamptz) and td_business_audit_events.id>cast(? as bigint)))
+                    order by occurred_at asc,td_business_audit_events.id asc limit ?
+                    """,(rs,n)->new Activity(rs.getString("id"),rs.getString("event_code"),rs.getTimestamp("occurred_at").toInstant(),
+                    rs.getString("prior_status"),rs.getString("new_status"),
+                    (Integer)rs.getObject("prior_version"),(Integer)rs.getObject("new_version")),
+                    project,report,afterOccurredAt==null?null:ts(afterOccurredAt),afterOccurredAt==null?null:ts(afterOccurredAt),
+                    afterOccurredAt==null?null:ts(afterOccurredAt),afterId,limit+1);
+            // Recheck the live account, membership, role and report ownership at the delivery boundary.
+            lockReporter(actor,project);
+            Integer stillVisible=jdbc.query("select 1 from td_reports where id=? and project_id=? and reporter_user_id=?",
+                    rs -> rs.next()?1:null, report, project, actor);
+            if(stillVisible==null) throw new ReportService.Failure("NOT_FOUND",404);
+            boolean more=rows.size()>limit;
+            return new ActivityPage(more?rows.subList(0,limit):rows,more);
+        });
     }
     private Optional<Report> loadReport(UUID actor, UUID project, UUID id, boolean enforceOwner) {
         Membership m = membership(actor, project).filter(x -> x.userEnabled() && x.projectEnabled() && x.active())

@@ -75,6 +75,30 @@ test('invalid credentials stay on the form with a generic message', async ({ pag
   await expect(page.getByRole('alert')).toContainText('Email or password is incorrect.')
 })
 
+test('registration sends the selected role and returns to sign in without retaining the password', async ({ page }) => {
+  const requests = await mockAuthApi(page)
+  await page.setViewportSize({ width: 320, height: 760 })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Create account', exact: true }).click()
+  await expect(page.getByLabel('Account role')).toBeVisible()
+  await page.getByLabel('Email').fill('new@example.test')
+  await page.getByRole('textbox', { name: 'Password', exact: true }).fill('long-password-123')
+  await page.getByLabel('Confirm password').fill('long-password-123')
+  await page.getByLabel('Account role').selectOption('QA_REVIEWER')
+  await page.getByRole('button', { name: 'Create account', exact: true }).click()
+
+  await expect(page.getByRole('status')).toHaveText('Account created. Sign in to continue.')
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  await expect(page.getByLabel('Email')).toHaveValue('new@example.test')
+  await expect(page.getByRole('textbox', { name: 'Password', exact: true })).toHaveValue('')
+  expect(requests.find(request => request.path === '/api/session/register')).toMatchObject({
+    method: 'POST',
+    headers: expect.objectContaining({ 'x-csrf-token': 'synthetic-csrf-token' }),
+    body: JSON.stringify({ login: 'new@example.test', password: 'long-password-123', role: 'QA_REVIEWER' }),
+  })
+  await expect(page.locator('body')).not.toHaveCSS('overflow-x', 'scroll')
+})
+
 test('session restored after a reload remains server-confirmed', async ({ page }) => {
   const requests = await mockAuthApi(page)
   await page.goto('/')
@@ -131,7 +155,7 @@ for (const width of [320, 390]) {
       stageBottom: document.querySelector('.sign-in-stage')!.getBoundingClientRect().bottom,
       formTop: document.querySelector('.sign-in-panel')!.getBoundingClientRect().top,
     }))
-    expect(stageBottom).toBeLessThanOrEqual(formTop)
+    expect(stageBottom).toBeLessThanOrEqual(formTop + 0.1) // Subpixel layout rounding may differ by a few thousandths of a CSS pixel.
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
   })
 }

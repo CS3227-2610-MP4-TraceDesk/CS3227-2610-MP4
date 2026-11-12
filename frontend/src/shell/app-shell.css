@@ -139,6 +139,15 @@
   margin: 12px 0 24px;
 }
 
+.shell-sidebar-group:has(> .shell-sidebar-group-disclosure) {
+  margin-bottom: 4px;
+}
+
+.shell-sidebar-group:has(> .shell-sidebar-group-disclosure) +
+.shell-sidebar-group:has(> .shell-sidebar-group-disclosure) {
+  margin-top: 4px;
+}
+
 .shell-sidebar-group h2 {
   padding: 0 8px 8px;
   color: var(--td-muted);
@@ -151,6 +160,22 @@
   color: var(--td-muted);
   font-size: 13px;
   line-height: 1.6;
+}
+
+.shell-sidebar-group-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px 8px;
+  color: var(--td-muted);
+}
+
+.shell-sidebar-group-disclosure > summary h2 {
+  padding: 0;
+}
+
+.shell-sidebar-group-disclosure > summary:focus-visible {
+  border-radius: 4px;
 }
 
 .shell-sidebar-item {

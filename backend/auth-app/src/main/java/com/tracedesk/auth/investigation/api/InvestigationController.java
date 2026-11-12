@@ -232,7 +232,11 @@ public class InvestigationController {
         out.put("authorUserId", resolution.authorUserId()); out.put("revision", resolution.revision());
         out.put("rootCause", resolution.rootCause()); out.put("changeSummary", resolution.changeSummary());
         out.put("verificationSteps", resolution.verificationSteps()); out.put("fixReference", resolution.fixReference());
-        out.put("createdAt", resolution.createdAt()); return out;
+        out.put("createdAt", resolution.createdAt());
+        var rejection = resolution.rejection();
+        out.put("rejection", rejection == null ? null : Map.of(
+                "reason", rejection.reason(), "reviewerUserId", rejection.reviewerUserId(), "createdAt", rejection.createdAt()));
+        return out;
     }
     private Map<String,Object> reportView(ReportRepository.Report report) {
         Map<String,Object> out = new LinkedHashMap<>(); out.put("id", report.id()); out.put("projectId", report.projectId());

@@ -1,4 +1,5 @@
 import type { ReactNode, Ref } from 'react'
+import { Disclosure } from '../shared/Disclosure'
 
 export type SidebarContent = {
   title: string
@@ -37,7 +38,19 @@ export function Sidebar({ id, title, children, footer, hidden, inactive, sidebar
   )
 }
 
-export function SidebarGroup({ title, children }: { title: string; children: ReactNode }) {
+export function SidebarGroup({ title, children, collapsible, defaultOpen = true }: {
+  title: string
+  children: ReactNode
+  collapsible?: boolean
+  defaultOpen?: boolean
+}) {
+  if (collapsible) return (
+    <section className="shell-sidebar-group">
+      <Disclosure className="shell-sidebar-group-disclosure" label={<h2>{title}</h2>} open={defaultOpen}>
+        {children}
+      </Disclosure>
+    </section>
+  )
   return (
     <section className="shell-sidebar-group">
       <h2>{title}</h2>

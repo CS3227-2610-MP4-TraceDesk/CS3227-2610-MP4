@@ -16,6 +16,14 @@ export type ReportSummary = {
 }
 export type ReportDetail = ReportSummary & ReportValues
 export type ReportPage = { items: ReportSummary[]; nextCursor: string | null }
+export const reportActivityCodes = ['REPORT_CREATED', 'REPORT_EDITED', 'DRAFT_SUBMITTED', 'REPORT_INVESTIGATION_STARTED', 'REPORT_RESOLUTION_PROPOSED', 'QA_VERIFICATION_SAVED', 'QA_VERIFICATION_CLOSED', 'QA_VERIFICATION_SENT_BACK'] as const
+export type ReportActivityCode = typeof reportActivityCodes[number]
+export type ReportActivityItem = {
+  id: string; eventCode: ReportActivityCode; occurredAt: string
+  priorStatus: ReportStatus | null; newStatus: ReportStatus | null
+  priorVersion: number | null; newVersion: number | null
+}
+export type ReportActivityPage = { items: ReportActivityItem[]; nextCursor: string | null }
 export type DraftSummary = {
   id: string; projectId: string; title: string; createdAt: string; updatedAt: string
   expiresAt: string; version: number; submittedReportId: string | null
@@ -78,6 +86,25 @@ function isProjectContext(value: unknown, expectedId: string): value is ProjectC
 
 function isStatus(value: unknown): value is ReportStatus {
   return typeof value === 'string' && statuses.has(value as ReportStatus)
+}
+
+function isActivityItem(value: unknown): value is ReportActivityItem {
+  if (!isObject(value) || Object.keys(value).sort().join(',') !== 'eventCode,id,newStatus,newVersion,occurredAt,priorStatus,priorVersion') return false
+  const version = (item: unknown) => item === null || (typeof item === 'number' && Number.isSafeInteger(item) && item > 0)
+  return typeof value.id === 'string' && /^[1-9][0-9]{0,18}$/u.test(value.id) && BigInt(value.id) <= 9223372036854775807n &&
+    reportActivityCodes.includes(value.eventCode as ReportActivityCode) &&
+    typeof value.occurredAt === 'string' && Number.isFinite(Date.parse(value.occurredAt)) &&
+    (value.priorStatus === null || isStatus(value.priorStatus)) && (value.newStatus === null || isStatus(value.newStatus)) &&
+    version(value.priorVersion) && version(value.newVersion)
+}
+
+export async function fetchReportActivity(projectId: string, reportId: string, cursor: string | null, signal?: AbortSignal): Promise<ReportActivityPage> {
+  const query = new URLSearchParams({ limit: '25' })
+  if (cursor !== null) query.set('cursor', cursor)
+  return jsonOrThrow(await request(`/api/projects/${projectId}/reports/${reportId}/activity?${query}`, signal),
+    (value): value is ReportActivityPage => isObject(value) && Object.keys(value).sort().join(',') === 'items,nextCursor' &&
+      Array.isArray(value.items) && value.items.length <= 100 && value.items.every(isActivityItem) &&
+      (value.nextCursor === null || (typeof value.nextCursor === 'string' && value.nextCursor.length > 0 && value.nextCursor.length <= 4096)))
 }
 
 function isReportSummary(value: unknown, expectedProjectId: string): value is ReportSummary {
@@ -250,4 +277,35 @@ export async function submitDraft(projectId: string, draftId: string, version: n
 
 export async function updateReport(projectId: string, reportId: string, body: string, signal?: AbortSignal): Promise<ReportDetail> {
   return mutationJson(await mutate(`/api/projects/${projectId}/reports/${reportId}`, 'PATCH', body, undefined, signal), (value): value is ReportDetail => isReportDetail(value, projectId) && value.id === reportId)
+}
+
+export type AssignmentResult = Pick<ReportSummary, 'assignedDeveloperId' | 'version' | 'updatedAt'>
+export type AssignmentPage = Omit<AssignmentResult, 'updatedAt'> & {
+  assignmentEligible: boolean
+  items: { id: string }[]
+  nextCursor: string | null
+}
+
+function isAssignmentState(value: unknown): value is Record<string, unknown> & Omit<AssignmentResult, 'updatedAt'> {
+  return isObject(value) && (value.assignedDeveloperId === null ||
+    (typeof value.assignedDeveloperId === 'string' && isCanonicalUuid(value.assignedDeveloperId))) &&
+    Number.isSafeInteger(value.version) && Number(value.version) > 0
+}
+
+export async function fetchAssignment(projectId: string, reportId: string, cursor: string | null, signal: AbortSignal): Promise<AssignmentPage> {
+  const query = cursor ? '?' + new URLSearchParams({ cursor }).toString() : ''
+  const response = await request(`/api/projects/${projectId}/reports/${reportId}/assignment${query}`, signal)
+  return jsonOrThrow(response, (value): value is AssignmentPage => isAssignmentState(value) &&
+    typeof value.assignmentEligible === 'boolean' && Array.isArray(value.items) &&
+    value.items.every(item => isObject(item) && typeof item.id === 'string' && isCanonicalUuid(item.id)) &&
+    (value.nextCursor === null || (typeof value.nextCursor === 'string' && value.nextCursor.length > 0)))
+}
+
+export async function saveAssignment(projectId: string, reportId: string, change: {
+  expectedVersion: number; developerId?: string; reason?: string
+}, signal: AbortSignal): Promise<AssignmentResult> {
+  const response = await mutate(`/api/projects/${projectId}/reports/${reportId}/assignment`, 'PATCH', JSON.stringify(change), undefined, signal)
+  return mutationJson(response, (value): value is AssignmentResult => isAssignmentState(value) &&
+    value.assignedDeveloperId === (change.developerId ?? null) && value.version > change.expectedVersion &&
+    typeof value.updatedAt === 'string' && Number.isFinite(Date.parse(value.updatedAt)))
 }

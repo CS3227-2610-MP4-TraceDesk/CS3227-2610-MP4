@@ -664,6 +664,7 @@ export function DeveloperWorkspace({
       <dl className="developer-resolution-fields">
         {resolutionTextFields.map(({ field, label }) => <div key={field}><dt>{label}</dt><dd>{resolution[field]}</dd></div>)}
         {resolution.fixReference && <div><dt>Fix reference</dt><dd>{resolution.fixReference}</dd></div>}
+        {resolution.rejection && <div><dt>QA send-back reason</dt><dd>{resolution.rejection.reason}</dd></div>}
       </dl>
     </div>
   }

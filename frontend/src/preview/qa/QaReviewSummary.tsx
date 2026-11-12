@@ -5,7 +5,15 @@ import { Disclosure } from '../../shared/Disclosure'
 
 import type { QaBug } from './qaFixtures'
 
-export function QaReviewSummary({ bug, comment, showChangeMap }: { bug: QaBug; comment: ReactNode; showChangeMap: boolean }) {
+export function QaReviewSummary({ bug, comment, activityContent, showChangeMap = false, resolution, description, environment }: {
+  bug: QaBug
+  comment?: ReactNode
+  activityContent?: ReactNode
+  showChangeMap?: boolean
+  resolution?: ReactNode
+  description?: string
+  environment?: string
+}) {
   const fix = [...bug.entries].reverse().find(entry => entry.title === 'Proposed fix')
   const checks = bug.checks
   const completed = checks.filter(check => check.result !== 'Pending').length
@@ -24,12 +32,13 @@ export function QaReviewSummary({ bug, comment, showChangeMap }: { bug: QaBug; c
           </div>
         </header>
 
-        <p className="qa-summary-description">{bug.actual}</p>
+        <p className="qa-summary-description">{description ?? bug.actual}</p>
         <Disclosure className="qa-activity-row" id="qa-review-report" tabIndex={-1} label={<><FileDocument aria-hidden="true" /> Original report</>}>
-          <dl>
-            <dt>Expected behavior</dt><dd>{bug.expected}</dd>
-            <dt>Actual behavior</dt><dd>{bug.actual}</dd>
-            <dt>Steps to reproduce</dt><dd>{bug.steps}</dd>
+          <dl className="qa-summary-fields">
+            {environment && <div><dt>Environment</dt><dd>{environment}</dd></div>}
+            <div><dt>Expected behavior</dt><dd>{bug.expected}</dd></div>
+            <div><dt>Actual behavior</dt><dd>{bug.actual}</dd></div>
+            <div><dt>Steps to reproduce</dt><dd>{bug.steps}</dd></div>
           </dl>
         </Disclosure>
         {bug.logs && (
@@ -38,6 +47,7 @@ export function QaReviewSummary({ bug, comment, showChangeMap }: { bug: QaBug; c
           </Disclosure>
         )}
 
+        {resolution}
         {fix && (
           <section className="qa-summary-fix" id="qa-review-fix" tabIndex={-1}>
             <h2><Code aria-hidden="true" /> Proposed fix</h2>
@@ -47,7 +57,8 @@ export function QaReviewSummary({ bug, comment, showChangeMap }: { bug: QaBug; c
 
         <section className="qa-summary-activity" aria-labelledby="qa-activity-heading">
           <h2 id="qa-activity-heading">Activity</h2>
-          <Disclosure className="qa-activity-row" label={<><Bug aria-hidden="true" /> Bug reported <span className="muted">Reporter</span></>}>
+          <Disclosure className="qa-activity-row qa-activity-event"
+            label={<><Bug aria-hidden="true" /> Bug reported <span className="muted">Reporter</span></>}>
             <p>{bug.actual}</p>
           </Disclosure>
           {bug.entries.map((entry, index) => (
@@ -55,6 +66,7 @@ export function QaReviewSummary({ bug, comment, showChangeMap }: { bug: QaBug; c
               <p>{entry.text}</p>
             </Disclosure>
           ))}
+          {activityContent}
         </section>
         {comment}
       </div>

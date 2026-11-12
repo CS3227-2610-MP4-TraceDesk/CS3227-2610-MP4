@@ -69,6 +69,7 @@ class ReportHttpsIntegrationTest {
                     Map.entry("server.ssl.key-store-password", keyPassword),
                     Map.entry("server.ssl.key-store-type", "PKCS12"), Map.entry("server.ssl.key-alias", "tracedesk-test"),
                     Map.entry("TRACEDESK_DATABASE_URL", dbUrl),
+                    Map.entry("TRACEDESK_PROJECT_CURSOR_SECRET", "synthetic-project-cursor-secret-for-tests-0001"),
                     Map.entry("TRACEDESK_DATABASE_USER", System.getenv("TRACEDESK_TEST_DATABASE_USER")),
                     Map.entry("TRACEDESK_DATABASE_PASSWORD", System.getenv("TRACEDESK_TEST_DATABASE_PASSWORD")),
                     Map.entry("spring.flyway.schemas", db.schema()), Map.entry("spring.flyway.default-schema", db.schema()),
@@ -113,6 +114,45 @@ class ReportHttpsIntegrationTest {
                 assertEquals(200, ownerDetail.statusCode());
                 assertEquals(reportId, parse(ownerDetail.body()).path("id").asText());
                 assertEquals(CANARY + "\nline two 🧭", parse(ownerDetail.body()).path("description").asText());
+
+                String activityPath = reports + "/" + reportId + "/activity";
+                HttpResponse<String> activity = request(reporter, base, "GET", activityPath, null, null);
+                assertEquals(200, activity.statusCode()); secure(activity);
+                JsonNode activityJson = parse(activity.body());
+                assertEquals(Set.of("items", "nextCursor"), Set.copyOf(onlyKeys(activityJson)));
+                assertEquals(1, activityJson.path("items").size());
+                JsonNode submitted = activityJson.path("items").get(0);
+                assertEquals(Set.of("id", "eventCode", "occurredAt", "priorStatus", "newStatus", "priorVersion", "newVersion"), Set.copyOf(onlyKeys(submitted)));
+                assertTrue(submitted.path("id").isTextual());
+                assertEquals("REPORT_CREATED", submitted.path("eventCode").asText());
+                assertTrue(submitted.path("priorStatus").isNull());
+                assertEquals("OPEN", submitted.path("newStatus").asText());
+                assertFalse(activity.body().contains(CANARY));
+                assertFalse(activity.body().contains(fixture.ownerId().toString()));
+                assertEquals(401, anonymous(base, clientTls, "GET", activityPath, null, null, null).statusCode());
+                for (Session staff : List.of(developer, qa)) assertEquals(403, request(staff, base, "GET", activityPath, null, null).statusCode());
+                for (Session invisible : List.of(otherReporter, foreignReporter)) {
+                    var hidden = request(invisible, base, "GET", activityPath, null, null);
+                    assertEquals(404, hidden.statusCode()); secure(hidden);
+                    assertFalse(hidden.body().contains("REPORT_CREATED"));
+                }
+                assertEquals(404, request(reporter, base, "GET", "/api/projects/" + fixture.foreignProjectId() + "/reports/" + reportId + "/activity", null, null).statusCode());
+                for (String query : List.of("?limit=0", "?limit=101", "?limit=-1", "?limit=no", "?limit=1&limit=2", "?role=REPORTER", "?actor=" + fixture.ownerId())) {
+                    var invalid = request(reporter, base, "GET", activityPath + query, null, null);
+                    assertEquals(400, invalid.statusCode()); assertEquals("INVALID_REQUEST", errorCode(invalid)); secure(invalid);
+                }
+                assertEquals(400, request(reporter, base, "GET", reports + "/bad-id/activity", null, null).statusCode());
+                var badActivityCursor = request(reporter, base, "GET", activityPath + "?cursor=tampered", null, null);
+                assertEquals(400, badActivityCursor.statusCode()); assertEquals("INVALID_CURSOR", errorCode(badActivityCursor));
+                assertTrue(sql.queryForObject("select count(*) from td_security_events where route_template=? and event_code='REPORT_CURSOR_INVALID'", Integer.class,
+                        "/api/projects/{projectId}/reports/{reportId}/activity") > 0);
+                sql.execute("alter table td_business_audit_events rename to td_business_audit_activity_unavailable");
+                try {
+                    var unavailableActivity = request(reporter, base, "GET", activityPath, null, null);
+                    assertEquals(503, unavailableActivity.statusCode()); secure(unavailableActivity);
+                    assertEquals("SERVICE_UNAVAILABLE", errorCode(unavailableActivity));
+                    assertFalse(unavailableActivity.body().contains("items"));
+                } finally { sql.execute("alter table td_business_audit_activity_unavailable rename to td_business_audit_events"); }
 
                 HttpResponse<String> replay = request(reporter, base, "POST", reports, body, key);
                 assertEquals(201, replay.statusCode(), replay.body());
@@ -226,33 +266,37 @@ class ReportHttpsIntegrationTest {
                 sql.update("update td_project_memberships set state='DISABLED' where project_id=? and user_id=?", fixture.projectId(), fixture.ownerId());
                 try {
                     assertEquals(404, request(reporter, base, "GET", reports + "/" + reportId, null, null).statusCode());
+                    assertEquals(404, request(reporter, base, "GET", activityPath, null, null).statusCode());
                 } finally {
                     sql.update("update td_project_memberships set state='ACTIVE' where project_id=? and user_id=?", fixture.projectId(), fixture.ownerId());
                 }
                 sql.update("update td_users set enabled=false where id=?", fixture.ownerId());
                 try {
                     assertEquals(404, request(reporter, base, "GET", reports + "/" + reportId, null, null).statusCode());
+                    assertEquals(404, request(reporter, base, "GET", activityPath, null, null).statusCode());
                 } finally {
                     sql.update("update td_users set enabled=true where id=?", fixture.ownerId());
                 }
                 sql.update("update td_projects set enabled=false where id=?", fixture.projectId());
                 try {
                     assertEquals(404, request(reporter, base, "GET", reports + "/" + reportId, null, null).statusCode());
+                    assertEquals(404, request(reporter, base, "GET", activityPath, null, null).statusCode());
                 } finally {
                     sql.update("update td_projects set enabled=true where id=?", fixture.projectId());
                 }
-                sql.update("update td_project_memberships set role='DEVELOPER' where project_id=? and user_id=?", fixture.projectId(), fixture.ownerId());
+                sql.update("update td_users set account_role='DEVELOPER' where id=?", fixture.ownerId());
                 try {
                     assertEquals(403, request(reporter, base, "POST", reports, body, key).statusCode(),
                             "same-key replay still authorizes the actor's current role");
                 } finally {
-                    sql.update("update td_project_memberships set role='REPORTER' where project_id=? and user_id=?", fixture.projectId(), fixture.ownerId());
+                    sql.update("update td_users set account_role='REPORTER' where id=?", fixture.ownerId());
                 }
 
                 sql.execute("alter table td_security_events rename to td_security_events_unavailable");
                 HttpResponse<String> eventOutage;
                 try {
                     eventOutage = request(foreignReporter, base, "GET", reports + "/" + reportId, null, null);
+                    assertEquals(503, request(otherReporter, base, "GET", activityPath, null, null).statusCode());
                 } finally {
                     sql.execute("alter table td_security_events_unavailable rename to td_security_events");
                 }
@@ -360,6 +404,9 @@ class ReportHttpsIntegrationTest {
                 assertEquals(keysBeforeFailure + 1, sql.queryForObject("select count(*) from td_report_idempotency", Integer.class));
                 assertEquals(auditsBeforeFailure + 1, sql.queryForObject("select count(*) from td_business_audit_events", Integer.class));
 
+                String assignmentPath = reports + "/" + parse(retryAfterRestore.body()).path("id").asText() + "/assignment";
+                verifyAssignmentApi(base, assignmentPath, qa, developer, foreignReporter, fixture, canaries);
+
                 // Error-event attribution must not invalidate session state before CSRF succeeds.
                 String otherSession = sql.queryForObject("select primary_id from spring_session where principal_name=?",
                         String.class, fixture.otherReporterId().toString());
@@ -391,6 +438,39 @@ class ReportHttpsIntegrationTest {
         for (String canary : canaries) assertFalse(output.getAll().contains(canary), "logs must not contain report text or auth canaries");
     }
 
+    private void verifyAssignmentApi(URI base, String path, Session qa, Session developer, Session foreign,
+                                     Fixture fixture, List<String> canaries) throws Exception {
+        var candidates = request(qa, base, "GET", path, null, null);
+        assertEquals(200, candidates.statusCode());
+        var page = parse(candidates.body());
+        assertEquals(Set.of("assignedDeveloperId", "assignmentEligible", "version", "items", "nextCursor"),
+                Set.copyOf(onlyKeys(page)));
+        assertEquals(1, page.path("items").size());
+        assertEquals(Set.of("id"), Set.copyOf(onlyKeys(page.path("items").get(0))));
+        assertEquals(fixture.developerId().toString(), page.path("items").get(0).path("id").asText());
+        assertEquals(403, request(developer, base, "GET", path, null, null).statusCode());
+        assertEquals(404, request(foreign, base, "GET", path, null, null).statusCode());
+
+        String assign = json.writeValueAsString(Map.of("developerId", fixture.developerId(), "expectedVersion", 1));
+        assertEquals("CSRF_INVALID", errorCode(requestWithoutCsrf(qa, base, "PATCH", path, assign, null)));
+        assertEquals("FORBIDDEN", errorCode(request(developer, base, "PATCH", path, assign, null)));
+        String forged = json.writeValueAsString(Map.of("developerId", fixture.developerId(), "expectedVersion", 1, "status", "CLOSED"));
+        assertEquals("INVALID_REQUEST", errorCode(request(qa, base, "PATCH", path, forged, null)));
+        var assigned = request(qa, base, "PATCH", path, assign, null);
+        assertEquals(200, assigned.statusCode());
+        assertEquals(Set.of("assignedDeveloperId", "version", "updatedAt"), Set.copyOf(onlyKeys(parse(assigned.body()))));
+        assertEquals(2, parse(assigned.body()).path("version").asInt());
+        assertEquals("STALE_VERSION", errorCode(request(qa, base, "PATCH", path, assign, null)));
+        assertEquals("VALIDATION_ERROR", errorCode(request(qa, base, "PATCH", path, "{\"expectedVersion\":2}", null)));
+        String reason = "assignment-reason-private-canary";
+        canaries.add(reason);
+        var cleared = request(qa, base, "PATCH", path,
+                json.writeValueAsString(Map.of("expectedVersion", 2, "reason", reason)), null);
+        assertEquals(200, cleared.statusCode());
+        assertTrue(parse(cleared.body()).path("assignedDeveloperId").isNull());
+        assertFalse(cleared.body().contains(reason));
+    }
+
     private Fixture seed(JdbcTemplate sql) {
         UUID project = UUID.randomUUID(), foreignProject = UUID.randomUUID();
         sql.update("insert into td_projects(id,name) values (?,?),(?,?)", project, "Synthetic Reporter Project", foreignProject, "Synthetic Other Project");
@@ -408,8 +488,9 @@ class ReportHttpsIntegrationTest {
 
     private UUID addUser(JdbcTemplate sql, Argon2PasswordEncoder encoder, String suffix) {
         UUID id = UUID.randomUUID();
-        sql.update("insert into td_users(id,login_normalized,password_hash) values (?,?,?)", id,
-                "report-" + suffix + "@example.test", encoder.encode(PASSWORD));
+        String role=suffix.equals("developer")?"DEVELOPER":suffix.equals("qa")?"QA_REVIEWER":"REPORTER";
+        sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values (?,?,?,?)", id,
+                "report-" + suffix + "@example.test", encoder.encode(PASSWORD),role);
         return id;
     }
 
