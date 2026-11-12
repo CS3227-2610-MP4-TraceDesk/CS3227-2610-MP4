@@ -144,7 +144,7 @@ test('real HTTPS session creates, lists, reads, denies and restores a Reporter r
   await expect(createButton).toBeEnabled()
   await createButton.dblclick()
   await expect(page.getByRole('heading', { name: reportTitle })).toBeVisible()
-  await expect(page.getByText(/^open$/i)).toBeVisible()
+  await expect(page.locator('.report-detail-top').getByText(/^open$/i)).toBeVisible()
   expect(postResponses.filter((status) => status === 201)).toHaveLength(1)
   expect(postResponses).toHaveLength(1)
   for (const contract of mutationContracts) {
