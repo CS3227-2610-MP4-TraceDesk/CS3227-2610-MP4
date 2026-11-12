@@ -20,6 +20,10 @@ import java.util.UUID;
 
 @Repository
 public class InvestigationStore implements InvestigationRepository {
+    private static final String RESOLUTION_COLUMNS = """
+            r.id,r.report_id,r.author_user_id,r.revision,r.root_cause,r.change_summary,
+            r.verification_steps,r.fix_reference,r.created_at
+            """;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
 
@@ -182,8 +186,9 @@ public class InvestigationStore implements InvestigationRepository {
                     timestamp(now), nextVersion, project, report);
             audit("REPORT_RESOLUTION_PROPOSED", requestId, actor, project, report, "RESOLUTION", resolutionId,
                     "IN_PROGRESS", "READY_FOR_QA", current.version(), nextVersion, revision);
-            Resolution resolution = jdbc.query(resolutionSelect() + " where r.project_id=? and r.report_id=? and r.id=?",
-                    rs -> rs.next() ? mapResolution(rs, 0) : null, project, report, resolutionId);
+            Resolution resolution = jdbc.query("select " + RESOLUTION_COLUMNS + """
+                    from td_report_resolutions r where r.project_id=? and r.report_id=? and r.id=?
+                    """, rs -> rs.next() ? mapResolution(rs, null) : null, project, report, resolutionId);
             return new Proposal(loadReport(project, report).orElseThrow(), resolution);
         });
     }
@@ -318,9 +323,8 @@ public class InvestigationStore implements InvestigationRepository {
                 """;
     }
     private static String resolutionSelect() {
-        return """
-                select r.id,r.report_id,r.author_user_id,r.revision,r.root_cause,r.change_summary,
-                  r.verification_steps,r.fix_reference,r.created_at,v.reason,
+        return "select " + RESOLUTION_COLUMNS + """
+                ,v.reason,
                   sent_back.actor_id as reviewer_user_id,sent_back.occurred_at as rejected_at
                 from td_report_resolutions r
                 left join td_qa_verifications v on v.resolution_id=r.id and v.decision='SEND_BACK'
@@ -337,6 +341,9 @@ public class InvestigationStore implements InvestigationRepository {
         UUID reviewer = rs.getObject("reviewer_user_id", UUID.class);
         Rejection rejection = reviewer == null ? null
                 : new Rejection(rs.getString("reason"), reviewer, rs.getTimestamp("rejected_at").toInstant());
+        return mapResolution(rs, rejection);
+    }
+    private Resolution mapResolution(ResultSet rs, Rejection rejection) throws SQLException {
         return new Resolution(rs.getObject("id", UUID.class), rs.getObject("report_id", UUID.class),
                 rs.getObject("author_user_id", UUID.class), rs.getInt("revision"), rs.getString("root_cause"),
                 rs.getString("change_summary"), rs.getString("verification_steps"), rs.getString("fix_reference"),
