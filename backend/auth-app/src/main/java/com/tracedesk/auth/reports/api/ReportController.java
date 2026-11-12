@@ -21,6 +21,7 @@ public class ReportController {
     private static final String REPORTS = "/api/projects/{projectId}/reports";
     private static final String DETAIL = "/api/projects/{projectId}/reports/{reportId}";
     private static final String ASSIGNMENT = DETAIL + "/assignment";
+    private static final String ACTIVITY = "/api/projects/{projectId}/reports/{reportId}/activity";
     private static final String CONTEXT = "/api/projects/{projectId}/reporter-context";
     private static final String DRAFTS = "/api/projects/{projectId}/drafts";
     private static final String DRAFT = "/api/projects/{projectId}/drafts/{draftId}";
@@ -65,6 +66,30 @@ public class ReportController {
         if (actor==null) return denied("UNAUTHENTICATED", DETAIL,401,null,null,"UNAUTHENTICATED");
         try { return ResponseEntity.ok(detailView(service.detail(actor,project,report))); }
         catch (ReportService.Failure f) { return failure(f,DETAIL,actor,null); }
+    }
+
+    @GetMapping(ACTIVITY)
+    public ResponseEntity<?> activity(@PathVariable String projectId,@PathVariable String reportId,
+                                      @RequestParam(required=false) String limit,@RequestParam(required=false) String cursor,
+                                      HttpServletRequest request) {
+        UUID project=parseUuid(projectId),report=parseUuid(reportId);
+        validateQuery(request,Set.of("limit","cursor"));
+        UUID actor=TrustedSessionActor.resolve(request,clock);
+        if(actor==null) return denied("UNAUTHENTICATED",ACTIVITY,401,null,null,"UNAUTHENTICATED");
+        Integer parsed=null;
+        if(limit!=null) try { if(!limit.matches("[0-9]{1,3}")) throw new NumberFormatException(); parsed=Integer.valueOf(limit); }
+        catch(NumberFormatException e) { throw new ReportService.Failure("INVALID_REQUEST",400); }
+        try {
+            var page=service.activity(actor,project,report,parsed,cursor);
+            Map<String,Object> out=new LinkedHashMap<>();
+            out.put("items",page.items().stream().map(item->{
+                Map<String,Object> value=new LinkedHashMap<>(); value.put("id",item.id()); value.put("eventCode",item.eventCode());
+                value.put("occurredAt",item.occurredAt()); value.put("priorStatus",item.priorStatus()); value.put("newStatus",item.newStatus());
+                value.put("priorVersion",item.priorVersion()); value.put("newVersion",item.newVersion()); return value;
+            }).toList());
+            out.put("nextCursor",page.nextCursor());
+            return ResponseEntity.ok().header("Cache-Control","no-store").body(out);
+        } catch(ReportService.Failure f) { return failure(f,ACTIVITY,actor,project); }
     }
 
     @GetMapping(CONTEXT)
@@ -273,11 +298,13 @@ public class ReportController {
         return error(f.status(),f.code());
     }
     private ResponseEntity<?> denied(String event,String route,int status,UUID actor,UUID project,String code) {
-        auth.event(event,route,status,actor,project); return error(status,code);
+        try { auth.event(event,route,status,actor,project); }
+        catch(org.springframework.dao.DataAccessException unavailable) { return error(503,"SERVICE_UNAVAILABLE"); }
+        return error(status,code);
     }
     private ResponseEntity<?> error(int status,String code) {
         String message=switch(code){case "UNAUTHENTICATED"->"Authentication required";case "NOT_FOUND"->"Not found";case "FORBIDDEN"->"Forbidden";case "DRAFT_EXPIRED"->"Draft expired";case "SERVICE_UNAVAILABLE"->"Service unavailable";case "INVALID_STATE"->"The report or draft can no longer be changed";case "STALE_VERSION"->"A newer version is available";case "DRAFT_LIMIT"->"Draft limit reached";case "DRAFT_ALREADY_SUBMITTED"->"Draft already submitted";case "IDEMPOTENCY_CONFLICT"->"Request key was already used";default->"Invalid request";};
-        return ResponseEntity.status(status).body(Map.of("error",Map.of("code",code,"message",message)));
+        return ResponseEntity.status(status).header("Cache-Control","no-store").body(Map.of("error",Map.of("code",code,"message",message)));
     }
     private static UUID parseUuid(String value) {
         try { UUID parsed=UUID.fromString(value); if(!parsed.toString().equals(value)) throw new IllegalArgumentException(); return parsed; }

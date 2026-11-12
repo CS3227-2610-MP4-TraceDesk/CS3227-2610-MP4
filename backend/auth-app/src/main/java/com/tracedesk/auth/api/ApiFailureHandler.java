@@ -21,7 +21,7 @@ public class ApiFailureHandler {
     @Autowired public ApiFailureHandler(AuthStore store, Clock clock) { this.store=store; this.clock=clock; }
     public ApiFailureHandler(AuthStore store) { this(store, Clock.systemUTC()); }
     private ResponseEntity<?> failure(HttpStatus status,String code,String message) {
-        return ResponseEntity.status(status).body(java.util.Map.of("error",java.util.Map.of("code",code,"message",message)));
+        return ResponseEntity.status(status).header("Cache-Control","no-store").body(java.util.Map.of("error",java.util.Map.of("code",code,"message",message)));
     }
     @ExceptionHandler(DataAccessException.class)
     ResponseEntity<?> unavailable(DataAccessException ignored) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); }
@@ -52,7 +52,7 @@ public class ApiFailureHandler {
     @ExceptionHandler(Exception.class)
     ResponseEntity<?> unexpected(Exception ignored) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); }
 
-    private static boolean isReportRoute(String path) { return path.matches("/api/projects/[^/]+/(reports(?:/[^/]+(?:/assignment)?)?|reporter-context)"); }
+    private static boolean isReportRoute(String path) { return path.matches("/api/projects/[^/]+/(reports(?:/[^/]+(?:/(?:assignment|activity))?)?|reporter-context)"); }
     private static boolean isInvestigationRoute(String path) { return path.matches("/api/projects/[^/]+/(developer-context|reports/[^/]+/(investigation/start|resolutions|notes(?:/[^/]+)?))"); }
     private static String investigationRoute(String path) {
         if(path.endsWith("/developer-context")) return "/api/projects/{projectId}/developer-context";
@@ -63,6 +63,7 @@ public class ApiFailureHandler {
     }
     private static String reportRoute(String path) {
         if(path.endsWith("/reporter-context")) return "/api/projects/{projectId}/reporter-context";
+        if(path.matches(".*/reports/[^/]+/activity$")) return "/api/projects/{projectId}/reports/{reportId}/activity";
         return path.matches(".*/reports/[^/]+(?:/assignment)?$") ? "/api/projects/{projectId}/reports/{reportId}" : "/api/projects/{projectId}/reports";
     }
     private static UUID canonicalProject(String path) {

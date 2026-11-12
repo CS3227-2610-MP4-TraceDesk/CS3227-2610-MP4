@@ -10,6 +10,7 @@ import type { TrayItem } from '../shell/IconTray'
 import { createDraft, createReport, deleteDraft, fetchDraft, fetchDrafts, fetchProjectContext, fetchReport, fetchReports, isCanonicalUuid, ReportApiError, submitDraft, updateDraft, updateReport, type DraftDetail, type DraftSummary, type ProjectContext, type ReportDetail, type ReportStatus, type ReportSummary } from './reportApi'
 import { emptyReport, reportFieldRules, reportFields, validateReport, type FieldErrors, type ReportField, type ReportValues } from './reportValidation'
 import { ReporterAiPanel } from './ReporterAiPanel'
+import { ReportActivity } from './ReportActivity'
 import './reporter-workspace.css'
 
 type WorkspaceArea = 'reports' | 'settings'
@@ -110,6 +111,7 @@ export function ReporterWorkspace({
   const [detail, setDetail] = useState<ReportDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
+  const [detailRefresh, setDetailRefresh] = useState(0)
   const [values, setValues] = useState<ReportValues>(emptyReport)
   const [editorBaseValues, setEditorBaseValues] = useState<ReportValues>(emptyReport)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
@@ -463,7 +465,7 @@ export function ReporterWorkspace({
       if (!controller.signal.aborted && epoch === detailEpoch.current) setDetailLoading(false)
     })
     return () => controller.abort()
-  }, [context, handleProtectedFailure, projectId, selectedReportId, view])
+  }, [context, detailRefresh, handleProtectedFailure, projectId, selectedReportId, view])
 
   const beginNewReport = useCallback(() => {
     if (view === 'new') return true
@@ -675,9 +677,7 @@ export function ReporterWorkspace({
     setView('detail')
     detailEpoch.current += 1
     activeDetailController.current?.abort()
-    // Changing the selection to the same value would not retrigger the effect.
-    setSelectedReportId(null)
-    requestAnimationFrame(() => setSelectedReportId(selectedReportId))
+    setDetailRefresh(value => value + 1)
   }, [selectedReportId])
 
   const persistDraft = useCallback(async (aiValues?: ReportValues) => {
@@ -1171,6 +1171,7 @@ export function ReporterWorkspace({
             </div>
           ))}
         </dl>
+        <ReportActivity key={`${projectId}:${detail.id}:${detail.version}`} projectId={projectId} reportId={detail.id} onProtectedFailure={handleProtectedFailure} onRefresh={retryDetail} />
       </article>
     )
   }
