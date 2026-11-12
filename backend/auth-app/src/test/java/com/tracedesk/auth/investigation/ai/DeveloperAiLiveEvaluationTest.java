@@ -159,7 +159,9 @@ class DeveloperAiLiveEvaluationTest {
                 assertInstanceOf(Map.class, observation.get("suggestion"));
                 assertFalse(observation.toString().contains(fixture.fixture().developer().toString()));
             }
-            assertEquals(1, contexts.stream().map(Context::systemInstruction).distinct().count());
+            assertTrue(contexts.stream().allMatch(context -> "investigation-suggestion-v2".equals(context.promptVersion())));
+            assertTrue(contexts.stream().map(Context::systemInstruction).distinct().count() > 1,
+                    "the instruction must list the labels selected for each request");
             Context injected = contexts.getLast();
             assertTrue(injected.dataJson().contains("DEV_AI_LIVE_CANARY_05"));
             assertTrue(injected.dataJson().contains("DEV_AI_LIVE_NOTE_CANARY_05"));

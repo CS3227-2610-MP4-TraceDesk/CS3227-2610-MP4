@@ -18,6 +18,6 @@ class InvestigationAiC09HiddenTest {
     @Test void c09_instructionBoundAndPromptVersion() {
         var context=new Fixture().title("Synthetic title");
         assertFalse(context.systemInstruction().isBlank()); assertTrue(context.systemInstruction().getBytes(StandardCharsets.UTF_8).length<=1500);
-        assertEquals("investigation-suggestion-v1",context.promptVersion()); assertEquals(3,context.sourceVersion());
+        assertEquals("investigation-suggestion-v2",context.promptVersion()); assertEquals(3,context.sourceVersion());
     }
 }
