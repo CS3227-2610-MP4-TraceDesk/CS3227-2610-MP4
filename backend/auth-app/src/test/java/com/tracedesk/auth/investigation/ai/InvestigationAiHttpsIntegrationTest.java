@@ -107,8 +107,10 @@ class InvestigationAiHttpsIntegrationTest {
                     Map.entry("TRACEDESK_DATABASE_PASSWORD", System.getenv("TRACEDESK_TEST_DATABASE_PASSWORD")),
                     Map.entry("spring.flyway.schemas", db.schema()),
                     Map.entry("spring.flyway.default-schema", db.schema()),
-                    Map.entry("logging.level.root", "TRACE"),
-                    Map.entry("logging.level.org.springframework.jdbc.core.StatementCreatorUtils", "OFF")));
+                    // Application code at every level; libraries at the production default
+                    // (their TRACE output echoes the test's own seed SQL and HTTP bodies).
+                    Map.entry("logging.level.root", "INFO"),
+                    Map.entry("logging.level.com.tracedesk", "TRACE")));
 
             try (ConfigurableApplicationContext context = app.run()) {
                 JdbcTemplate sql = context.getBean(JdbcTemplate.class);
