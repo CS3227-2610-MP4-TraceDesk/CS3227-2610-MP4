@@ -176,7 +176,8 @@ stacks on narrow workspaces. The Change map returns when chat is collapsed.
 Suggestions enter the checklist only after the reviewer selects and adds them.
 Review tabs, drafts, conversations, and results are scoped to the selected bug.
 All changes use in-memory fixtures in the development preview. Authenticated
-role and API wiring remain separate.
+role and API wiring remain separate. See [QA workspace continuity](qa-workspace-continuity.md)
+for authenticated tab, draft and shortcut behavior.
 
 ## Decisions still owned elsewhere
 
