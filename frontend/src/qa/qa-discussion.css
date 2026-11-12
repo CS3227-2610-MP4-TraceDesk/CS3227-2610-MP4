@@ -1,0 +1,45 @@
+.qa-discussion {
+  display: grid;
+  gap: 12px;
+  margin-block-start: 16px;
+}
+
+.qa-discussion-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qa-discussion-comment {
+  padding: 12px;
+  border: 1px solid var(--qa-card-border);
+  border-radius: var(--qa-inset-radius);
+  background: var(--qa-inset-fill);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.qa-discussion-comment header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: var(--td-muted);
+}
+
+.qa-discussion-comment p {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+}
+
+.qa-discussion-composer {
+  display: grid;
+  gap: 8px;
+}
+
+.qa-discussion-composer > button {
+  justify-self: end;
+}
