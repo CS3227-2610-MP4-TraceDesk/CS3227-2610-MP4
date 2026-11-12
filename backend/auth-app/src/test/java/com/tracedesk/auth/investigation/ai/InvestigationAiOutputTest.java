@@ -127,4 +127,28 @@ class InvestigationAiOutputTest {
         assertEquals(first.getMessage(),second.getMessage());
         assertFalse(first.toString().contains("CANARY-REPLY")); assertFalse(second.toString().contains("CANARY-REPLY"));
     }
+
+    @Test void contentFreeDiagnosticsClassifyInvalidOutputWithoutChangingThePublicFailure() {
+        var cases = new LinkedHashMap<String, InvestigationAiOutput.InvalidReason>();
+        String valid = reply(List.of(good()), List.of());
+        cases.put("```json\n" + valid + "\n```", InvestigationAiOutput.InvalidReason.CODE_FENCE);
+        cases.put(valid + " trailing-canary", InvestigationAiOutput.InvalidReason.TRAILING_CONTENT);
+        cases.put("{\"hypotheses\":[],\"nextSteps\":[],\"secret-key\":7}", InvestigationAiOutput.InvalidReason.EXTRA_KEY);
+        cases.put("{\"hypotheses\":[],\"hypotheses\":[],\"nextSteps\":[]}", InvestigationAiOutput.InvalidReason.DUPLICATE_KEY);
+        cases.put("{\"hypotheses\":{},\"nextSteps\":[]}", InvestigationAiOutput.InvalidReason.WRONG_TYPE);
+        cases.put(reply(Collections.nCopies(4, good()), List.of()), InvestigationAiOutput.InvalidReason.LIMIT_EXCEEDED);
+        cases.put(reply(List.of(hypothesis("s", "r", List.of("secret-source"))), List.of()),
+                InvestigationAiOutput.InvalidReason.UNKNOWN_SOURCE_LABEL);
+        cases.put(one(" ", "r", List.of()), InvestigationAiOutput.InvalidReason.EMPTY_TEXT);
+        cases.put("not-json-canary", InvestigationAiOutput.InvalidReason.NOT_JSON);
+
+        for (var entry : cases.entrySet()) {
+            assertEquals(entry.getValue(), InvestigationAiOutput.invalidReason(entry.getKey(), SENT));
+            var failure = rejected(entry.getKey());
+            assertNull(failure.getCause());
+            assertFalse(failure.toString().contains("canary"));
+            assertFalse(entry.getValue().name().contains("SECRET"));
+        }
+        assertNull(InvestigationAiOutput.invalidReason(valid, SENT));
+    }
 }

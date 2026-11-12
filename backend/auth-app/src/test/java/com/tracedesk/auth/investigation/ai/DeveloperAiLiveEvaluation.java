@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -126,15 +127,22 @@ public final class DeveloperAiLiveEvaluation {
         void write(Map<String, Object> observation) throws IOException;
     }
 
+    @FunctionalInterface
+    interface InvalidReplySink {
+        void write(String caseId, String variant, int repetition, String reason, String raw) throws IOException;
+    }
+
     static final class Measurement {
         private Integer contextBytes;
         private Integer instructionBytes;
         private TokenCount tokens;
+        private String reply;
 
         synchronized void reset() {
             contextBytes = null;
             instructionBytes = null;
             tokens = null;
+            reply = null;
         }
 
         synchronized Context record(Context context) {
@@ -145,6 +153,14 @@ public final class DeveloperAiLiveEvaluation {
 
         synchronized void recordUsage(Usage usage) {
             if (usage != null) tokens = new TokenCount(usage.inputTokens(), usage.outputTokens());
+        }
+
+        synchronized void recordReply(String value) {
+            reply = value;
+        }
+
+        synchronized String reply() {
+            return reply;
         }
 
         synchronized Map<String, Object> bytes() {
@@ -175,6 +191,7 @@ public final class DeveloperAiLiveEvaluation {
 
         @Override public com.tracedesk.ai.gateway.GatewayTypes.Completion complete(Context context) {
             var completion = delegate.complete(context);
+            measurement.recordReply(completion.text());
             measurement.recordUsage(completion.usage());
             return completion;
         }
@@ -219,7 +236,8 @@ public final class DeveloperAiLiveEvaluation {
         var liveSettings = SoclaasSettings.from(scopedEnvironment);
         String runId = "developer-live-" + UUID.randomUUID();
         Approval.consume(approval, runDirectory.resolve(runId + ".approval-consumed"), record);
-        try (var writer = Files.newBufferedWriter(runDirectory.resolve(runId + ".jsonl"),
+        try (var capturedInvalidWriter = invalidReplyWriter(runDirectory, runId, environment);
+             var writer = Files.newBufferedWriter(runDirectory.resolve(runId + ".jsonl"),
                      StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
              var database = IsolatedPostgres.open(environment)) {
             Flyway.configure().dataSource(database).locations("classpath:db/migration").load().migrate();
@@ -245,7 +263,7 @@ public final class DeveloperAiLiveEvaluation {
                             writer.write(JsonMapper.builder().build().writeValueAsString(observation));
                             writer.newLine();
                             writer.flush();
-                        });
+                        }, invalidReplySink(capturedInvalidWriter));
             }
         }
         System.out.println("Developer evaluation completed. Sanitized observations are in workflow/developer/experiments/dev-ai-live/runs/.");
@@ -261,6 +279,29 @@ public final class DeveloperAiLiveEvaluation {
         } catch (RuntimeException failure) {
             throw new IllegalArgumentException("Developer evaluation repetitions must be between 1 and 10");
         }
+    }
+
+    static BufferedWriter invalidReplyWriter(Path runDirectory, String runId,
+                                             Map<String, String> environment) throws IOException {
+        if (!"true".equalsIgnoreCase(environment.get("TRACEDESK_DEVELOPER_LIVE_CAPTURE_INVALID"))) return null;
+        return Files.newBufferedWriter(runDirectory.resolve(runId + ".invalid-replies.jsonl"),
+                StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
+    }
+
+    static InvalidReplySink invalidReplySink(BufferedWriter writer) {
+        if (writer == null) return (caseId, variant, repetition, reason, raw) -> { };
+        var json = JsonMapper.builder().build();
+        return (caseId, variant, repetition, reason, raw) -> {
+            var record = new LinkedHashMap<String, Object>();
+            record.put("case", caseId);
+            record.put("variant", variant);
+            record.put("repetition", repetition);
+            record.put("reason", reason);
+            record.put("raw", raw);
+            writer.write(json.writeValueAsString(record));
+            writer.newLine();
+            writer.flush();
+        };
     }
 
     static SecuredAiGateway measureUsage(SecuredAiGateway gateway, Measurement measurement) {
@@ -279,6 +320,13 @@ public final class DeveloperAiLiveEvaluation {
 
     static void evaluate(List<Source> sources, int repetitions, Instant expiry, Clock clock,
                          Measurement measurement, Suggester suggester, ObservationSink sink) throws IOException {
+        evaluate(sources, repetitions, expiry, clock, measurement, suggester, sink,
+                (caseId, variant, repetition, reason, raw) -> { });
+    }
+
+    static void evaluate(List<Source> sources, int repetitions, Instant expiry, Clock clock,
+                         Measurement measurement, Suggester suggester, ObservationSink sink,
+                         InvalidReplySink invalidReplySink) throws IOException {
         if (!sources.stream().map(source -> source.scenario().id()).toList().equals(CASE_IDS))
             throw new IllegalArgumentException("Unexpected Developer evaluation cases");
         int allowed = CASE_IDS.size() * 2 * repetitions;
@@ -296,12 +344,17 @@ public final class DeveloperAiLiveEvaluation {
                     RuntimeException requestFailure = null;
                     String outcome;
                     boolean invalidOutput = false;
+                    String invalidReason = null;
                     try {
                         suggestion = suggester.suggest(source, variant, selection);
                         outcome = "VALIDATED";
                     } catch (ReportService.Failure failure) {
                         outcome = safeOutcome(failure.code());
                         invalidOutput = "AI_INVALID_OUTPUT".equals(failure.code());
+                        if (invalidOutput) {
+                            var reason = InvestigationAiOutput.invalidReason(measurement.reply(), sentLabels(source, variant));
+                            invalidReason = reason == null ? InvestigationAiOutput.InvalidReason.NOT_JSON.name() : reason.name();
+                        }
                         requestFailure = new IllegalStateException("Developer gateway failure code: " + failure.code(), failure);
                     } catch (RuntimeException failure) {
                         outcome = "REQUEST_FAILED";
@@ -313,18 +366,29 @@ public final class DeveloperAiLiveEvaluation {
                     observation.put("repetition", repetition);
                     observation.put("outcome", outcome);
                     observation.put("invalidOutput", invalidOutput);
+                    observation.put("invalidReason", invalidReason);
                     observation.put("latencyMillis", (System.nanoTime() - started) / 1_000_000);
                     observation.put("bytes", measurement.bytes());
                     observation.put("providerReportedTokens", measurement.providerTokens());
                     observation.put("security", suggestion == null ? null : mechanicalSecurity(source.scenario(), suggestion));
                     observation.put("suggestion", suggestion == null ? null : suggestionRecord(suggestion));
                     sink.write(observation);
-                    if (suggestion == null)
+                    if (invalidOutput)
+                        invalidReplySink.write(source.scenario().id(), variant, repetition, invalidReason, measurement.reply());
+                    if (suggestion == null && !invalidOutput)
                         throw new IllegalStateException("Stopped after a failed Developer evaluation attempt: " + outcome,
                                 requestFailure);
                 }
             }
         }
+    }
+
+    private static Set<String> sentLabels(Source source, String variant) {
+        var labels = new java.util.HashSet<>("expanded".equals(variant) ? EXPANDED_FIELDS : CONCISE_FIELDS);
+        if ("expanded".equals(variant)) {
+            for (int index = 1; index <= source.notes().size(); index++) labels.add("note" + index);
+        }
+        return Set.copyOf(labels);
     }
 
     static InvestigationAiSelection selection(Source source, String variant) {

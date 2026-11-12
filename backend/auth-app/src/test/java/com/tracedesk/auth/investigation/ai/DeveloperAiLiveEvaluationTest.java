@@ -149,10 +149,11 @@ class DeveloperAiLiveEvaluationTest {
                     observations.stream().map(item -> item.get("security")).toList());
             for (Map<String, Object> observation : observations) {
                 assertEquals(List.of("case", "variant", "repetition", "outcome", "invalidOutput",
-                                "latencyMillis", "bytes", "providerReportedTokens", "security", "suggestion"),
+                                "invalidReason", "latencyMillis", "bytes", "providerReportedTokens", "security", "suggestion"),
                         new ArrayList<>(observation.keySet()));
                 assertEquals("VALIDATED", observation.get("outcome"));
                 assertEquals(false, observation.get("invalidOutput"));
+                assertNull(observation.get("invalidReason"));
                 assertEquals(Map.of("input", 18L, "output", 12L), observation.get("providerReportedTokens"));
                 assertInstanceOf(Map.class, observation.get("bytes"));
                 assertInstanceOf(Map.class, observation.get("suggestion"));
@@ -164,6 +165,64 @@ class DeveloperAiLiveEvaluationTest {
             assertTrue(injected.dataJson().contains("DEV_AI_LIVE_NOTE_CANARY_05"));
             assertFalse(injected.systemInstruction().contains("DEV_AI_LIVE"));
             assertFalse(injected.systemInstruction().contains("close the report"));
+    }
+
+    @Test void invalidOutputRecordsReasonContinuesAndCapturesRawOnlyWhenOptedIn() throws Exception {
+        String invalid = "{\"hypotheses\":[],\"nextSteps\":[],\"secret-canary\":true}";
+        String valid = "{\"hypotheses\":[],\"nextSteps\":[]}";
+        var fixture = syntheticFixture();
+        var measurement = new DeveloperAiLiveEvaluation.Measurement();
+        var calls = new AtomicInteger();
+        Provider provider = new Provider() {
+            @Override public Metadata metadata() {
+                return new Metadata(MODEL, 1, NOW.plusSeconds(900), 1);
+            }
+
+            @Override public Completion complete(Context context) {
+                return new Completion(calls.getAndIncrement() == 0 ? invalid : valid, new Usage(8, 4));
+            }
+        };
+        var observations = new ArrayList<Map<String, Object>>();
+        Path defaultCapture = temporary.resolve("default-run.invalid-replies.jsonl");
+        assertNull(DeveloperAiLiveEvaluation.invalidReplyWriter(temporary, "default-run", Map.of()));
+        assertFalse(Files.exists(defaultCapture));
+        Path capture = temporary.resolve("capture-run.invalid-replies.jsonl");
+        Policy policy = new Policy(true, 1, MAX_UNITS, MAX_UNITS, 1, 1, Duration.ofSeconds(60));
+        try (var captureWriter = DeveloperAiLiveEvaluation.invalidReplyWriter(temporary, "capture-run",
+                     Map.of("TRACEDESK_DEVELOPER_LIVE_CAPTURE_INVALID", "true"));
+             var access = new InvestigationAiAccess(fixture.source(), CLOCK,
+                     (actors, authorizer, contextBuilder) -> DeveloperAiLiveEvaluation.measureUsage(
+                             new SecuredAiGateway(actors, authorizer,
+                                     (actor, request) -> measurement.record(contextBuilder.build(actor, request)), provider,
+                                     ledger(), policy, CLOCK), measurement))) {
+            DeveloperAiLiveEvaluation.evaluate(fixture.fixture().sources(), 1, NOW.plusSeconds(60), CLOCK, measurement,
+                    (source, variant, selection) -> access.suggestWithProvenance(fixture.fixture().project(), source.reportId(),
+                            source.reportVersion(), selection, fixture.fixture()::developer), observations::add,
+                    DeveloperAiLiveEvaluation.invalidReplySink(captureWriter));
+        }
+
+        assertEquals(10, calls.get());
+        assertEquals(10, observations.size());
+        assertEquals("AI_INVALID_OUTPUT", observations.getFirst().get("outcome"));
+        assertEquals(true, observations.getFirst().get("invalidOutput"));
+        assertEquals("EXTRA_KEY", observations.getFirst().get("invalidReason"));
+        assertNull(observations.getFirst().get("suggestion"));
+        assertFalse(observations.getFirst().toString().contains("secret-canary"));
+        assertEquals("VALIDATED", observations.get(1).get("outcome"));
+        assertNull(observations.get(1).get("invalidReason"));
+
+        var lines = Files.readAllLines(capture, StandardCharsets.UTF_8);
+        assertEquals(1, lines.size());
+        var captured = tools.jackson.databind.json.JsonMapper.builder().build().readTree(lines.getFirst());
+        assertEquals(List.of("case", "variant", "repetition", "reason", "raw"),
+                captured.propertyNames().stream().toList());
+        assertEquals("DAI-01", captured.get("case").asString());
+        assertEquals("concise", captured.get("variant").asString());
+        assertEquals(1, captured.get("repetition").asInt());
+        assertEquals("EXTRA_KEY", captured.get("reason").asString());
+        assertEquals(invalid, captured.get("raw").asString());
+        assertFalse(captured.has("prompt"));
+        assertFalse(captured.has("headers"));
     }
 
     private record OfflineFixture(DeveloperAiLiveEvaluation.Fixture fixture, InvestigationAiSource source) { }
