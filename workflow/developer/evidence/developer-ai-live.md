@@ -52,12 +52,12 @@ used for this diagnosis, and deleted. They were not committed or shared.
 
 The server-owned prompt version is now `investigation-suggestion-v2`. The
 instruction gives the exact JSON shape, requires bare JSON with no fences or prose,
-requires a non-empty `nextSteps` array, and explicitly states every count and text
+requires the `nextSteps` key (0-4 items, may be empty, matching the validator), and explicitly states every count and text
 limit enforced by `InvestigationAiOutput`. For each request it also lists the exact
 server-derived report-field and note-ref labels actually sent, and tells the model
 that `sources` may contain only exact strings from that list, never report text,
 summaries, paths, unlisted keys, or invented labels. The untrusted-data and
-never-as-instructions boundary remains explicit. The existing 8,000-unit context
+never-as-instructions boundary remains explicit. The instruction is at most 1,500 UTF-8 bytes at maximum selection (all 7 report fields plus 5 notes; a test asserts this). The existing 8,000-unit context
 ceiling still includes the generated instruction; there is no truncation. Strict
 output validation and application behavior are unchanged.
 
