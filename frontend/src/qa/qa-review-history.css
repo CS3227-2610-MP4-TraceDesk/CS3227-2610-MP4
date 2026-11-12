@@ -1,0 +1,151 @@
+.qa-review-history,
+.qa-historical-review {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+  padding: 24px;
+}
+
+.qa-review-history h2,
+.qa-historical-review h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.qa-review-history-empty {
+  margin: 0;
+  color: var(--td-muted);
+}
+
+.qa-review-history-list,
+.qa-historical-check-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qa-review-history-item {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--td-line);
+  border-radius: 10px;
+  text-align: start;
+}
+
+.qa-review-history-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+
+.qa-review-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  color: var(--td-muted);
+  font-size: 13px;
+}
+
+.qa-historical-review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.qa-historical-review-meta {
+  margin: -8px 0 8px;
+  color: var(--td-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.qa-historical-review-section {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.qa-historical-review-section h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.qa-historical-check {
+  border: 1px solid var(--td-line);
+  border-radius: 10px;
+  background: var(--td-sidebar);
+}
+
+.qa-historical-check > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 12px;
+  list-style: none;
+}
+
+.qa-historical-check > summary::-webkit-details-marker {
+  display: none;
+}
+
+.qa-historical-check-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.qa-historical-check-result {
+  margin-inline-start: auto;
+  color: var(--td-muted);
+}
+
+.qa-historical-check > dl,
+.qa-historical-review-fields {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 16px 16px 40px;
+}
+
+.qa-historical-check dl > div,
+.qa-historical-review-fields > div {
+  display: grid;
+  gap: 4px;
+}
+
+.qa-historical-check dt,
+.qa-historical-review-fields dt {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.qa-historical-check dd,
+.qa-historical-review-fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.qa-historical-review-fields {
+  padding: 16px;
+  border: 1px solid var(--td-line);
+  border-radius: 12px;
+  background: var(--td-sidebar);
+}
+
+@media (max-width: 700px) {
+  .qa-review-history,
+  .qa-historical-review {
+    padding: 20px 12px;
+  }
+}

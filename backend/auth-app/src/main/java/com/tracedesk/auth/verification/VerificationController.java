@@ -17,7 +17,7 @@ import java.time.Clock;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/projects/{projectId}/reports/{reportId}/qa-verification")
+@RequestMapping("/api/projects/{projectId}")
 public class VerificationController {
     private static final String AUDIT_ROUTE = "/api/projects/{projectId}/reports/{reportId}";
     private static final int MAX_BODY_BYTES = 128 * 1024;
@@ -36,13 +36,13 @@ public class VerificationController {
         this.clock = clock;
     }
 
-    @GetMapping
+    @GetMapping("/reports/{reportId}/qa-verification")
     public ResponseEntity<?> read(@PathVariable String projectId, @PathVariable String reportId, HttpServletRequest request) {
         UUID actor = actor(request);
         return review(request, actor, () -> store.read(actor, uuid(projectId), uuid(reportId)));
     }
 
-    @PostMapping
+    @PostMapping("/reports/{reportId}/qa-verification")
     public ResponseEntity<?> write(@PathVariable String projectId, @PathVariable String reportId, HttpServletRequest request) {
         UUID actor = actor(request);
         return review(request, actor, () -> {
@@ -55,11 +55,43 @@ public class VerificationController {
         });
     }
 
-    private ResponseEntity<?> review(HttpServletRequest request, UUID actor,
-                                     java.util.function.Supplier<VerificationStore.Review> action) {
+    @GetMapping("/qa-reviewed")
+    public ResponseEntity<?> reviewedByMe(@PathVariable String projectId, HttpServletRequest request) {
+        UUID actor = actor(request);
+        return respond(actor, () -> {
+            var params = request.getParameterMap();
+            if (!params.isEmpty() && (params.size() != 1 || !params.containsKey("before") ||
+                    params.get("before").length != 1)) throw VerificationCommand.invalid();
+            return store.reviewedBy(actor, uuid(projectId), historyCursor(request.getParameter("before")));
+        });
+    }
+
+    @GetMapping("/reports/{reportId}/qa-review-history/{resolutionId}")
+    public ResponseEntity<?> historicalReview(@PathVariable String projectId, @PathVariable String reportId,
+                                              @PathVariable String resolutionId, HttpServletRequest request) {
+        UUID actor = actor(request);
+        return review(request, actor, () -> store.historicalReview(actor, uuid(projectId), uuid(reportId), uuid(resolutionId)));
+    }
+
+    private static Long historyCursor(String value) {
+        if (value == null) return null;
+        try {
+            long cursor = Long.parseLong(value);
+            if (cursor > 0 && Long.toString(cursor).equals(value)) return cursor;
+        } catch (NumberFormatException ignored) { }
+        throw VerificationCommand.invalid();
+    }
+
+    private ResponseEntity<?> review(HttpServletRequest request, UUID actor, java.util.function.Supplier<?> action) {
+        return respond(actor, () -> {
+            if (!request.getParameterMap().isEmpty()) throw VerificationCommand.invalid();
+            return action.get();
+        });
+    }
+
+    private ResponseEntity<?> respond(UUID actor, java.util.function.Supplier<?> action) {
         try {
             if (actor == null) throw new ReportService.Failure("UNAUTHENTICATED", 401);
-            if (!request.getParameterMap().isEmpty()) throw VerificationCommand.invalid();
             return ResponseEntity.ok().header("Cache-Control", "no-store").body(action.get());
         } catch (ReportService.Failure failure) {
             String event = switch (failure.code()) {
