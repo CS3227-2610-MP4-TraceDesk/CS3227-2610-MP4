@@ -108,3 +108,16 @@
 .qa-authenticated-summary .qa-verification-content { padding: 12px 24px 24px; }
 .qa-authenticated-summary .qa-decision { flex-wrap: wrap; }
 .qa-authenticated-summary .qa-add-check { margin-bottom: 12px; }
+
+.qa-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#qa-verification-section,
+#qa-review-fix,
+#qa-review-report,
+#qa-report-logs {
+  scroll-margin-block-start: 48px;
+}

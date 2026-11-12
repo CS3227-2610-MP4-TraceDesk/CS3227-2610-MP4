@@ -10,6 +10,8 @@ import { Disclosure } from '../shared/Disclosure'
 import { QaAiPanel } from './QaAiPanel'
 import { QaDiscussion } from './QaDiscussion'
 import { QaAssignment } from './QaAssignment'
+import { QaContextShortcuts } from './QaContextShortcuts'
+import type { QaReviewDraft } from './qaReviewDraft'
 import { QaVerification } from './QaVerification'
 import { QaHistoricalReviewPanel } from './QaHistoricalReviewPanel'
 import type { Verification } from './verificationApi'
@@ -37,10 +39,13 @@ async function readResolutionHistory(projectId: string, reportId: string, signal
   return resolutions.sort((left, right) => right.revision - left.revision)
 }
 
-export function QaReportSummary({ project, reportId, onSessionExpired, onDecision, onAssignmentConfirmed, templates }: {
+export function QaReportSummary({ project, reportId, onSessionExpired, onDecision, onAssignmentConfirmed, draft, onDraftChange, onAccessDenied, templates }: {
   project: { id: string; name: string }
   reportId: string
   templates: TestTemplate[]
+  draft: QaReviewDraft
+  onDraftChange: (patch: Partial<QaReviewDraft>) => void
+  onAccessDenied: () => void
   onSessionExpired: () => void
   onDecision: (review: Verification) => void
   onAssignmentConfirmed: (reportId: string, result: AssignmentResult) => void
@@ -48,13 +53,16 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
   const [detail, setDetail] = useState<{ report: ReportDetail; resolutions: ProposedResolution[] } | null>(null)
   const [error, setError] = useState<'failed' | 'denied' | null>(null)
   const [reload, setReload] = useState(0)
-  const [verificationVisited, setVerificationVisited] = useState(false)
-  const [verifying, setVerifying] = useState(false)
-  const [review, setReview] = useState<Verification | null>(null)
+  const { verifying, review } = draft
+  const [verificationVisited, setVerificationVisited] = useState(verifying || Boolean(review))
+  const [verificationStale, setVerificationStale] = useState(false)
+  const denied = useRef(onAccessDenied)
   const [verificationBusy, setVerificationBusy] = useState(true)
   const [historicalResolution, setHistoricalResolution] = useState<string | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
   const aiTrigger = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => { denied.current = onAccessDenied }, [onAccessDenied])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -73,6 +81,7 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
       if (status === 401) onSessionExpired()
       else if ([403, 404].includes(status)) {
         setDetail(null)
+        denied.current()
         setError('denied')
       } else setError('failed')
     })
@@ -96,7 +105,7 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
   function addSuggestedChecks(titles: string[]) {
     if (verificationBusy) return 'Wait for the Verification checklist to finish loading.'
     if (!review) return 'Open Verification and reload the checklist before adding checks.'
-    if (review.version !== report.version || review.status !== 'READY_FOR_QA') {
+    if (verificationStale || review.version !== report.version || review.status !== 'READY_FOR_QA') {
       return 'The checklist version changed. Refresh the report before applying suggestions.'
     }
     const known = new Set(review.checks.map(check => check.title.trim().toLowerCase()))
@@ -108,9 +117,25 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
     })
     if (!additions.length) return 'The selected checks are already in Verification.'
     if (review.checks.length + additions.length > 30) return 'Verification allows up to 30 checks. Select fewer suggestions.'
-    setReview({ ...review, checks: [...review.checks, ...additions] })
+    onDraftChange({ review: { ...review, checks: [...review.checks, ...additions] } })
     const skipped = titles.length - additions.length
     return `Added ${additions.length} pending ${additions.length === 1 ? 'check' : 'checks'} to the draft.${skipped ? ` Skipped ${skipped} already present.` : ''} Open Verification to save.`
+  }
+
+  function selectVerification(verifying: boolean) {
+    if (verifying) setVerificationVisited(true)
+    onDraftChange({ verifying })
+  }
+
+  function navigateToResource(id: string) {
+    selectVerification(id === 'qa-verification-section')
+    requestAnimationFrame(() => {
+      const target = document.getElementById(id)
+      if (target instanceof HTMLDetailsElement) {
+        target.open = true
+        target.querySelector('summary')?.focus()
+      } else target?.focus()
+    })
   }
 
   function refreshAssignment(confirmed?: AssignmentResult) {
@@ -129,13 +154,13 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
     <div className="qa-review-toolbar">
       <div className="qa-section-tabs" role="group" aria-label="Bug review sections">
         <Button color="secondary" variant="ghost" size="sm" selected={!verifying}
-          aria-pressed={!verifying} onClick={() => setVerifying(false)}>Summary</Button>
+          aria-pressed={!verifying} onClick={() => selectVerification(false)}>Summary</Button>
         {resolutions.length > 0 && <Button color="secondary" variant="ghost" size="sm" selected={verifying}
-          aria-pressed={verifying} onClick={() => {
-            setVerificationVisited(true)
-            setVerifying(true)
-          }}>Verification</Button>}
+          aria-pressed={verifying} onClick={() => selectVerification(true)}>Verification</Button>}
       </div>
+      <div className="qa-toolbar-actions">
+      <QaContextShortcuts hasLogs={Boolean(report.textLogs)} hasResolution={resolutions.length > 0}
+        onNavigate={navigateToResource} />
       {!verifying && report.status === 'READY_FOR_QA' && resolutions.length > 0 && (
         <Button ref={aiTrigger} className="qa-toolbar-action" color="secondary" variant="soft" size="sm"
           aria-expanded={aiOpen} onClick={() => {
@@ -146,6 +171,7 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
           Review with AI
         </Button>
       )}
+      </div>
     </div>
     {error === 'failed' && <div className="qa-page-controls">
       <p role="alert">Could not refresh the bug summary.</p>
@@ -153,8 +179,9 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
     </div>}
     {verificationVisited && <div hidden={!verifying}>
       <QaVerification projectId={project.id} reportId={report.id} reportVersion={report.version} onSessionExpired={onSessionExpired}
-        review={review} setReview={setReview} templates={templates} busy={verificationBusy} setBusy={setVerificationBusy}
-        onSummary={() => setVerifying(false)} onSaved={review => {
+        draft={draft} onDraftChange={onDraftChange} templates={templates} busy={verificationBusy} setBusy={setVerificationBusy}
+        onStaleChange={setVerificationStale} onAccessDenied={onAccessDenied}
+        onSummary={() => selectVerification(false)} onSaved={review => {
           if (review.status !== 'READY_FOR_QA') onDecision(review)
           else setDetail(current => current && review.version > current.report.version
             ? { ...current, report: { ...current.report, version: review.version } }
@@ -168,9 +195,8 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
       onClose={() => { setAiOpen(false); aiTrigger.current?.focus() }}
       onRefresh={() => {
         setAiOpen(false)
-        setReview(null)
         setVerificationBusy(true)
-        setVerificationVisited(false)
+        setVerificationStale(false)
         setDetail(null)
         setReload(value => value + 1)
       }} />}
@@ -183,7 +209,7 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
       resolution={<>
       <QaAssignment projectId={project.id} reportId={report.id} assignedDeveloperId={report.assignedDeveloperId}
         reportVersion={report.version} closed={report.status === 'CLOSED'} onSessionExpired={onSessionExpired} onRefresh={refreshAssignment} />
-      <section className="qa-summary-fix qa-resolution-history" aria-label="Developer resolutions">
+      <section id="qa-review-fix" tabIndex={-1} className="qa-summary-fix qa-resolution-history" aria-label="Developer resolutions">
         <h2><Code aria-hidden="true" /> Developer resolutions</h2>
         {!resolutions.length && <p className="muted">No proposed resolution was recorded.</p>}
         {resolutions.map(resolution => <Disclosure key={resolution.id} className="qa-activity-row"

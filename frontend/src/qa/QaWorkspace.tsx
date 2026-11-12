@@ -13,6 +13,7 @@ import { QaHistoricalReviewPanel } from './QaHistoricalReviewPanel'
 import { fetchReviewedByMe } from './qaHistoryApi'
 import { QaTemplateLibrary } from './QaTemplateLibrary'
 import { fetchQaTemplates, type QaTemplateRecord } from './qaTemplatesApi'
+import { emptyQaReviewDraft, type QaReviewDraft } from './qaReviewDraft'
 import '../preview/qa/qa-preview.css'
 import '../preview/workspace-preview.css'
 import './qa-workspace.css'
@@ -50,6 +51,7 @@ export function QaWorkspace({
   const [selectedId, setSelectedId] = useState('')
   const [history, setHistory] = useState<QaHistoryEntry[]>([])
   const [historicalReview, setHistoricalReview] = useState<QaHistoryEntry | null>(null)
+  const [drafts, setDrafts] = useState<Record<string, QaReviewDraft>>({})
   const [reports, setReports] = useState<ReportSummary[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [cursor, setCursor] = useState<string | null>(null)
@@ -90,6 +92,7 @@ export function QaWorkspace({
         onSessionExpired()
       } else if (error instanceof ReportApiError && [403, 404].includes(error.status)) {
         setReports([])
+        setDrafts({})
         setSelectedId('')
         setNextCursor(null)
         setState('denied')
@@ -125,6 +128,15 @@ export function QaWorkspace({
   const settings = area === 'settings'
   const library = area === 'templates'
   const queueName = destination === 'all' ? 'All bugs' : destination === 'reviewed' ? 'Reviewed by me' : 'Awaiting verification'
+
+  function clearDraft(reportId: string) {
+    setDrafts(current => {
+      if (!(reportId in current)) return current
+      const remaining = { ...current }
+      delete remaining[reportId]
+      return remaining
+    })
+  }
 
   function selectDestination(next: typeof destination) {
     setSelectedId('')
@@ -240,7 +252,13 @@ export function QaWorkspace({
           hidden={Boolean(selected)} awaitingOnly allBugs={destination === 'all'} footer={pageControls} />
       ) : <section className="qa-queue-view"><h1>{destination === 'all' ? queueName : 'Verification'}</h1>{pageControls}</section>}
       {selected && <QaReportSummary key={selected.id} project={project} reportId={selected.id} templates={templates}
+        draft={drafts[selected.id] ?? emptyQaReviewDraft}
+        onDraftChange={patch => setDrafts(current => ({
+          ...current, [selected.id]: { ...(current[selected.id] ?? emptyQaReviewDraft), ...patch },
+        }))}
+        onAccessDenied={() => clearDraft(selected.id)}
         onSessionExpired={onSessionExpired} onDecision={({ status, version }) => {
+          clearDraft(selected.id)
           setReports(current => destination === 'awaiting'
             ? current.filter(report => report.id !== selected.id)
             : current.map(report => report.id === selected.id && version > report.version

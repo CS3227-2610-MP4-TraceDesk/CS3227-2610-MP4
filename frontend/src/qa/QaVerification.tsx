@@ -9,6 +9,7 @@ import type { TestTemplate } from '../preview/qa/qaTemplateFixtures'
 import { applyQaTemplate } from './applyQaTemplate'
 import { ReportApiError } from '../reports/reportApi'
 import { requestVerification, type Decision, type Verification } from './verificationApi'
+import { hasQaVerificationEdits, type QaReviewDraft } from './qaReviewDraft'
 import '../preview/qa/qa-review-workspace.css'
 
 type Props = {
@@ -16,8 +17,10 @@ type Props = {
   reportId: string
   reportVersion: number
   templates: TestTemplate[]
-  review: Verification | null
-  setReview: (review: Verification | null) => void
+  draft: QaReviewDraft
+  onDraftChange: (patch: Partial<QaReviewDraft>) => void
+  onStaleChange: (stale: boolean) => void
+  onAccessDenied: () => void
   busy: boolean
   setBusy: (busy: boolean) => void
   onSessionExpired: () => void
@@ -25,13 +28,13 @@ type Props = {
   onSaved: (review: Verification) => void
 }
 
-export function QaVerification({ projectId, reportId, reportVersion, review, setReview, templates, busy, setBusy,
-  onSessionExpired, onSummary, onSaved }: Props) {
-  const [saved, setSaved] = useState<Verification | null>(null)
+export function QaVerification({ projectId, reportId, reportVersion, draft, onDraftChange, templates, busy, setBusy,
+  onSessionExpired, onSummary, onSaved, onAccessDenied, onStaleChange }: Props) {
+  const { review, saved, title, reason } = draft
+  const [observedVersion, setObservedVersion] = useState(0)
+  const [reloadRequired, setReloadRequired] = useState(false)
   const [layout, setLayout] = useState<'Board' | 'List'>('Board')
   const [selected, setSelected] = useState<number | null>(null)
-  const [title, setTitle] = useState('')
-  const [reason, setReason] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [templateId, setTemplateId] = useState('')
@@ -45,7 +48,7 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
     void runRequest(decision)
   }
 
-  async function runRequest(decision?: Decision) {
+  async function runRequest(decision?: Decision, restoreDraft = false) {
     const controller = new AbortController()
     request.current = controller
     try {
@@ -54,12 +57,11 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
         decision, reason: decision === 'SEND_BACK' ? reason.trim() : '',
       } : undefined)
       if (controller.signal.aborted) return
-      setReview(next)
-      setSaved(next)
-      if (!decision) {
-        setSelected(null)
-        setTitle('')
-        setReason('')
+      setObservedVersion(next.version)
+      setReloadRequired(false)
+      if (!restoreDraft || !hasQaVerificationEdits(draft)) {
+        onDraftChange({ review: next, saved: next, ...(!decision && { title: '', reason: '' }) })
+        if (!decision) setSelected(null)
       }
       if (decision) {
         setNotice(decision === 'SAVE' ? 'Verification saved.' : decision === 'CLOSE' ? 'Bug verified and closed.' : 'Bug sent back to the Developer.')
@@ -70,10 +72,10 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
       const problem = failure instanceof ReportApiError ? failure : null
       if (problem?.status === 401) onSessionExpired()
       else if (problem?.status === 404 || (problem?.status === 403 && problem.code !== 'CSRF_INVALID')) {
-        setReview(null)
-        setSaved(null)
+        onAccessDenied()
         setError('Verification is no longer available to your account.')
       } else {
+        if (restoreDraft || problem?.code === 'STALE_VERSION' || problem?.code === 'INVALID_STATE') setReloadRequired(true)
         setError(problem?.code === 'STALE_VERSION' || problem?.code === 'INVALID_STATE'
           ? 'The report changed. Reload verification before saving again.'
           : 'Verification could not be loaded or saved. Check your connection and input.')
@@ -86,7 +88,7 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
     }
   }
 
-  const loadInitialReview = useEffectEvent(() => void runRequest())
+  const loadInitialReview = useEffectEvent(() => { setBusy(true); void runRequest(undefined, true) })
   useEffect(() => {
     loadInitialReview()
     return () => {
@@ -95,7 +97,8 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
     }
   }, [])
 
-  const stale = Boolean(review && review.version < reportVersion)
+  const stale = reloadRequired || Boolean(review && review.version < Math.max(reportVersion, observedVersion))
+  useEffect(() => { onStaleChange(stale) }, [stale, onStaleChange])
   const editable = review?.status === 'READY_FOR_QA' && !busy && !stale
   const names = review?.checks.map(check => check.title.trim().toLowerCase()) ?? []
   const valid = names.every(Boolean) && new Set(names).size === names.length &&
@@ -113,12 +116,12 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
       setNotice(result.error)
       return
     }
-    setReview(result.draft)
+    onDraftChange({ review: result.draft })
     setTemplateId('')
     setNotice('Added ' + result.added + ' pending ' + (result.added === 1 ? 'check' : 'checks') + ' to the draft. Save Verification to keep them.')
   }
 
-  return <section className="qa-verification-content" aria-label="Verification checklist">
+  return <section id="qa-verification-section" tabIndex={-1} className="qa-verification-content" aria-label="Verification checklist">
     <div className="qa-review-heading">
       <h2>Verification</h2>
       {review && <SegmentedControl aria-label="Verification view" size="sm" value={layout} onChange={setLayout}>
@@ -139,11 +142,10 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
       {editable && <form className="qa-add-check" onSubmit={event => {
         event.preventDefault()
         if (!canAdd) return
-        setReview({ ...review, checks: [...review.checks, { title: title.trim(), result: 'Pending' }] })
-        setTitle('')
+        onDraftChange({ review: { ...review, checks: [...review.checks, { title: title.trim(), result: 'Pending' }] }, title: '' })
       }}>
         <Input aria-label="New check" placeholder="Describe a verification check" value={title} maxLength={300}
-          onChange={event => setTitle(event.target.value)} />
+          onChange={event => onDraftChange({ title: event.target.value })} />
         <Button type="submit" color="secondary" variant="soft" disabled={!canAdd}>Add check</Button>
       </form>}
       {editable && templates.length > 0 && <div className="qa-add-check" role="group" aria-label="Test template">
@@ -158,18 +160,18 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
             onClick={() => setSelected(index)}>{check.title || 'Untitled check'} · {check.result}</Button>
         </li>)}</ul>}
       <VerificationCheckInspector checks={review.checks} selectedIndex={selected} editable={editable}
-        onChecksChange={checks => setReview({ ...review, checks })} onViewThread={onSummary}
+        onChecksChange={checks => onDraftChange({ review: { ...review, checks } })} onViewThread={onSummary}
         onDeselect={() => setSelected(null)} />
       <div className="qa-notes">
         <label htmlFor="qa-saved-notes">Verification notes</label>
         <Textarea id="qa-saved-notes" value={review.notes} rows={3} maxLength={2000} readOnly={!editable}
-          onChange={event => setReview({ ...review, notes: event.target.value })} />
+          onChange={event => onDraftChange({ review: { ...review, notes: event.target.value } })} />
       </div>
       {review.status === 'READY_FOR_QA' && <>
         {!valid && <p role="status">Use unique check titles and keep each check note within 250 characters.</p>}
         <div className="qa-decision">
           <Button color="secondary" variant="ghost" disabled={busy} onClick={() => void loadOrSave()}>
-            {review === saved ? 'Reload verification' : 'Discard edits and reload'}
+            {hasQaVerificationEdits(draft) ? 'Discard edits and reload' : 'Reload verification'}
           </Button>
           <Button color="secondary" variant="soft" disabled={!editable || !valid || review === saved}
             onClick={() => void loadOrSave('SAVE')}>Save verification</Button>
@@ -178,7 +180,7 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
         <div className="qa-reopen">
           <label htmlFor="qa-send-back-reason">Reason for sending back</label>
           <Textarea id="qa-send-back-reason" value={reason} rows={2} maxLength={2000} disabled={!editable}
-            onChange={event => setReason(event.target.value)} />
+            onChange={event => onDraftChange({ reason: event.target.value })} />
           <Button color="danger" variant="soft" disabled={!editable || !valid || !reason.trim()}
             onClick={() => void loadOrSave('SEND_BACK')}>Send back to Developer</Button>
         </div>
