@@ -1,0 +1,65 @@
+{
+  "base_revision": "7683685",
+  "test_results": [
+    {
+      "name": "com.tracedesk.local.LocalReporterProvisioningDatabaseTest",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.tracedesk.local.LocalReporterSafetyTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.tracedesk.local.LocalReporterSetupCommandTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.tracedesk.local.LocalSampleAccountsSetupTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "production_local_classes_excluded": true,
+  "files": {
+    "backend/auth-app/build.gradle": {
+      "bytes": 5196,
+      "sha256": "cb5f5b279393e09be5cfb3ef18574e430104dd63ce3124777c693ac987d66040"
+    },
+    "backend/auth-app/src/localDev/java/com/tracedesk/local/LocalReporterSetupCommand.java": {
+      "bytes": 26514,
+      "sha256": "1dd2035d3daca9ebecca9f40119fdd38dedbc87b35895707218b16e0fb6b2cf2"
+    },
+    "backend/auth-app/src/localDev/java/com/tracedesk/local/LocalSampleAccountsSetupCommand.java": {
+      "bytes": 2356,
+      "sha256": "9a04e3dcda14090baae0dd0b2f7bc493ba2466857a4beb18329efb549f6b700d"
+    },
+    "backend/auth-app/src/localDevTest/java/com/tracedesk/local/LocalSampleAccountsSetupTest.java": {
+      "bytes": 17590,
+      "sha256": "68d8f365aed0634651f932f5e14674330e2e927cf78f13e833e4c6b95f54f935"
+    },
+    "docs/local-reporter-setup.md": {
+      "bytes": 8747,
+      "sha256": "4fa32100e4d6dd7f4cb907d0f9a329188707eb042b19ecb6d6b74f4f80756a04"
+    },
+    "docs/docker.md": {
+      "bytes": 4535,
+      "sha256": "e36d1a64b24be53fcc4d9a84e08064f4f61aa77ded26539039255454347c1251"
+    },
+    "workflow/specs/local-reporter-setup.md": {
+      "bytes": 17050,
+      "sha256": "c890ab9b1712df5c979a41afa4a32eb2e918b141c21a909e1b6a8d956a721a82"
+    }
+  },
+  "fixed_staff_demo_credentials": true
+}

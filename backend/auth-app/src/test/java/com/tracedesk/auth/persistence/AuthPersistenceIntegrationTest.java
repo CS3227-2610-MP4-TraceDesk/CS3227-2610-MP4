@@ -39,9 +39,9 @@ class AuthPersistenceIntegrationTest {
 
             var full = store.activeMemberships(actor, 100);
             assertFalse(full.hasMore());
-            assertEquals(List.of(reporterProject, developerProject),
+            assertEquals(List.of(developerProject, reporterProject),
                     full.items().stream().map(item -> item.projectId()).toList());
-            assertEquals(List.of("REPORTER", "DEVELOPER"),
+            assertEquals(List.of("REPORTER", "REPORTER"),
                     full.items().stream().map(item -> item.role()).toList());
 
             var bounded = store.activeMemberships(actor, 1);
@@ -145,15 +145,15 @@ class AuthPersistenceIntegrationTest {
                     sessionPrimary.toString(), "fixture", new byte[0]);
             sql.execute("drop table spring_session_attributes");
             assertThrows(org.springframework.dao.DataAccessException.class,
-                    () -> store.changeMembershipRole(projectA, reporter, "DEVELOPER"),
+                    () -> store.changeAccountRole(reporter, "DEVELOPER"),
                     "membership update must roll back when associated session deletion fails");
-            assertEquals("REPORTER", sql.queryForObject("select role from td_project_memberships where project_id=? and user_id=?", String.class, projectA, reporter));
+            assertEquals("REPORTER", sql.queryForObject("select account_role from td_users where id=?", String.class, reporter));
             assertEquals(1, sql.queryForObject("select count(*) from spring_session where principal_name=?", Integer.class, reporter.toString()));
             sql.execute("create table spring_session_attributes (session_primary_id char(36) not null, attribute_name varchar(200) not null, attribute_bytes bytea not null, primary key (session_primary_id, attribute_name))");
             sql.update("insert into spring_session_attributes(session_primary_id,attribute_name,attribute_bytes) values(?,?,?)",
                     sessionPrimary.toString(), "fixture", new byte[0]);
-            store.changeMembershipRole(projectA, reporter, "DEVELOPER");
-            assertEquals("DEVELOPER", sql.queryForObject("select role from td_project_memberships where project_id=? and user_id=?", String.class, projectA, reporter));
+            store.changeAccountRole(reporter, "DEVELOPER");
+            assertEquals("DEVELOPER", sql.queryForObject("select account_role from td_users where id=?", String.class, reporter));
             assertEquals(0, sql.queryForObject("select count(*) from spring_session where principal_name=?", Integer.class, reporter.toString()));
             assertEquals(0, sql.queryForObject("select count(*) from spring_session_attributes where session_primary_id=?", Integer.class, sessionPrimary.toString()));
 
@@ -207,8 +207,9 @@ class AuthPersistenceIntegrationTest {
 
     private static UUID user(JdbcTemplate sql, String login) {
         UUID id = UUID.randomUUID();
-        sql.update("insert into td_users(id,login_normalized,password_hash) values(?,?,?)",
-                id, login, "$argon2id$v=19$m=19456,t=2,p=1$synthetic$hash");
+        String role=login.contains("developer")?"DEVELOPER":login.contains("reviewer")?"QA_REVIEWER":"REPORTER";
+        sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,?,?)",
+                id, login, "$argon2id$v=19$m=19456,t=2,p=1$synthetic$hash",role);
         return id;
     }
 

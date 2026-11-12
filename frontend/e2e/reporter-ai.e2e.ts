@@ -29,6 +29,7 @@ async function setup(page: Page, options: { generate?: (route: Route) => Promise
       state.current = { ...state.current, ...body, version: state.current.version + 1 }
       return route.fulfill({ json: state.current })
     }
+    if (url.pathname === `${path}/activity`) return route.fulfill({ json: { items: [], nextCursor: null } })
     if (url.pathname === path) return route.fulfill({ json: state.current })
     return route.fulfill({ status: 404, json: { error: { code: 'NOT_FOUND' } } })
   })

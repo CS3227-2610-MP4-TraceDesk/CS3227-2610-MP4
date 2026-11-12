@@ -20,6 +20,10 @@ import java.util.UUID;
 
 @Repository
 public class InvestigationStore implements InvestigationRepository {
+    private static final String RESOLUTION_COLUMNS = """
+            r.id,r.report_id,r.author_user_id,r.revision,r.root_cause,r.change_summary,
+            r.verification_steps,r.fix_reference,r.created_at
+            """;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
 
@@ -30,7 +34,7 @@ public class InvestigationStore implements InvestigationRepository {
 
     @Override public Optional<ReportRepository.Membership> membership(UUID actor, UUID project) {
         return jdbc.query("""
-                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',m.role
+                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role
                 from td_projects p join td_project_memberships m on m.project_id=p.id
                 join td_users u on u.id=m.user_id where m.user_id=? and p.id=?
                 """, rs -> rs.next() ? Optional.of(mapMembership(rs)) : Optional.empty(), actor, project);
@@ -182,8 +186,9 @@ public class InvestigationStore implements InvestigationRepository {
                     timestamp(now), nextVersion, project, report);
             audit("REPORT_RESOLUTION_PROPOSED", requestId, actor, project, report, "RESOLUTION", resolutionId,
                     "IN_PROGRESS", "READY_FOR_QA", current.version(), nextVersion, revision);
-            Resolution resolution = jdbc.query(resolutionSelect() + " where project_id=? and report_id=? and id=?",
-                    rs -> rs.next() ? mapResolution(rs, 0) : null, project, report, resolutionId);
+            Resolution resolution = jdbc.query("select " + RESOLUTION_COLUMNS + """
+                    from td_report_resolutions r where r.project_id=? and r.report_id=? and r.id=?
+                    """, rs -> rs.next() ? mapResolution(rs, null) : null, project, report, resolutionId);
             return new Proposal(loadReport(project, report).orElseThrow(), resolution);
         });
     }
@@ -195,11 +200,11 @@ public class InvestigationStore implements InvestigationRepository {
         if (!List.of("DEVELOPER", "QA_REVIEWER").contains(membership.role())) throw failure("FORBIDDEN", 403);
         loadReport(project, report).orElseThrow(() -> failure("NOT_FOUND", 404));
         List<Resolution> rows = jdbc.query(resolutionSelect() + """
-                 where project_id=? and report_id=?
-                  and (cast(? as uuid) is null or revision > (
+                 where r.project_id=? and r.report_id=?
+                  and (cast(? as uuid) is null or r.revision > (
                     select prior.revision from td_report_resolutions prior
                     where prior.project_id=? and prior.report_id=? and prior.id=cast(? as uuid)))
-                order by revision asc limit ?
+                order by r.revision asc limit ?
                 """, this::mapResolution, project, report, afterId, project, report, afterId, limit + 1);
         boolean more = rows.size() > limit;
         return new ResolutionPage(more ? rows.subList(0, limit) : rows, more);
@@ -215,7 +220,7 @@ public class InvestigationStore implements InvestigationRepository {
 
     private ReportRepository.Membership requireDeveloperLocked(UUID actor, UUID project) {
         ReportRepository.Membership membership = jdbc.query("""
-                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',m.role
+                select p.id,p.name,u.enabled,p.enabled,m.state='ACTIVE',u.account_role
                 from td_projects p join td_project_memberships m on m.project_id=p.id
                 join td_users u on u.id=m.user_id where m.user_id=? and p.id=?
                 for share of p,u,m
@@ -318,16 +323,31 @@ public class InvestigationStore implements InvestigationRepository {
                 """;
     }
     private static String resolutionSelect() {
-        return """
-                select id,report_id,author_user_id,revision,root_cause,change_summary,verification_steps,fix_reference,created_at
-                from td_report_resolutions
+        return "select " + RESOLUTION_COLUMNS + """
+                ,v.reason,
+                  sent_back.actor_id as reviewer_user_id,sent_back.occurred_at as rejected_at
+                from td_report_resolutions r
+                left join td_qa_verifications v on v.resolution_id=r.id and v.decision='SEND_BACK'
+                left join lateral (
+                    select a.actor_id,a.occurred_at from td_business_audit_events a
+                    where v.resolution_id is not null and a.event_code='QA_VERIFICATION_SENT_BACK'
+                      and a.project_id=r.project_id and a.report_id=r.report_id and a.object_type='RESOLUTION'
+                      and a.object_id=r.id and a.resolution_revision=r.revision
+                    order by a.id desc limit 1
+                ) sent_back on true
                 """;
     }
     private Resolution mapResolution(ResultSet rs, int ignored) throws SQLException {
+        UUID reviewer = rs.getObject("reviewer_user_id", UUID.class);
+        Rejection rejection = reviewer == null ? null
+                : new Rejection(rs.getString("reason"), reviewer, rs.getTimestamp("rejected_at").toInstant());
+        return mapResolution(rs, rejection);
+    }
+    private Resolution mapResolution(ResultSet rs, Rejection rejection) throws SQLException {
         return new Resolution(rs.getObject("id", UUID.class), rs.getObject("report_id", UUID.class),
                 rs.getObject("author_user_id", UUID.class), rs.getInt("revision"), rs.getString("root_cause"),
                 rs.getString("change_summary"), rs.getString("verification_steps"), rs.getString("fix_reference"),
-                rs.getTimestamp("created_at").toInstant());
+                rs.getTimestamp("created_at").toInstant(), rejection);
     }
     private static ReportRepository.Membership mapMembership(ResultSet rs) throws SQLException {
         return new ReportRepository.Membership(rs.getObject(1, UUID.class), rs.getString(2), rs.getBoolean(3),

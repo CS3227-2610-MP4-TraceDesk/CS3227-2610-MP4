@@ -15,3 +15,6 @@ workflow/evidence
 *.pem
 *.key
 .DS_Store
+
+# Local-only setup credentials never enter an image build context.
+.local/

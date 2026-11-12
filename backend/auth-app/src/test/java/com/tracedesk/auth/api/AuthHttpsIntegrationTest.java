@@ -72,6 +72,7 @@ class AuthHttpsIntegrationTest {
                     Map.entry("server.ssl.key-store-type", "PKCS12"),
                     Map.entry("server.ssl.key-alias", "tracedesk-test"),
                     Map.entry("TRACEDESK_DATABASE_URL", dbUrl),
+                    Map.entry("TRACEDESK_PROJECT_CURSOR_SECRET", "synthetic-project-cursor-secret-for-tests-0001"),
                     Map.entry("TRACEDESK_DATABASE_USER", System.getenv("TRACEDESK_TEST_DATABASE_USER")),
                     Map.entry("TRACEDESK_DATABASE_PASSWORD", System.getenv("TRACEDESK_TEST_DATABASE_PASSWORD")),
                     Map.entry("spring.flyway.schemas", db.schema()),
@@ -92,8 +93,8 @@ class AuthHttpsIntegrationTest {
                     actors.add(id);
                     String login = "https-" + roles[i].toLowerCase() + "@example.test";
                     logCanaries.add(login);
-                    sql.update("insert into td_users(id,login_normalized,password_hash) values(?,?,?)",
-                            id, login, encoder.encode(PASSWORD));
+                    sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,?,?)",
+                            id, login, encoder.encode(PASSWORD), roles[i]);
                     sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,?,'ACTIVE')",
                             projectA, id, roles[i]);
                 }
@@ -134,7 +135,7 @@ class AuthHttpsIntegrationTest {
                     HttpResponse<String> session = send(client, base, "GET", "/api/session", null, null);
                     assertEquals(200, session.statusCode());
                     assertEquals(actors.get(i).toString(), jsonField(session.body(), "userId"));
-                    assertFalse(session.body().contains("\"role\""));
+                    assertEquals(roles[i], jsonField(session.body(), "role"));
                     assertSecureResponse(session);
                     assertNonPersistentCookie(loggedIn);
 
@@ -325,8 +326,8 @@ class AuthHttpsIntegrationTest {
                     }
 
                     assertEquals(0, sql.queryForObject("select count(*) from td_security_events where " +
-                            "route_template not in ('/api/session/login','/api/session/logout','/api/projects/{projectId}') " +
-                            "or event_code not in ('LOGIN_DENIED','LOGIN_INVALID_REQUEST','CSRF_INVALID','UNAUTHENTICATED','PROJECT_DENIED','PROJECT_INVALID_ID')", Integer.class));
+                            "route_template not in ('/api/session','/api/session/login','/api/session/logout','/api/workspaces','/api/projects','/api/projects/{projectId}','/api/projects/{projectId}/join') " +
+                            "or event_code not in ('LOGIN_DENIED','LOGIN_INVALID_REQUEST','CSRF_INVALID','UNAUTHENTICATED','PROJECT_DENIED','PROJECT_INVALID_ID','PROJECT_INVALID_REQUEST','PROJECT_MUTATION_DENIED')", Integer.class));
                     assertEquals(0, sql.queryForObject("select count(*) from td_security_events where " +
                             "actor_id is not null and actor_id not in (?,?,?)", Integer.class, actors.get(0), actors.get(1), actors.get(2)));
                     assertEquals(0, sql.queryForObject("select count(*) from td_security_events where " +
@@ -481,7 +482,7 @@ class AuthHttpsIntegrationTest {
                     String oldSessionId = revocationCookies.getCookieStore().getCookies().stream()
                             .filter(cookie -> cookie.getName().equals("TDSESSION")).findFirst().orElseThrow().getValue();
                     logCanaries.add(oldSessionId);
-                    if (revocation == 0) store.changeMembershipRole(projectA, actors.get(actorIndex), "DEVELOPER");
+                    if (revocation == 0) store.changeAccountRole(actors.get(actorIndex), "DEVELOPER");
                     else if (revocation == 1) store.changeMembershipState(projectA, actors.get(actorIndex), "DISABLED");
                     else if (revocation == 2) store.removeMembership(projectA, actors.get(actorIndex));
                     else store.setUserEnabled(actors.get(actorIndex), false);

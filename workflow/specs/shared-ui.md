@@ -26,7 +26,14 @@ queue filter tabs. The library queue supports its specified filters and opens th
 selected bug. Contextual sidebars can collapse, and overlay on mobile. Preserve
 the rail when a sidebar is collapsed. Keep the account control compact at bottom.
 
-Reporter rail contains Reports and Environments plus bottom Settings; submitted
+QA sidebar group headings are muted, keyboard-operable disclosures using shared
+opening motion. Collapsing a group preserves the open bug and verification draft.
+Awaiting verification, Reviewed by me and All bugs remain queue filters in the
+main view. Search filters the sidebar's bug and review items. Each group reports
+its own loading, empty or failed state, including when the other queue is active.
+
+Reporter rail contains Reports plus bottom Settings; saved environment management
+is outside the MVP and has no navigation destination or placeholder page. Submitted
 reports and drafts live within Reports. New report is a button within Reports.
 Developer navigation remains subject to its owning feature scope. Do not invent
 Help, dashboards or destinations merely to fill rail space.
@@ -168,14 +175,16 @@ Issue #24 extends the development QA workspace with a bug-scoped overview,
 review discussion, Verification board and list, and Test templates. A reviewer
 can close a ready bug once every named check passes or reopen it with a reason.
 Applying a template copies its cases and guidance into the selected bug. Later
-template edits and deletions leave those copies intact.
+template edits and deletions leave those copies intact. The authenticated
+workflow is specified in [QA verification templates](qa-templates.md).
 
 The simulated AI review opens beside the selected bug on wide workspaces and
 stacks on narrow workspaces. The Change map returns when chat is collapsed.
 Suggestions enter the checklist only after the reviewer selects and adds them.
 Review tabs, drafts, conversations, and results are scoped to the selected bug.
 All changes use in-memory fixtures in the development preview. Authenticated
-role and API wiring remain separate.
+role and API wiring remain separate. See [QA workspace continuity](qa-workspace-continuity.md)
+for authenticated tab, draft and shortcut behavior.
 
 ## Decisions still owned elsewhere
 

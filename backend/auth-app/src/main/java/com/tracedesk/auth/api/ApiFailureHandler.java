@@ -21,13 +21,16 @@ public class ApiFailureHandler {
     @Autowired public ApiFailureHandler(AuthStore store, Clock clock) { this.store=store; this.clock=clock; }
     public ApiFailureHandler(AuthStore store) { this(store, Clock.systemUTC()); }
     private ResponseEntity<?> failure(HttpStatus status,String code,String message) {
-        return ResponseEntity.status(status).body(java.util.Map.of("error",java.util.Map.of("code",code,"message",message)));
+        return ResponseEntity.status(status).header("Cache-Control","no-store").body(java.util.Map.of("error",java.util.Map.of("code",code,"message",message)));
     }
     @ExceptionHandler(DataAccessException.class)
     ResponseEntity<?> unavailable(DataAccessException ignored) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); }
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ResponseEntity<?> malformed(HttpMessageNotReadableException ignored,HttpServletRequest request) {
         if("/api/session/login".equals(request.getRequestURI())) { try { store.event("LOGIN_INVALID_REQUEST","/api/session/login",400,null,null); } catch(DataAccessException eventFailure) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); } }
+        else if("/api/session/register".equals(request.getRequestURI())) { try { store.event("REGISTRATION_INVALID_REQUEST","/api/session/register",400,null,null); } catch(DataAccessException eventFailure) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); } }
+        else if ("/api/projects".equals(request.getRequestURI())) { try { store.event("PROJECT_INVALID_REQUEST","/api/projects",400,TrustedSessionActor.forEvent(request,clock),null); } catch(DataAccessException eventFailure) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); } }
+        else if (request.getRequestURI().matches("/api/projects/[^/]+/join")) { try { store.event("PROJECT_INVALID_REQUEST","/api/projects/{projectId}/join",400,TrustedSessionActor.forEvent(request,clock),canonicalProject(request.getRequestURI())); } catch(DataAccessException eventFailure) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); } }
         else if (isReportRoute(request.getRequestURI())) { try { store.event("REPORT_INVALID_REQUEST",reportRoute(request.getRequestURI()),400,TrustedSessionActor.forEvent(request,clock),null); } catch(DataAccessException eventFailure) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); } }
         else if (isInvestigationRoute(request.getRequestURI())) { try { store.event("DEVELOPER_INVALID_REQUEST",investigationRoute(request.getRequestURI()),400,TrustedSessionActor.forEvent(request,clock),null); } catch(DataAccessException eventFailure) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); } }
         return failure(HttpStatus.BAD_REQUEST,"INVALID_REQUEST","Invalid request");
@@ -49,7 +52,7 @@ public class ApiFailureHandler {
     @ExceptionHandler(Exception.class)
     ResponseEntity<?> unexpected(Exception ignored) { return failure(HttpStatus.SERVICE_UNAVAILABLE,"SERVICE_UNAVAILABLE","Service unavailable"); }
 
-    private static boolean isReportRoute(String path) { return path.matches("/api/projects/[^/]+/(reports(?:/[^/]+)?|reporter-context)"); }
+    private static boolean isReportRoute(String path) { return path.matches("/api/projects/[^/]+/(reports(?:/[^/]+(?:/(?:assignment|activity))?)?|reporter-context)"); }
     private static boolean isInvestigationRoute(String path) { return path.matches("/api/projects/[^/]+/(developer-context|reports/[^/]+/(investigation/start|resolutions|notes(?:/[^/]+)?))"); }
     private static String investigationRoute(String path) {
         if(path.endsWith("/developer-context")) return "/api/projects/{projectId}/developer-context";
@@ -60,6 +63,11 @@ public class ApiFailureHandler {
     }
     private static String reportRoute(String path) {
         if(path.endsWith("/reporter-context")) return "/api/projects/{projectId}/reporter-context";
-        return path.matches(".*/reports/[^/]+$") ? "/api/projects/{projectId}/reports/{reportId}" : "/api/projects/{projectId}/reports";
+        if(path.matches(".*/reports/[^/]+/activity$")) return "/api/projects/{projectId}/reports/{reportId}/activity";
+        return path.matches(".*/reports/[^/]+(?:/assignment)?$") ? "/api/projects/{projectId}/reports/{reportId}" : "/api/projects/{projectId}/reports";
+    }
+    private static UUID canonicalProject(String path) {
+        try { String raw=path.substring("/api/projects/".length(),path.length()-"/join".length()); UUID id=UUID.fromString(raw); return id.toString().equals(raw)?id:null; }
+        catch(RuntimeException ignored){return null;}
     }
 }

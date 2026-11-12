@@ -361,7 +361,7 @@ class JdbcAiLedgerIntegrationTest {
             sql.update("insert into td_projects(id,name) values(?,?)",project,"Synthetic ledger project");
             request=new Request(project,UUID.randomUUID(),Capability.REPORT_IMPROVEMENT,1);
         }
-        Actor user() {UUID id=UUID.randomUUID();sql.update("insert into td_users(id,login_normalized,password_hash) values(?,?,?)",id,id+"@example.test","synthetic-hash");return new Actor(id);}
+        Actor user() {UUID id=UUID.randomUUID();sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,?,'REPORTER')",id,id+"@example.test","synthetic-hash");return new Actor(id);}
         Ticket reserve(Actor a,long units,Instant now) {return ledger.reserve(a,request,POLICY,metadata(now),units,now);}
         long total(String column) {return sql.queryForObject("select coalesce(sum("+column+"),0) from td_ai_daily_units where scope_id='00000000-0000-0000-0000-000000000000'",Long.class);}
         long count(String table) {return sql.queryForObject("select count(*) from "+table,Long.class);}

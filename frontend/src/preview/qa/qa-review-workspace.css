@@ -141,7 +141,8 @@
 .qa-review-chat { border-inline-end: 1px solid var(--td-line); }
 .qa-review-chat .qa-chat-header { justify-content: space-between; }
 .qa-review-toolbar .qa-section-tabs, .qa-review-action { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; background: var(--td-float); }
-.qa-review-toolbar .qa-section-tabs button, .qa-review-action button { height: 28px; padding-inline: 8px; border-radius: 999px; font: 430 13px/18px var(--td-ui-font); }
+.qa-review-toolbar .qa-section-tabs button, .qa-review-action button { height: 28px; padding-inline: 8px; border-radius: 999px; }
+.qa-review-toolbar .qa-section-tabs button, .qa-review-toolbar .qa-toolbar-action { font: 430 13px/18px var(--td-ui-font); }
 .qa-section-tabs button[aria-selected="true"] { background: color-mix(in srgb, var(--td-ink) 5%, transparent); }
 .qa-review-action { margin-inline-start: auto; }
 .qa-bug-header { flex: 1; }

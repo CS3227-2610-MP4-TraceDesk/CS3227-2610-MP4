@@ -36,6 +36,10 @@ async function controlledApi(page: Page, results: PostResult[], forbiddenCode = 
       await route.fulfill({ json: saved })
       return
     }
+    if (url.pathname === `${reportsPath}/${reportId}/activity` && request.method() === 'GET' && saved) {
+      await route.fulfill({ json: { items: [], nextCursor: null } })
+      return
+    }
     if (url.pathname === reportsPath && request.method() === 'POST') {
       const headers = await request.allHeaders()
       const body = request.postData() ?? ''

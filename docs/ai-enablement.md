@@ -198,7 +198,8 @@ identify a narrower provider defect. The previously rejected v2 response was
 not retained, so adding diagnostics cannot reconstruct its cause retroactively.
 
 This service-level evaluation does not verify login, browser apply or a deployed
-environment. Those need a separate authorized synthetic-account browser journey.
+environment. Those need a separate authorized synthetic-account browser journey;
+see the [controlled browser verification guide](reporter-live-browser.md).
 Developer and QA need their own integrations and evaluations; Reporter results
 cannot certify them.
 
