@@ -162,3 +162,8 @@ live evaluations assess actual suggestions. Neither substitutes for the other.
 Finite attempt limits, no automatic completion retries and explicit stop
 conditions made failures visible and bounded additional spending.
 
+
+# QA reviewer role
+
+See the [QA contribution evidence and reflection draft](../workflow/qa/evidence/submission-evidence.md).
+The QA contributor can review the draft before using it as their personal reflection.
