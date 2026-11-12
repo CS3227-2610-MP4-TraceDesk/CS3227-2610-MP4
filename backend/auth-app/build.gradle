@@ -127,3 +127,12 @@ tasks.register('qaAiLiveEvaluation', JavaExec) {
     mainClass = 'com.tracedesk.auth.reports.ai.QaAiLiveEvaluation'
     javaLauncher = javaToolchains.launcherFor(java.toolchain)
 }
+
+tasks.register('developerAiLiveEvaluation', JavaExec) {
+    group = 'verification'
+    description = 'Explicit opt-in, bounded synthetic Developer live evaluation.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.tracedesk.auth.investigation.ai.DeveloperAiLiveEvaluation'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+}
