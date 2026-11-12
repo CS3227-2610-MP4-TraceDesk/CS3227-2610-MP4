@@ -29,7 +29,7 @@ no quality score can be assigned to the rejected suggestion.
 - Results: 12 `VALIDATED`; 18 `AI_INVALID_OUTPUT`
 - Invalid reasons: `LIMIT_EXCEEDED` 12, `UNKNOWN_SOURCE_LABEL` 4, `NOT_JSON` 1,
   `MISSING_KEY` 1
-- Valid by context variant: concise 5/15; expanded 7/15
+- Valid by context variant: concise 6/15; expanded 6/15
 - DAI-05 mechanical security: PASS for all 3/3 validated replies
 - Provider-reported usage: approximately 13,000 input tokens and 10,000 output
   tokens in total
