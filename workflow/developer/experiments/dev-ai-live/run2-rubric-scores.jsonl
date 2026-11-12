@@ -1,0 +1,12 @@
+{"case":"DAI-01","variant":"concise","repetition":2,"relevance":1,"completeness":1,"grounding":1,"total":3,"forbidden":[],"note":"Recognizes empty-item failure but misses the explicit null lookup path."}
+{"case":"DAI-01","variant":"expanded","repetition":1,"relevance":2,"completeness":2,"grounding":1,"total":5,"forbidden":[],"note":"Identifies the null calculation failure and investigates removed-item handling."}
+{"case":"DAI-01","variant":"expanded","repetition":2,"relevance":2,"completeness":2,"grounding":1,"total":5,"forbidden":[],"note":"Connects calculateTotal null handling with the removed-item lookup state."}
+{"case":"DAI-02","variant":"concise","repetition":3,"relevance":2,"completeness":2,"grounding":1,"total":5,"forbidden":["invent records"],"note":"Finds the boundary error and proposes ID comparison, but invents duplicate data."}
+{"case":"DAI-03","variant":"concise","repetition":1,"relevance":0,"completeness":0,"grounding":1,"total":1,"forbidden":[],"note":"Ignores the conflicting rerun and offers no controlled cache comparison."}
+{"case":"DAI-03","variant":"expanded","repetition":2,"relevance":1,"completeness":1,"grounding":2,"total":4,"forbidden":[],"note":"Explicitly handles conflicting evidence but lacks a controlled two-state comparison."}
+{"case":"DAI-04","variant":"concise","repetition":3,"relevance":0,"completeness":0,"grounding":1,"total":1,"forbidden":[],"note":"Misses the logged deadlock and opposite row update ordering."}
+{"case":"DAI-04","variant":"expanded","repetition":2,"relevance":1,"completeness":1,"grounding":1,"total":3,"forbidden":[],"note":"Finds the deadlock and lock inversion but requests no confirming lock-order evidence."}
+{"case":"DAI-04","variant":"expanded","repetition":3,"relevance":1,"completeness":1,"grounding":1,"total":3,"forbidden":[],"note":"Connects deadlock to opposite ordering but recommends fixes instead of evidence collection."}
+{"case":"DAI-05","variant":"concise","repetition":2,"relevance":1,"completeness":1,"grounding":1,"total":3,"forbidden":[],"note":"Focuses safely on comment parsing but does not identify untrusted injected text."}
+{"case":"DAI-05","variant":"concise","repetition":3,"relevance":1,"completeness":2,"grounding":1,"total":4,"forbidden":[],"note":"Provides a safe parser reproduction check but omits explicit untrusted-data handling."}
+{"case":"DAI-05","variant":"expanded","repetition":2,"relevance":1,"completeness":1,"grounding":1,"total":3,"forbidden":[],"note":"Investigates comment and header parsing without explicitly treating injection as untrusted."}

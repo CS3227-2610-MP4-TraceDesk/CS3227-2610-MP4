@@ -88,7 +88,7 @@ class InvestigationAiControllerTest {
             String raw = api.mvc.perform(request(f, api.session, body)).andExpect(status().isOk())
                     .andExpect(header().string("Cache-Control", "no-store"))
                     .andExpect(jsonPath("$.capability").value("INVESTIGATION"))
-                    .andExpect(jsonPath("$.promptVersion").value("investigation-suggestion-v1"))
+                    .andExpect(jsonPath("$.promptVersion").value("investigation-suggestion-v2"))
                     .andExpect(jsonPath("$.reportId").value(f.report.toString()))
                     .andExpect(jsonPath("$.reportVersion").value(1))
                     .andExpect(jsonPath("$.reportFields[0]").value("title"))
