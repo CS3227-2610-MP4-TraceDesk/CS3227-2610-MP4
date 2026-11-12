@@ -352,6 +352,34 @@ public class ReportStore implements ReportRepository {
     @Override public Optional<Report> detail(UUID actor, UUID project, UUID report) {
         return loadReport(actor, project, report, true);
     }
+    @Override public ActivityPage activity(UUID actor, UUID project, UUID report, int limit, Instant afterOccurredAt, Long afterId) {
+        return transactions.execute(tx -> {
+            lockReporter(actor, project);
+            Integer visible=jdbc.query("select 1 from td_reports where id=? and project_id=? and reporter_user_id=?",
+                    rs -> rs.next()?1:null, report, project, actor);
+            if (visible==null) throw new ReportService.Failure("NOT_FOUND",404);
+            List<Activity> rows=jdbc.query("""
+                    select id::text as id,event_code,occurred_at,prior_status,new_status,prior_version,new_version
+                    from td_business_audit_events
+                    where project_id=? and report_id=? and outcome='SUCCESS'
+                      and event_code in ('REPORT_CREATED','REPORT_EDITED','DRAFT_SUBMITTED','REPORT_INVESTIGATION_STARTED','REPORT_RESOLUTION_PROPOSED','QA_VERIFICATION_SAVED','QA_VERIFICATION_CLOSED','QA_VERIFICATION_SENT_BACK')
+                      and (cast(? as timestamptz) is null or occurred_at>cast(? as timestamptz)
+                        or (occurred_at=cast(? as timestamptz) and td_business_audit_events.id>cast(? as bigint)))
+                    order by occurred_at asc,td_business_audit_events.id asc limit ?
+                    """,(rs,n)->new Activity(rs.getString("id"),rs.getString("event_code"),rs.getTimestamp("occurred_at").toInstant(),
+                    rs.getString("prior_status"),rs.getString("new_status"),
+                    (Integer)rs.getObject("prior_version"),(Integer)rs.getObject("new_version")),
+                    project,report,afterOccurredAt==null?null:ts(afterOccurredAt),afterOccurredAt==null?null:ts(afterOccurredAt),
+                    afterOccurredAt==null?null:ts(afterOccurredAt),afterId,limit+1);
+            // Recheck the live account, membership, role and report ownership at the delivery boundary.
+            lockReporter(actor,project);
+            Integer stillVisible=jdbc.query("select 1 from td_reports where id=? and project_id=? and reporter_user_id=?",
+                    rs -> rs.next()?1:null, report, project, actor);
+            if(stillVisible==null) throw new ReportService.Failure("NOT_FOUND",404);
+            boolean more=rows.size()>limit;
+            return new ActivityPage(more?rows.subList(0,limit):rows,more);
+        });
+    }
     private Optional<Report> loadReport(UUID actor, UUID project, UUID id, boolean enforceOwner) {
         Membership m = membership(actor, project).filter(x -> x.userEnabled() && x.projectEnabled() && x.active())
                 .orElseThrow(() -> new ReportService.Failure("NOT_FOUND",404));

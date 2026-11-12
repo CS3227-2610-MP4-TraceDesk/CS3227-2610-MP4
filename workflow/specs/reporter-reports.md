@@ -13,8 +13,8 @@ integration.
 ## Goal and boundary
 
 An authenticated Reporter can save private drafts, submit an `OPEN` report, edit
-its shared fields while it remains `OPEN`, see progress, and answer an active
-clarification request. Active Developers and QA reviewers in the same project
+its shared fields while it remains `OPEN`, and see status and approved activity
+history. Active Developers and QA reviewers in the same project
 can read the shared report fields for triage/review. The assigned Developer owns
 investigation and clarification requests; QA reviewers own assignment and the
 verification outcome. Domain/application policy owns authorization, transitions,
@@ -27,6 +27,13 @@ ingestion, execution of submitted code, or AI invocation. The secured shared AI
 gateway remains a separate blocker before any role AI endpoint; no raw transport
 or improvised Reporter model call is permitted by this contract.
 
+Scope correction for issue #16 (2026-11-12): clarification requests and replies
+were descoped. Their earlier design below is retained as deferred shared-contract
+reference, not an MVP requirement or part of issue #16 implementation. The
+read-only activity contract and TD-RPT-21–25 below supersede earlier mappings of
+#16 to clarification. Current status is already supplied by report detail; this
+issue does not require a separate `/progress` endpoint.
+
 ## Identity, projects, and report visibility
 
 Resolve the actor UUID from the current server-side session. Load current user
@@ -36,7 +43,8 @@ not grant project access. A project ID and report/draft ID are canonical UUIDs.
 All timestamps are UTC `timestamptz` values. `version` is a positive integer
 starting at 1 and incremented once for every successful mutation of that row.
 
-Each project membership has exactly one active role as specified by TD-AUTH.
+Each account has one trusted persisted role as specified by TD-AUTH; active
+project membership grants project access and does not supply role authority.
 Every operation requires an active project and active membership. Reporter
 ownership is `(reporter_user_id == actor_id)`; Developer investigation access is
 `(assigned_developer_id == actor_id)`; QA review access requires the active
@@ -210,6 +218,7 @@ read time. Draft-list order is fixed by `updated_at DESC, id DESC`.
 | `DELETE /api/projects/{projectId}/drafts/{draftId}` | `expectedVersion` query value | `204` |
 | `POST /api/projects/{projectId}/drafts/{draftId}/submit` | `expectedVersion`; idempotency key | `201` created report and `submittedDraftId` |
 | `GET /api/projects/{projectId}/reports/{reportId}/progress` | none | `200 {reportId,status,assignedDeveloperId,updatedAt,version}` |
+| `GET /api/projects/{projectId}/reports/{reportId}/activity?limit=&cursor=` | limit 1–100, default 25; signed keyset cursor | `200 {items,nextCursor}`; approved report audit metadata only, oldest first |
 | `POST /api/projects/{projectId}/reports/{reportId}/clarifications` | `{body,expectedReportVersion}` | `201` clarification request |
 | `POST /api/projects/{projectId}/reports/{reportId}/clarifications/{clarificationId}/replies` | `{body,expectedReportVersion,expectedClarificationVersion}` | `201` reply |
 | `GET /api/projects/{projectId}/reporter-context` | none | `200 {project:{id,name},role:"REPORTER"}`; active Reporter only |
@@ -231,6 +240,70 @@ private role notes, session data, email/login, credential data, prompt/provider
 metadata, or other reports' content. Draft representations contain only draft
 ID, project ID, the owner's fields, timestamps, expiration, version, and nullable
 submitted report ID. Do not expose draft existence to another member.
+
+### REPORT-PROGRESS (#16): read-only approved activity history
+
+The existing report detail response continues to provide the report's current
+status. This issue adds a bounded chronological history of confirmed business
+events so its Reporter owner can follow submission, investigation start,
+proposed resolution, and other event types only when a future schema records
+them. It does not add clarification request/reply behavior, staff notes, QA
+checklist details, private resolution content, send-back reasons, or actor
+identity. Those fields and operations remain governed by their owning contracts.
+
+`GET /api/projects/{projectId}/reports/{reportId}/activity?limit=&cursor=` is a
+read-only endpoint. Resolve the authenticated actor from trusted session state;
+require an active Reporter membership in the route project and fresh
+authorization that the report belongs to that project and is owned by the
+actor. An active project member without the Reporter role receives
+`403 FORBIDDEN`; another Reporter, cross-project or absent report, and absent
+or inactive membership receive the report visibility contract's opaque
+`404 NOT_FOUND` behavior.
+Authorize before selecting event rows and recheck current membership and report
+ownership before returning each page. Return `Cache-Control: no-store`.
+
+Only successful business audit rows associated with this report and these
+eight confirmed event codes are eligible: `REPORT_CREATED`, `REPORT_EDITED`,
+`DRAFT_SUBMITTED`, `REPORT_INVESTIGATION_STARTED`,
+`REPORT_RESOLUTION_PROPOSED`, `QA_VERIFICATION_SAVED`,
+`QA_VERIFICATION_CLOSED`, and `QA_VERIFICATION_SENT_BACK`.
+`REPORT_EDITED` is a report-field update, not a lifecycle transition; its
+status fields are null. `DRAFT_SUBMITTED` links to the created report and marks
+its initial `OPEN` state. QA verification events expose only status/version
+metadata: save records `READY_FOR_QA` to `READY_FOR_QA`, close records
+`READY_FOR_QA` to `CLOSED`, and send-back records `READY_FOR_QA` to
+`IN_PROGRESS`. The event payload never includes QA checks, notes, reason,
+resolution content, or actor identity; the report's current status remains
+authoritative. No other event is returned, including assignment and
+private-note events.
+
+The item allowlist is exact: `{id:string,eventCode,occurredAt,
+priorStatus:null|status,newStatus:null|status,priorVersion:null|number,
+newVersion:null|number}`. `id` is the decimal string form of the audit table's
+bigint key. `occurredAt` is UTC. No actor IDs, request IDs, object IDs other
+than the opaque item key, note/checklist/resolution bodies, assignment reasons,
+send-back reasons, or arbitrary audit metadata are selected or serialized.
+Missing old values remain null; no values are inferred from current report
+state. Empty history returns `200 {items:[],nextCursor:null}`. An unavailable
+audit store returns `503 SERVICE_UNAVAILABLE` without a partial page. Invalid,
+expired, tampered, or rebound cursors return `400 INVALID_CURSOR`.
+
+The requested page limit is 1–100, default 25; pages may be empty and are ordered `occurred_at ASC, id ASC`.
+Continuation uses keyset position `(occurred_at,id)` and returns a next cursor
+only when another eligible row exists. The opaque signed cursor binds purpose
+`REPORT_ACTIVITY`, actor UUID, project UUID, report UUID, fixed event filter
+and sort, last timestamp plus bigint ID, and issue time; it expires after 15
+minutes. A dedicated typed signer or an extension to an existing signer may
+implement this contract; it must preserve the bigint key without UUID
+conversion. Pages read the current event rows, not a frozen snapshot.
+
+The existing audit table has `occurred_at` and a bigint primary key but no
+report activity index. The implementation migration must add an index beginning
+with `(report_id, occurred_at, id)` (a partial index restricted to non-null
+report IDs is suitable) to support report-scoped chronological keyset reads.
+Do not alter or backfill historical evidence. The route-template and security
+event allowlists must include this read endpoint and its opaque cursor/denial
+handling.
 
 Assignment and role-transition application interfaces are bounded domain commands
 for later slices, not Reporter REST endpoints:
@@ -398,7 +471,7 @@ Reporter report slice. The planned implementation issues are sequenced as:
 | #13 | report create/list/detail persistence (TD-RPT-06–10) |
 | #14 | Reporter workspace and report form UI (TD-RPT-11–15), including the bounded Reporter context read |
 | #15 | drafts and versioned report editing (TD-RPT-16–20) |
-| #16 | progress and clarification (TD-RPT-21–25) |
+| #16 | read-only progress activity history (TD-RPT-21–25); clarification requests and replies are outside this issue |
 | #17 | Reporter AI preview/apply (TD-RPT-26–30); implementation is blocked on the separately specified secured shared gateway |
 
 These future issue IDs and runtime criteria are planned dependencies, not
@@ -417,6 +490,23 @@ remains a prerequisite for a later AI slice. The Reporter development-context
 comparison is owned by the project coordinator and remains due before final MP4
 acceptance; this contract task is not a controlled comparison. Application AI
 quality evaluation remains due after all secured role capabilities exist.
+
+### REPORT-PROGRESS (#16) executable acceptance criteria
+
+These criteria apply only to the read-only activity history above. Clarification
+requests and replies are explicitly descoped from issue #16 and retain their
+separate existing contract and historical evidence. The current eight-event
+implementation and local verification are recorded in
+[progress evidence](../reporter/evidence/reporter-progress-integration.md); this does not
+claim deployed acceptance.
+
+| Criterion | Observable requirement | Planned verification |
+| --- | --- | --- |
+| **TD-RPT-21** | Only an authenticated Reporter with fresh active membership and ownership of the report in the route project can read activity. Active project members without Reporter role receive `403`; another Reporter, cross-project report IDs, absent reports, disabled users, and revoked memberships receive opaque `404`; no denial returns activity data. | Direct API tests for owner success; Developer/QA `403`, foreign Reporter/cross-project/absent report/disabled user/removed or disabled membership opaque `404`; synchronized membership-revocation check; verify safe response and no-store headers. |
+| **TD-RPT-22** | The response contains only the exact item fields and only successful events in the eight-code allowlist. QA save, close, and send-back expose only confirmed prior/new status and version metadata; assignment events, actor/request IDs, private notes, QA checklist data, resolution content, and send-back reasons are excluded. | Populate eligible and excluded synthetic audit rows, including each QA decision, assignment, private-note and unknown codes; assert exact JSON keys and lifecycle mapping, no private strings or identity fields, and no audit metadata in logs. |
+| **TD-RPT-23** | Pages default to 25 and cap at 100, return items in `occurred_at ASC, id ASC` order, and continue without duplicates or omissions across equal timestamps. The signed 15-minute cursor is bound to purpose, actor, project, report, filter and sort, preserving its bigint ID key. | Isolated PostgreSQL test with >100 rows and duplicate timestamps; walk all pages and compare to complete ordered result; check default, 1, 100 and invalid limits; tamper, expiry, actor/project/report/purpose/filter/sort rebinding; verify audit index supports report-scoped keyset query. |
+| **TD-RPT-24** | The Reporter view presents loading, nonempty chronological history, an explicit empty state, denied access, and unavailable service states; the existing current-status display remains available independently of history loading. | Component/API integration checks for each response state (200 rows, empty 200, 403/404 denial, 503 unavailable, pending request); verify no stale report's activity appears after navigation or denial. |
+| **TD-RPT-25** | The read path selects only approved columns after authorization, rechecks authorization before delivery, and handles audit-store failure as `503` without a partial page. Fresh TraceDesk schema includes the report activity index; implementation evidence records exact candidate and results without claiming clarification coverage. | Repository/API tests for authorize-before-query and before-delivery, audit-store failure, query projection and index migration; focused isolated database/API checks and independent review of route, response allowlist, cursor binding and denied cases; record exact revision, commands and outcomes. |
 
 ## Design choices and implementation status
 
