@@ -1,0 +1,12 @@
+title: TraceDesk
+description: Bug reporting, investigation and fix verification.
+remote_theme: just-the-docs/just-the-docs@v0.12.0
+plugins:
+  - jekyll-remote-theme
+url: https://cs3227-2610-mp4-tracedesk.github.io
+baseurl: /CS3227-2610-MP4
+search_enabled: true
+nav_enabled: true
+heading_anchors: true
+back_to_top: true
+back_to_top_text: Back to top
