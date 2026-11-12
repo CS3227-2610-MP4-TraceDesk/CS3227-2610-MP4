@@ -1,0 +1,1 @@
+Inspect the existing TraceDesk UI and the user-specified reference material that is accessible. Identify relevant patterns and differences, citing file paths or URLs and explaining what was actually inspected. State missing references and uncertainties. Do not claim to have captured a screenshot unless you actually did.

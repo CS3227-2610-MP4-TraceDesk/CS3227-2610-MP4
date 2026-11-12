@@ -1,0 +1,1 @@
+Use the research handoff and existing TraceDesk UI guidance to recommend a specific design and interaction. Cover relevant empty, loading, error, keyboard and reduced-motion states. Distinguish proposals from observed facts and identify unresolved questions.
