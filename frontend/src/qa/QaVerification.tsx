@@ -146,8 +146,8 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
           onChange={event => setTitle(event.target.value)} />
         <Button type="submit" color="secondary" variant="soft" disabled={!canAdd}>Add check</Button>
       </form>}
-      {editable && templates.length > 0 && <div className="qa-add-check">
-        <Select aria-label="Test template" placeholder="Choose template" value={templateId}
+      {editable && templates.length > 0 && <div className="qa-add-check" role="group" aria-label="Test template">
+        <Select placeholder="Choose template" value={templateId}
           options={templates.map(item => ({ value: item.id, label: item.name }))}
           onChange={item => setTemplateId(item.value)} />
         <Button color="secondary" variant="soft" disabled={!template} onClick={applyTemplate}>Apply template</Button>
