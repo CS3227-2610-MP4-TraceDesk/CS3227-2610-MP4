@@ -99,6 +99,7 @@ test('real Developer workspace enforces assignment, versions, sessions and respo
   await expect(page.getByRole('button', { name: 'Send to QA' })).toHaveCount(0)
   expect(await page.evaluate(() => (window as Window & { __resolutionInjected?: boolean }).__resolutionInjected)).toBeUndefined()
 
+  const sendBackReason = 'Please verify <b>two distinct refunds</b> after refreshing.'
   const qaContext = await browser.newContext({ ignoreHTTPSErrors: true })
   try {
     const qa = await qaContext.newPage()
@@ -175,6 +176,9 @@ test('real Developer workspace enforces assignment, versions, sessions and respo
     await expect(qa.getByRole('button', { name: 'Verify and close' })).toBeDisabled()
     const foreign = await qa.request.get(`${baseUrl}/api/projects/${accounts.deniedProjectId}/reports/${accounts.assignedReportId}/resolutions`)
     expect(foreign.status()).toBe(404)
+    await qa.getByLabel('Reason for sending back').fill(sendBackReason)
+    await qa.getByRole('button', { name: 'Send back to Developer' }).click()
+    await expect(qa.getByText('Bug sent back to the Developer.', { exact: true })).toBeVisible()
     await qa.getByRole('button', { name: 'Settings' }).click()
     await qa.getByRole('button', { name: 'Choose another project' }).click()
     await expect(qa.getByRole('heading', { name: 'Choose a project' })).toBeVisible()
@@ -182,6 +186,22 @@ test('real Developer workspace enforces assignment, versions, sessions and respo
   } finally {
     await qaContext.close()
   }
+
+  await page.getByRole('button', { name: 'Back to bugs' }).click()
+  await page.getByRole('button', { name: assignedTitle }).click()
+  const resolutionPanel = page.getByRole('region', { name: 'Proposed resolution' })
+  await expect(resolutionPanel.getByText('QA send-back reason', { exact: true })).toBeVisible()
+  await expect(resolutionPanel.getByText(sendBackReason, { exact: true })).toBeVisible()
+  await expect(resolutionPanel.locator('dd b')).toHaveCount(0)
+  await page.getByLabel('Root cause').fill('Revised refund investigation')
+  await page.getByLabel('Change summary').fill('Preserve distinct refunds')
+  await page.getByLabel('Verification steps').fill('Refresh with two distinct refunds')
+  await page.getByRole('button', { name: 'Send to QA' }).click()
+  await expect(resolutionPanel.getByText(/Revision 2 ·/)).toBeVisible()
+  await expect(resolutionPanel.getByText(sendBackReason, { exact: true })).not.toBeVisible()
+  await resolutionPanel.getByText('Earlier revisions (1)', { exact: true }).click()
+  await expect(resolutionPanel.getByRole('listitem').filter({ hasText: /Revision 1 ·/ })
+    .getByText(sendBackReason, { exact: true })).toBeVisible()
 
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 390, height: 844 })

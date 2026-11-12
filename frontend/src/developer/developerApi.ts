@@ -25,6 +25,7 @@ export type ProposedResolution = ResolutionFields & {
   authorUserId: string
   revision: number
   createdAt: string
+  rejection?: null | { reason: string; reviewerUserId: string; createdAt: string }
 }
 export type ResolutionPage = { items: ProposedResolution[]; nextCursor: string | null }
 export type ResolutionProposal = { report: ReportDetail; resolution: ProposedResolution }
@@ -128,11 +129,17 @@ function isBoundedText(value: unknown, maximum: number): value is string {
 }
 
 function isResolution(value: unknown, reportId: string): value is ProposedResolution {
-  return object(value) && isCanonicalUuid(String(value.id)) && value.reportId === reportId &&
+  if (!object(value)) return false
+  const rejectionValid = !('rejection' in value) || value.rejection === null ||
+    (object(value.rejection) && typeof value.rejection.reason === 'string' && value.rejection.reason.trim().length > 0 &&
+      Array.from(value.rejection.reason).length <= 2_000 && typeof value.rejection.reviewerUserId === 'string' &&
+      isCanonicalUuid(value.rejection.reviewerUserId) && typeof value.rejection.createdAt === 'string' &&
+      Number.isFinite(Date.parse(value.rejection.createdAt)))
+  return isCanonicalUuid(String(value.id)) && value.reportId === reportId &&
     isCanonicalUuid(String(value.authorUserId)) && Number.isInteger(value.revision) && Number(value.revision) > 0 &&
     isBoundedText(value.rootCause, 4_000) && isBoundedText(value.changeSummary, 4_000) &&
     isBoundedText(value.verificationSteps, 4_000) && isBoundedText(value.fixReference, 200) &&
-    typeof value.createdAt === 'string' && Number.isFinite(Date.parse(value.createdAt))
+    typeof value.createdAt === 'string' && Number.isFinite(Date.parse(value.createdAt)) && rejectionValid
 }
 
 export async function fetchDeveloperContext(projectId: string, signal?: AbortSignal): Promise<DeveloperContext> {
