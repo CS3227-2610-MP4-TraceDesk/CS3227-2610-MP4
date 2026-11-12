@@ -8,7 +8,7 @@ import { fetchReports, ReportApiError, type ReportSummary } from '../reports/rep
 import { AppShell } from '../shell/AppShell'
 import { SidebarGroup, SidebarItem } from '../shell/Sidebar'
 import { QaReportSummary } from './QaReportSummary'
-import { QaReviewHistory, type QaHistoryEntry } from './QaReviewHistory'
+import type { QaHistoryEntry } from './QaReviewHistory'
 import { QaHistoricalReviewPanel } from './QaHistoricalReviewPanel'
 import { fetchReviewedByMe } from './qaHistoryApi'
 import { QaTemplateLibrary } from './QaTemplateLibrary'
@@ -177,7 +177,6 @@ export function QaWorkspace({
     setHistoricalReview(null)
     if (destination === next) return
     setDestination(next)
-    setSearch('')
     setReports([])
     setHistory([])
     setNextCursor(null)
@@ -289,20 +288,16 @@ export function QaWorkspace({
         <h1>Verification</h1>
         <p role="alert">This project is no longer available to your account.</p>
         <Button color="secondary" variant="outline" onClick={onChooseWorkspace}>Choose another project</Button>
-      </section> : destination === 'reviewed' ? (
-        historicalReview ? <QaHistoricalReviewPanel key={historicalReview.resolutionId} projectId={project.id}
+      </section> : historicalReview && destination === 'reviewed' ? (
+        <QaHistoricalReviewPanel key={historicalReview.resolutionId} projectId={project.id}
           reportId={historicalReview.reportId} resolutionId={historicalReview.resolutionId}
           onBack={() => setHistoricalReview(null)} onSessionExpired={onSessionExpired} />
-          : <section className="qa-queue-view">
-            <h1>Reviewed by me</h1>
-            {queueFilters}
-            {(state === 'ready' || history.length > 0) && <QaReviewHistory entries={history} onOpen={setHistoricalReview} />}
-            {pageControls}
-          </section>
-      ) : reports.length || state === 'ready' ? (
+      ) : (
         <QaQueue items={bugs} search={search} onSearch={setSearch} onOpenBug={setSelectedId}
-          hidden={Boolean(selected)} awaitingOnly allBugs={destination === 'all'} footer={pageControls} filters={queueFilters} />
-      ) : <section className="qa-queue-view"><h1>{destination === 'all' ? queueName : 'Verification'}</h1>{queueFilters}{pageControls}</section>}
+          hidden={Boolean(selected)} awaitingOnly allBugs={destination === 'all'} footer={pageControls} filters={queueFilters}
+          reviews={destination === 'reviewed' ? history : undefined} onOpenReview={setHistoricalReview}
+          loading={state !== 'ready'} />
+      )}
       {selected && <QaReportSummary key={selected.id} project={project} reportId={selected.id} templates={templates}
         draft={drafts[selected.id] ?? emptyQaReviewDraft}
         onDraftChange={patch => setDrafts(current => ({

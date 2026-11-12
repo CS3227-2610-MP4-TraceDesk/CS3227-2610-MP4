@@ -6,6 +6,7 @@ import { Bug, Filter, Grid, Search, SettingsSlider } from '@openai/apps-sdk-ui/c
 import { Input } from '@openai/apps-sdk-ui/components/Input'
 import { AnimatedPopover } from '../../shared/AnimatedPopover'
 import { matchesBugSearch, qaQueues, type QaBug } from './qaFixtures'
+import type { QaHistoryEntry } from '../../qa/QaReviewHistory'
 
 const activityDate = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 
@@ -24,13 +25,16 @@ type QaQueueProps = {
   allBugs?: boolean
   footer?: React.ReactNode
   filters?: React.ReactNode
+  reviews?: readonly QaHistoryEntry[]
+  onOpenReview?: (entry: QaHistoryEntry) => void
+  loading?: boolean
   search: string
   onSearch: (value: string) => void
   onOpenBug: (id: string) => void
   hidden: boolean
 }
 
-export function QaQueue({ items, search, onSearch, onOpenBug, hidden, awaitingOnly, allBugs, footer, filters }: QaQueueProps) {
+export function QaQueue({ items, search, onSearch, onOpenBug, hidden, awaitingOnly, allBugs, footer, filters, reviews, onOpenReview, loading }: QaQueueProps) {
   const [queue, setQueue] = useState<(typeof qaQueues)[number]>(qaQueues[0])
   const [layout, setLayout] = useState<'list' | 'grid'>('list')
   const [sort, setSort] = useState<'recent' | 'name'>('recent')
@@ -39,11 +43,13 @@ export function QaQueue({ items, search, onSearch, onOpenBug, hidden, awaitingOn
     .sort((left, right) => sort === 'name'
       ? left.title.localeCompare(right.title)
       : right.lastActivity.localeCompare(left.lastActivity))
+  const matchingReviews = reviews?.filter(entry => matchesBugSearch({ id: entry.reportId, title: entry.title }, search))
+    .sort((left, right) => sort === 'name' ? left.title.localeCompare(right.title) : right.reviewedAt.localeCompare(left.reviewedAt))
 
   return (
     <section className="qa-queue-view" aria-labelledby="qa-queue-title" hidden={hidden}>
       <header className="qa-queue-heading">
-        <h1 id="qa-queue-title">{allBugs ? 'All bugs' : 'Verification'}</h1>
+        <h1 id="qa-queue-title">Verification</h1>
         <div className="qa-queue-controls">
           <AnimatedPopover label="Sort bugs" className="qa-library-options" trigger={
             <Button color="secondary" variant="ghost" size="md" uniform aria-label="Sort bugs" title="Sort bugs"><Filter /></Button>
@@ -76,7 +82,7 @@ export function QaQueue({ items, search, onSearch, onOpenBug, hidden, awaitingOn
       </div>)}
       {layout === 'list' && <div className="qa-ticket-columns"><span>Name</span><span>Last activity</span></div>}
       <div className={layout === 'grid' ? 'qa-ticket-list qa-ticket-grid' : 'qa-ticket-list'}>
-        {bugs.map(bug => (
+        {!reviews && bugs.map(bug => (
           <button key={bug.id} type="button" className="qa-ticket-row" onClick={() => onOpenBug(bug.id)}>
             <span className="qa-library-item-icon" aria-hidden="true"><Bug /></span>
             <span className="qa-ticket-name">
@@ -87,7 +93,18 @@ export function QaQueue({ items, search, onSearch, onOpenBug, hidden, awaitingOn
             <span className="sr-only">{bug.id}</span>
           </button>
         ))}
-        {!bugs.length && <p className="muted" role="status">{search.trim() ? 'No matching bugs.' : 'No tickets in this queue.'}</p>}
+        {matchingReviews?.map(entry => (
+          <button key={entry.resolutionId} type="button" className="qa-ticket-row"
+            aria-label={`${entry.title}, revision ${entry.revision}, ${entry.decision === 'CLOSE' ? 'Closed' : 'Sent back'}`}
+            onClick={() => onOpenReview?.(entry)}>
+            <span className="qa-library-item-icon" aria-hidden="true"><Bug /></span>
+            <span className="qa-ticket-name"><span title={entry.title}>{entry.title} · Revision {entry.revision}</span>
+              {showStatus && <Badge color={entry.decision === 'CLOSE' ? 'success' : 'warning'} pill>{entry.decision === 'CLOSE' ? 'Closed' : 'Sent back'}</Badge>}
+            </span>
+            <time dateTime={entry.reviewedAt}>{activityDate.format(new Date(entry.reviewedAt))}</time>
+          </button>
+        ))}
+        {!loading && !(reviews ? matchingReviews?.length : bugs.length) && <p className="muted" role="status">{search.trim() ? 'No matching bugs.' : reviews ? 'No completed QA reviews yet.' : 'No tickets in this queue.'}</p>}
       </div>
       {footer}
     </section>
