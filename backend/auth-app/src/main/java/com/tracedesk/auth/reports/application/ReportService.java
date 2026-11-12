@@ -3,6 +3,7 @@ package com.tracedesk.auth.reports.application;
 import com.tracedesk.auth.reports.domain.ReportAccessPolicy;
 import com.tracedesk.auth.reports.domain.ReportCursorSigner;
 import com.tracedesk.auth.reports.domain.ReportData;
+import com.tracedesk.auth.reports.domain.ReportActivityCursor;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
@@ -19,8 +20,9 @@ public final class ReportService {
     public record AssignmentPage(ReportRepository.AssignmentCandidates candidates, String nextCursor) { }
     private static final int ASSIGNMENT_PAGE_SIZE = 25;
     private static final String ASSIGNMENT_CURSOR = "QA_ASSIGNMENT";
-    private final ReportRepository repository; private final ReportCursorSigner cursors; private final Clock clock;
-    public ReportService(ReportRepository repository, ReportCursorSigner cursors, Clock clock) { this.repository=repository; this.cursors=cursors; this.clock=clock; }
+    private final ReportRepository repository; private final ReportCursorSigner cursors; private final ReportActivityCursor activityCursors; private final Clock clock;
+    public ReportService(ReportRepository repository, ReportCursorSigner cursors, Clock clock) { this(repository,cursors,new ReportActivityCursor(),clock); }
+    public ReportService(ReportRepository repository, ReportCursorSigner cursors, ReportActivityCursor activityCursors, Clock clock) { this.repository=repository; this.cursors=cursors; this.activityCursors=activityCursors; this.clock=clock; }
 
     public ReportRepository.Report create(UUID actor, UUID project, UUID key, ReportData fields, UUID requestId) {
         var membership = requireMembership(actor, project);
@@ -74,6 +76,26 @@ public final class ReportService {
     public ReportRepository.Assignment changeAssignment(UUID actor, UUID project, UUID report, UUID developer,
                                                          String reason, int version, UUID requestId) {
         return repository.changeAssignment(actor, project, report, developer, reason, version, requestId, clock.instant());
+    }
+    public record ActivityResult(java.util.List<ReportRepository.Activity> items, String nextCursor) { }
+    public ActivityResult activity(UUID actor, UUID project, UUID report, Integer requestedLimit, String cursor) {
+        var membership = requireMembership(actor, project);
+        if (!"REPORTER".equals(membership.role())) throw new Failure("FORBIDDEN",403);
+        if (requestedLimit != null && (requestedLimit < 1 || requestedLimit > 100)) throw new Failure("INVALID_REQUEST",400);
+        int limit=requestedLimit==null?25:requestedLimit;
+        Instant after=null; Long afterId=null;
+        if(cursor!=null) {
+            var decoded=activityCursors.verify(cursor,actor,project,report,clock.instant());
+            if(decoded==null) throw new Failure("INVALID_CURSOR",400);
+            after=decoded.occurredAt(); afterId=decoded.eventId();
+        }
+        var page=repository.activity(actor,project,report,limit,after,afterId);
+        String next=null;
+        if(page.hasMore()&&!page.items().isEmpty()) {
+            var last=page.items().get(page.items().size()-1);
+            next=activityCursors.issue(new ReportActivityCursor.Position(actor,project,report,last.occurredAt(),Long.parseLong(last.id()),clock.millis()));
+        }
+        return new ActivityResult(page.items(),next);
     }
     public ReportRepository.Membership reporterContext(UUID actor, UUID project) {
         var membership = requireMembership(actor, project);

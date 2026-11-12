@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 import {
   captureDeveloperEvidence,
+  captureReporterEvidence,
   ReportRealBackend,
   type ReporterFixtureMetadata,
 } from './helpers/reportRealBackend'
@@ -99,6 +100,62 @@ test('real Developer workspace enforces assignment, versions, sessions and respo
   await expect(page.getByRole('button', { name: 'Send to QA' })).toHaveCount(0)
   expect(await page.evaluate(() => (window as Window & { __resolutionInjected?: boolean }).__resolutionInjected)).toBeUndefined()
 
+  // Observe real Developer transitions through the report owner's read-only history.
+  const reporterContext = await browser.newContext({ ignoreHTTPSErrors: true, reducedMotion: 'reduce' })
+  try {
+    const reporter = await reporterContext.newPage()
+    const origin = new URL(page.url()).origin
+    await reporter.goto(`${origin}/`)
+    await reporter.getByLabel('Email', { exact: true }).fill(accounts.developerFixtureReporterLogin)
+    await reporter.getByLabel('Password', { exact: true }).fill(fixture.credentials.password)
+    await reporter.getByLabel('Password', { exact: true }).press('Enter')
+    await reporter.getByRole('button', { name: 'Synthetic Reporter Project' }).click()
+    await reporter.getByRole('main').getByRole('button', { name: new RegExp('Assigned browser report') }).click()
+    await expect(reporter.locator('.report-detail-top').getByText('Ready for QA', { exact: true })).toBeVisible()
+    const activity = reporter.getByRole('region', { name: 'Activity', exact: true })
+    await expect(activity.getByText('Investigation started', { exact: true })).toBeVisible()
+    await expect(activity.getByText('Resolution proposed for QA review', { exact: true })).toBeVisible()
+    expect(await activity.locator('li strong').allTextContents()).toEqual(['Investigation started', 'Resolution proposed for QA review'])
+    await expect(reporter.getByText(noteText, { exact: true })).toHaveCount(0)
+    await expect(reporter.getByText(rootCause, { exact: true })).toHaveCount(0)
+    const activityPath = `/api/projects/${accounts.projectId}/reports/${accounts.assignedReportId}/activity`
+    const response = await reporter.request.get(`${origin}${activityPath}`)
+    expect(response.status()).toBe(200)
+    expect(response.headers()['cache-control']).toBe('no-store')
+    const body = await response.json() as { items: Record<string, unknown>[] }
+    for (const item of body.items) expect(Object.keys(item).sort()).toEqual(['eventCode', 'id', 'newStatus', 'newVersion', 'occurredAt', 'priorStatus', 'priorVersion'])
+    expect(JSON.stringify(body)).not.toContain('INVESTIGATION_NOTE')
+    const foreign = await reporter.request.get(`${origin}/api/projects/${accounts.deniedProjectId}/reports/${accounts.assignedReportId}/activity`)
+    expect(foreign.status()).toBe(404)
+    for (const width of [1440, 390, 320]) {
+      await reporter.setViewportSize({ width, height: 900 })
+      await activity.scrollIntoViewIfNeeded()
+      const geometry = await captureReporterEvidence(reporter, browser.version(), `reporter-activity-${width}`)
+      expect(geometry.horizontalOverflow).toBe(false)
+      expect(await reporter.locator('main').evaluate(main => main.scrollWidth <= main.clientWidth)).toBe(true)
+      await activity.scrollIntoViewIfNeeded()
+      await expect(activity.getByRole('button', { name: 'Refresh activity' })).toBeInViewport()
+      await activity.screenshot({ path: test.info().outputPath(`reporter-activity-${width}.png`) })
+    }
+    const accessibility = await new AxeBuilder({ page: reporter }).analyze()
+    expect(accessibility.violations.map(({ id, impact }) => `${id}:${impact}`)).toEqual([])
+    await activity.getByRole('button', { name: 'Refresh activity' }).click()
+    await expect(reporter.getByRole('region', { name: 'Activity', exact: true }).getByText('Resolution proposed for QA review')).toBeVisible()
+
+    await reporter.getByRole('button', { name: 'Settings', exact: true }).click()
+    await reporter.getByRole('button', { name: 'Sign out' }).click()
+    await expect(reporter.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
+    await reporter.getByLabel('Email', { exact: true }).fill(accounts.login)
+    await reporter.getByLabel('Password', { exact: true }).fill(fixture.credentials.password)
+    await reporter.getByLabel('Password', { exact: true }).press('Enter')
+    await expect(reporter.getByRole('heading', { name: 'Choose a project' })).toBeVisible()
+    const notOwner = await reporter.request.get(`${origin}${activityPath}`)
+    expect(notOwner.status()).toBe(404)
+    expect(await notOwner.text()).not.toContain('REPORT_INVESTIGATION_STARTED')
+  } finally {
+    await reporterContext.close()
+  }
+
   const sendBackReason = 'Please verify <b>two distinct refunds</b> after refreshing.'
   const qaContext = await browser.newContext({ ignoreHTTPSErrors: true })
   try {
@@ -185,6 +242,29 @@ test('real Developer workspace enforces assignment, versions, sessions and respo
     await expect(summary).toHaveCount(0)
   } finally {
     await qaContext.close()
+  }
+
+  const qaHistoryContext = await browser.newContext({ ignoreHTTPSErrors: true })
+  try {
+    const reader = await qaHistoryContext.newPage()
+    const origin = new URL(page.url()).origin
+    await reader.goto(`${origin}/`)
+    await reader.getByLabel('Email', { exact: true }).fill(accounts.developerFixtureReporterLogin)
+    await reader.getByLabel('Password', { exact: true }).fill(fixture.credentials.password)
+    await reader.getByLabel('Password', { exact: true }).press('Enter')
+    await reader.getByRole('button', { name: 'Synthetic Reporter Project' }).click()
+    await reader.getByRole('main').getByRole('button', { name: /Assigned browser report/ }).click()
+    const activity = reader.getByRole('region', { name: 'Activity', exact: true })
+    await expect(activity.getByText('QA verification updated', { exact: true })).toBeVisible()
+    await expect(activity.getByText('QA sent the report back for investigation', { exact: true })).toBeVisible()
+    await expect(reader.locator('.report-detail-top').getByText('In progress', { exact: true })).toBeVisible()
+    const response = await reader.request.get(`${origin}/api/projects/${accounts.projectId}/reports/${accounts.assignedReportId}/activity`)
+    expect(response.status()).toBe(200)
+    const metadata = await response.text()
+    for (const privateText of [sendBackReason, 'Verified on synthetic staging', 'Confirm only one refund row', noteText, rootCause]) expect(metadata).not.toContain(privateText)
+    await expect(reader.getByText(sendBackReason, { exact: true })).toHaveCount(0)
+  } finally {
+    await qaHistoryContext.close()
   }
 
   await page.getByRole('button', { name: 'Back to bugs' }).click()

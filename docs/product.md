@@ -6,7 +6,7 @@ Baseline: earlier TraceDesk proposal, confirmed by the user on 2026-11-04.
 
 | Role | Product responsibilities | AI capability |
 | --- | --- | --- |
-| Reporter | Create/edit reports within lifecycle rules, supply reproduction details and text logs, follow progress and clarification requests | Improve report wording and identify missing reproduction information |
+| Reporter | Create/edit reports within lifecycle rules, supply reproduction details and text logs, follow report status and approved activity history | Improve report wording and identify missing reproduction information |
 | Developer | Investigate assigned bugs, maintain notes, submit a proposed resolution | Suggest hypotheses and investigation steps from authorized snippets and logs |
 | QA reviewer | Maintain verification checklists, verify proposed resolutions, close or reopen bugs | Draft regression tests and assess gaps in resolution evidence |
 
