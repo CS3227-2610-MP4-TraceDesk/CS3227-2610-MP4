@@ -7,6 +7,7 @@ import type { QaBug } from '../preview/qa/qaFixtures'
 import { fetchReport, ReportApiError, type AssignmentResult, type ReportDetail, type ReportStatus } from '../reports/reportApi'
 import { Disclosure } from '../shared/Disclosure'
 import { QaAiPanel } from './QaAiPanel'
+import { QaDiscussion } from './QaDiscussion'
 import { QaAssignment } from './QaAssignment'
 import { QaVerification } from './QaVerification'
 import type { Verification } from './verificationApi'
@@ -171,6 +172,7 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
       lastActivity: report.updatedAt, expected: report.expectedBehavior, actual: report.actualBehavior,
       steps: report.reproductionSteps, logs: report.textLogs, checks: [], entries: [],
     }} description={report.description} environment={report.environment}
+      activityContent={<QaDiscussion projectId={project.id} reportId={reportId} onSessionExpired={onSessionExpired} />}
       resolution={<>
       <QaAssignment projectId={project.id} reportId={report.id} assignedDeveloperId={report.assignedDeveloperId}
         reportVersion={report.version} closed={report.status === 'CLOSED'} onSessionExpired={onSessionExpired} onRefresh={refreshAssignment} />
