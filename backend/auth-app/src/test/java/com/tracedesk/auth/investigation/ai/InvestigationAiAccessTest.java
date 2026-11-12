@@ -45,8 +45,10 @@ class InvestigationAiAccessTest {
             db=IsolatedPostgres.open(System.getenv());
             try {
                 Flyway.configure().dataSource(db).locations("classpath:db/migration").load().migrate(); sql=new JdbcTemplate(db);
-                for(var id:List.of(developer,second,reporter,qa,outsider,foreignMember))
-                    sql.update("insert into td_users(id,login_normalized,password_hash) values(?,?,'synthetic-hash')",id,"synthetic-"+id+"@example.test");
+                for(var id:List.of(developer,second,reporter,qa,outsider,foreignMember)) {
+                    String role=id.equals(reporter)?"REPORTER":id.equals(qa)?"QA_REVIEWER":"DEVELOPER";
+                    sql.update("insert into td_users(id,login_normalized,password_hash,account_role) values(?,?,'synthetic-hash',?)",id,"synthetic-"+id+"@example.test",role);
+                }
                 sql.update("insert into td_projects(id,name) values(?,'Synthetic investigation'),(?,'Other synthetic project')",project,otherProject);
                 member(developer,project,"DEVELOPER"); member(second,project,"DEVELOPER"); member(reporter,project,"REPORTER"); member(qa,project,"QA_REVIEWER");
                 member(foreignMember,otherProject,"DEVELOPER");
@@ -129,6 +131,32 @@ class InvestigationAiAccessTest {
         try(var f=new Fixture()) { for(UUID actor:List.of(f.reporter,f.qa)) {
             f.live.set(actor); f.denied("FORBIDDEN",403,() -> f.suggest(UUID.randomUUID(),1,f.selection())); f.noAdmission();
         } }
+    }
+    @Test void accountRoleOverridesLegacyMembershipRole() throws Exception {
+        try(var f=new Fixture()) {
+            f.sql.update("update td_project_memberships set role='REPORTER' where user_id=?",f.developer);
+            assertTrue(f.suggest().hypotheses().isEmpty());
+        }
+        try(var f=new Fixture()) {
+            for(UUID actor:List.of(f.reporter,f.qa)) {
+                f.sql.update("update td_project_memberships set role='DEVELOPER' where user_id=?",actor);
+                f.live.set(actor);
+                f.denied("FORBIDDEN",403,f::suggest); f.noAdmission();
+            }
+        }
+    }
+    @Test void accountRoleIsRecheckedBeforeDispatchAndDelivery() throws Exception {
+        for(boolean delivery:List.of(false,true)) {
+            try(var f=new Fixture()) {
+                Runnable changeRole=() -> f.sql.update("update td_users set account_role='REPORTER' where id=?",f.developer);
+                if(delivery) f.beforeDelivery=changeRole;
+                else f.beforeDispatch=changeRole;
+                f.denied("FORBIDDEN",403,f::suggest);
+                assertEquals(1,f.contextReads.get());
+                assertEquals(delivery?1:0,f.calls.get());
+                if(delivery) verify(f.ledger,times(1)).settle(any(),eq(Outcome.SUCCESS),eq(40L),any());
+            }
+        }
     }
     @Test void a03_membershipAndEnabledStateMatrix() throws Exception {
         try(var f=new Fixture()) {
