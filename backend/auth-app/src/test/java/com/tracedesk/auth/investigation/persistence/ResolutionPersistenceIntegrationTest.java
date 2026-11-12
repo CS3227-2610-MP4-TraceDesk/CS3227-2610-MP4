@@ -40,11 +40,12 @@ class ResolutionPersistenceIntegrationTest {
             var qaStore = new VerificationStore(sql, java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC));
             UUID project = UUID.randomUUID(), foreign = UUID.randomUUID();
             UUID reporter = user(sql, "qa-rpt@example.test"), developer = user(sql, "qa-dev@example.test"),
-                    qa = user(sql, "qa-review@example.test");
+                    qa = user(sql, "qa-review@example.test"), secondQa = user(sql, "qa-review-two@example.test");
             sql.update("insert into td_projects(id,name) values(?,?),(?,?)", project, "QA Test", foreign, "Foreign Test");
             membership(sql, project, reporter, "REPORTER");
             membership(sql, project, developer, "DEVELOPER");
             membership(sql, project, qa, "QA_REVIEWER");
+            membership(sql, project, secondQa, "QA_REVIEWER");
             sql.update("update td_users set account_role='REPORTER' where id=?", reporter);
             sql.update("update td_users set account_role='DEVELOPER' where id=?", developer);
             // Current account roles override conflicting historical membership snapshots.
@@ -85,6 +86,33 @@ class ResolutionPersistenceIntegrationTest {
             assertEquals("FORBIDDEN", failure(() -> developerStore.resolutions(reporter, project, report, 25, null)).code());
             assertEquals("NOT_FOUND", failure(() -> developerStore.resolutions(developer, foreign, report, 25, null)).code());
 
+            var qaHistory = qaStore.reviewedBy(qa, project, null);
+            assertEquals(1, qaHistory.items().size());
+            var sentBackEntry = qaHistory.items().getFirst();
+            assertEquals(report, sentBackEntry.reportId());
+            assertEquals(1, sentBackEntry.revision());
+            assertEquals("SEND_BACK", sentBackEntry.decision());
+            assertEquals(qa, sentBackEntry.reviewerUserId());
+            assertNotNull(sentBackEntry.reviewedAt());
+            assertTrue(qaStore.reviewedBy(secondQa, project, null).items().isEmpty());
+            var sentBackReview = qaStore.historicalReview(secondQa, project, report, sentBackEntry.resolutionId());
+            assertEquals("SEND_BACK", sentBackReview.decision());
+            assertEquals(List.of(pending), sentBackReview.checks());
+            assertEquals("Staging", sentBackReview.notes());
+            assertEquals("Still duplicated", sentBackReview.reason());
+            assertEquals(qa, sentBackReview.reviewerUserId());
+            assertEquals("FORBIDDEN", failure(() -> qaStore.reviewedBy(developer, project, null)).code());
+            assertEquals("FORBIDDEN", failure(() -> qaStore.historicalReview(reporter, project, report, sentBackEntry.resolutionId())).code());
+            assertEquals("NOT_FOUND", failure(() -> qaStore.reviewedBy(qa, foreign, null)).code());
+            assertEquals("NOT_FOUND", failure(() -> qaStore.historicalReview(qa, foreign, report, sentBackEntry.resolutionId())).code());
+            assertEquals("NOT_FOUND", failure(() -> qaStore.historicalReview(qa, project, unassignedReport, sentBackEntry.resolutionId())).code());
+            long sentBackAuditId = sql.queryForObject("""
+                    select id from td_business_audit_events
+                    where event_code='QA_VERIFICATION_SENT_BACK' and report_id=? and actor_id=?
+                    """, Long.class, report, qa);
+            assertTrue(qaStore.reviewedBy(qa, project, sentBackAuditId).items().isEmpty(),
+                    "cursor is exclusive so the last returned row is not repeated");
+
             var proposal = developerStore.propose(developer, project, report, VALID, back.version(), UUID.randomUUID(), NOW);
             assertNull(proposal.resolution().rejection());
             var history = developerStore.resolutions(developer, project, report, 25, null).items();
@@ -99,7 +127,23 @@ class ResolutionPersistenceIntegrationTest {
             try { assertThrows(DataAccessException.class, () -> qaStore.write(qa, project, report, close)); }
             finally { sql.execute("alter table qa_test_audit_unavailable rename to td_business_audit_events"); }
             assertEquals(next, qaStore.read(qa, project, report));
-            assertEquals("CLOSED", qaStore.write(qa, project, report, close).status());
+            var closed = qaStore.write(secondQa, project, report, close);
+            assertEquals("CLOSED", closed.status());
+            var qaOneHistory = qaStore.reviewedBy(qa, project, null);
+            assertEquals(1, qaOneHistory.items().size());
+            assertEquals("SEND_BACK", qaOneHistory.items().getFirst().decision());
+            var qaTwoHistory = qaStore.reviewedBy(secondQa, project, null);
+            assertEquals(1, qaTwoHistory.items().size());
+            var closedEntry = qaTwoHistory.items().getFirst();
+            assertEquals(report, closedEntry.reportId());
+            assertEquals(2, closedEntry.revision());
+            assertEquals("CLOSE", closedEntry.decision());
+            assertEquals(secondQa, closedEntry.reviewerUserId());
+            var closedReview = qaStore.historicalReview(qa, project, report, closedEntry.resolutionId());
+            assertEquals(List.of(passed), closedReview.checks());
+            assertEquals("", closedReview.notes());
+            assertEquals("", closedReview.reason());
+            assertEquals(secondQa, closedReview.reviewerUserId());
             assertEquals(3, sql.queryForObject("select count(*) from td_business_audit_events where event_code like 'QA_%'", Integer.class));
         }
     }
