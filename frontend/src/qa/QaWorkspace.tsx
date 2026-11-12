@@ -8,6 +8,9 @@ import { fetchReports, ReportApiError, type ReportSummary } from '../reports/rep
 import { AppShell } from '../shell/AppShell'
 import { SidebarGroup, SidebarItem } from '../shell/Sidebar'
 import { QaReportSummary } from './QaReportSummary'
+import { QaReviewHistory, type QaHistoryEntry } from './QaReviewHistory'
+import { QaHistoricalReviewPanel } from './QaHistoricalReviewPanel'
+import { fetchReviewedByMe } from './qaHistoryApi'
 import '../preview/qa/qa-preview.css'
 import '../preview/workspace-preview.css'
 import './qa-workspace.css'
@@ -32,10 +35,12 @@ export function QaWorkspace({
   project, theme, onThemeChange, onSessionExpired, onSignOut, onChooseWorkspace, signingOut, signOutError,
 }: QaWorkspaceProps) {
   const [area, setArea] = useState('verification')
-  const [destination, setDestination] = useState<'awaiting' | 'all'>('awaiting')
+  const [destination, setDestination] = useState<'awaiting' | 'reviewed' | 'all'>('awaiting')
   const [search, setSearch] = useState('')
   const [decisionNotice, setDecisionNotice] = useState('')
   const [selectedId, setSelectedId] = useState('')
+  const [history, setHistory] = useState<QaHistoryEntry[]>([])
+  const [historicalReview, setHistoricalReview] = useState<QaHistoryEntry | null>(null)
   const [reports, setReports] = useState<ReportSummary[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [cursor, setCursor] = useState<string | null>(null)
@@ -44,6 +49,24 @@ export function QaWorkspace({
 
   useEffect(() => {
     const controller = new AbortController()
+    if (destination === 'reviewed') {
+      void fetchReviewedByMe(project.id, cursor, controller.signal).then(page => {
+        if (controller.signal.aborted) return
+        setHistory(current => cursor ? [...current, ...page.items] : page.items)
+        setNextCursor(page.nextCursor === cursor ? null : page.nextCursor)
+        setState('ready')
+      }, failure => {
+        if (controller.signal.aborted) return
+        if (failure instanceof ReportApiError && failure.status === 401) onSessionExpired()
+        else if (failure instanceof ReportApiError && [403, 404].includes(failure.status)) {
+          setHistory([])
+          setHistoricalReview(null)
+          setNextCursor(null)
+          setState('denied')
+        } else setState('failed')
+      })
+      return () => controller.abort()
+    }
     void fetchReports(project.id, destination === 'awaiting' ? 'READY_FOR_QA' : '', cursor, controller.signal).then(page => {
       if (controller.signal.aborted) return
       const ready = destination === 'awaiting' ? page.items.filter(report => report.status === 'READY_FOR_QA') : page.items
@@ -74,23 +97,25 @@ export function QaWorkspace({
   }))
   const matching = bugs.filter(bug => matchesBugSearch(bug, search))
   const settings = area === 'settings'
-  const queueName = destination === 'all' ? 'All bugs' : 'Awaiting verification'
+  const queueName = destination === 'all' ? 'All bugs' : destination === 'reviewed' ? 'Reviewed by me' : 'Awaiting verification'
 
   function selectDestination(next: typeof destination) {
     setSelectedId('')
+    setHistoricalReview(null)
     if (destination === next) return
     setDestination(next)
     setSearch('')
     setReports([])
+    setHistory([])
     setNextCursor(null)
     setCursor(null)
     setState('loading')
   }
 
   const pageControls = <div className="qa-page-controls">
-    {state === 'loading' && <p role="status">Loading reports…</p>}
+    {state === 'loading' && <p role="status">Loading reportsâ€¦</p>}
     {state === 'failed' && <>
-      <p role="alert">{destination === 'all' ? 'Could not load project bugs.' : 'Could not load reports awaiting verification.'}</p>
+      <p role="alert">{'Could not load ' + queueName.toLowerCase() + '.'}</p>
       <Button color="secondary" variant="outline" onClick={() => {
         setState('loading')
         setReload(value => value + 1)
@@ -99,32 +124,40 @@ export function QaWorkspace({
     {state === 'ready' && nextCursor && <Button color="secondary" variant="outline" onClick={() => {
       setState('loading')
       setCursor(nextCursor)
-    }}>Load more reports</Button>}
+    }}>{destination === 'reviewed' ? 'Load more reviews' : 'Load more reports'}</Button>}
   </div>
 
   return <AppShell items={items} activeId={area} onSelect={setArea}
     headerContent={<div className="qa-bug-header">
+      {historicalReview && !settings && <Button color="secondary" variant="ghost" uniform
+        aria-label="Back to reviewed by me" onClick={() => setHistoricalReview(null)}><ArrowLeft /></Button>}
       {selected && !settings && <Button color="secondary" variant="ghost" uniform
         aria-label={destination === 'all' ? 'Back to all bugs' : 'Back to verification queue'} onClick={() => setSelectedId('')}><ArrowLeft /></Button>}
       <Folder aria-hidden="true" />
-      <span>{!settings && selected ? selected.title : project.name}</span>
+      <span>{!settings ? historicalReview?.title ?? selected?.title ?? project.name : project.name}</span>
     </div>}
     sidebar={!settings ? {
       title: 'Verification',
       renderItems: dismiss => <>
-        <div className="preview-sidebar-search">
+        {destination !== 'reviewed' && <div className="preview-sidebar-search">
           <Input type="search" size="sm" pill variant="soft" startAdornment={<Search />}
             aria-label="Search review queue" placeholder="Search bugs" value={search}
             onChange={event => setSearch(event.target.value)} />
-        </div>
+        </div>}
         <SidebarItem label="Awaiting verification" icon={<Check />} selected={!selectedId && destination === 'awaiting'}
           onSelect={() => { selectDestination('awaiting'); dismiss() }} />
+        <SidebarItem label="Reviewed by me" icon={<Check />} selected={destination === 'reviewed'}
+          onSelect={() => { selectDestination('reviewed'); dismiss() }} />
         <SidebarItem label="All bugs" icon={<Bug />} selected={!selectedId && destination === 'all'}
           onSelect={() => { selectDestination('all'); dismiss() }} />
-        <SidebarGroup title={queueName}>
+        {destination === 'reviewed' ? <SidebarGroup title={queueName}>
+          {history.map(entry => <SidebarItem key={entry.resolutionId} label={entry.title + ' · Revision ' + entry.revision}
+            icon={<Check />} selected={historicalReview?.resolutionId === entry.resolutionId}
+            onSelect={() => { setHistoricalReview(entry); dismiss() }} />)}
+        </SidebarGroup> : <SidebarGroup title={queueName}>
           {matching.map(bug => <SidebarItem key={bug.id} label={bug.title} icon={<Bug />}
             selected={selectedId === bug.id} onSelect={() => { setSelectedId(bug.id); dismiss() }} />)}
-        </SidebarGroup>
+        </SidebarGroup>}
       </>,
     } : undefined}
   >
@@ -136,7 +169,7 @@ export function QaWorkspace({
         </Button>
         <Button color="secondary" variant="outline" onClick={onChooseWorkspace}>Choose another project</Button>
         <Button color="secondary" variant="ghost" onClick={onSignOut} disabled={signingOut}>
-          {signingOut ? 'Signing out…' : 'Sign out'}
+          {signingOut ? 'Signing outâ€¦' : 'Sign out'}
         </Button>
       </div>
       {signOutError && <p role="alert">{signOutError}</p>}
@@ -146,7 +179,16 @@ export function QaWorkspace({
         <h1>Verification</h1>
         <p role="alert">This project is no longer available to your account.</p>
         <Button color="secondary" variant="outline" onClick={onChooseWorkspace}>Choose another project</Button>
-      </section> : reports.length || state === 'ready' ? (
+      </section> : destination === 'reviewed' ? (
+        historicalReview ? <QaHistoricalReviewPanel key={historicalReview.resolutionId} projectId={project.id}
+          reportId={historicalReview.reportId} resolutionId={historicalReview.resolutionId}
+          onBack={() => setHistoricalReview(null)} onSessionExpired={onSessionExpired} />
+          : <section className="qa-queue-view">
+            <h1>Reviewed by me</h1>
+            {(state === 'ready' || history.length > 0) && <QaReviewHistory entries={history} onOpen={setHistoricalReview} />}
+            {pageControls}
+          </section>
+      ) : reports.length || state === 'ready' ? (
         <QaQueue items={bugs} search={search} onSearch={setSearch} onOpenBug={setSelectedId}
           hidden={Boolean(selected)} awaitingOnly allBugs={destination === 'all'} footer={pageControls} />
       ) : <section className="qa-queue-view"><h1>{destination === 'all' ? queueName : 'Verification'}</h1>{pageControls}</section>}

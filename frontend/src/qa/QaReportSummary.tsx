@@ -9,6 +9,7 @@ import { Disclosure } from '../shared/Disclosure'
 import { QaAiPanel } from './QaAiPanel'
 import { QaAssignment } from './QaAssignment'
 import { QaVerification } from './QaVerification'
+import { QaHistoricalReviewPanel } from './QaHistoricalReviewPanel'
 import type { Verification } from './verificationApi'
 
 const statuses: Record<ReportStatus, QaBug['status']> = {
@@ -48,6 +49,7 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
   const [verifying, setVerifying] = useState(false)
   const [review, setReview] = useState<Verification | null>(null)
   const [verificationBusy, setVerificationBusy] = useState(true)
+  const [historicalResolution, setHistoricalResolution] = useState<string | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
   const aiTrigger = useRef<HTMLButtonElement>(null)
 
@@ -85,6 +87,9 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
   </section>
 
   const { report, resolutions } = detail
+  if (historicalResolution) return <QaHistoricalReviewPanel key={historicalResolution} projectId={project.id}
+    reportId={reportId} resolutionId={historicalResolution} onSessionExpired={onSessionExpired}
+    onBack={() => setHistoricalResolution(null)} />
   function addSuggestedChecks(titles: string[]) {
     if (verificationBusy) return 'Wait for the Verification checklist to finish loading.'
     if (!review) return 'Open Verification and reload the checklist before adding checks.'
@@ -185,6 +190,9 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
             <div><dt>Verification steps</dt><dd>{resolution.verificationSteps}</dd></div>
             {resolution.fixReference && <div><dt>Fix reference</dt><dd>{resolution.fixReference}</dd></div>}
           </dl>
+          {(resolution.rejection || (report.status === 'CLOSED' && resolution.id === resolutions[0]?.id)) &&
+            <Button color="secondary" variant="soft" size="sm"
+              onClick={() => setHistoricalResolution(resolution.id)}>View verification result</Button>}
         </Disclosure>)}
       </section></>}
     />
