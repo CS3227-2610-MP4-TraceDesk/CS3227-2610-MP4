@@ -42,6 +42,11 @@ class DeveloperAiLiveEvaluationTest {
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
     private static final String REVISION = "a".repeat(40);
     private static final String MODEL = "synthetic-model";
+    private static final String ACCOUNT_ENVIRONMENT = "synthetic-provider/test";
+    private static final String CREDENTIAL_SOURCE = "operator backend process environment";
+    private static final String CREDENTIAL = "synthetic-test-key-never-written";
+    private static final String CREDENTIAL_FINGERPRINT =
+            DeveloperAiLiveEvaluation.Approval.credentialFingerprint(CREDENTIAL);
     private static final int ATTEMPTS = 30;
     private static final long MAX_UNITS = ATTEMPTS * DeveloperAiLiveEvaluation.UNITS_PER_ATTEMPT;
 
@@ -72,6 +77,21 @@ class DeveloperAiLiveEvaluationTest {
         assertThrows(IllegalArgumentException.class,
                 () -> authorize(mismatched, temporary.resolve("mismatched.used"), environment, "b".repeat(40), calls));
 
+        Path environmentMismatch = temporary.resolve("environment-mismatch.json");
+        writeApproval(environmentMismatch, REVISION, MODEL, NOW.plusSeconds(600));
+        assertThrows(IllegalArgumentException.class,
+                () -> authorize(environmentMismatch, temporary.resolve("environment-mismatch.used"), environment,
+                        REVISION, "different-provider/production", CREDENTIAL_FINGERPRINT, calls));
+        assertEquals(0, calls.get());
+
+        Path fingerprintMismatch = temporary.resolve("fingerprint-mismatch.json");
+        writeApproval(fingerprintMismatch, REVISION, MODEL, NOW.plusSeconds(600));
+        assertThrows(IllegalArgumentException.class,
+                () -> authorize(fingerprintMismatch, temporary.resolve("fingerprint-mismatch.used"), environment,
+                        REVISION, ACCOUNT_ENVIRONMENT,
+                        DeveloperAiLiveEvaluation.Approval.credentialFingerprint("different-key"), calls));
+        assertEquals(0, calls.get());
+
         Path consumed = temporary.resolve("consumed.json");
         Path consumedClaim = temporary.resolve("consumed.used");
         writeApproval(consumed, REVISION, MODEL, NOW.plusSeconds(600));
@@ -99,7 +119,6 @@ class DeveloperAiLiveEvaluationTest {
                 @Override public Completion complete(Context context) {
                     contexts.add(context);
                     Usage usage = new Usage(18, 12);
-                    measurement.recordUsage(usage);
                     return new Completion("""
                             {"hypotheses":[{"statement":"Inspect the supplied failure boundary.","rationale":"The supplied report supports a bounded hypothesis, not a completed action.","sources":["title"]}],"nextSteps":["Compare the supplied evidence without changing report state."]}
                             """, usage);
@@ -108,9 +127,10 @@ class DeveloperAiLiveEvaluationTest {
             var observations = new ArrayList<Map<String, Object>>();
             Policy policy = new Policy(true, 1, MAX_UNITS, MAX_UNITS, 1, 1, Duration.ofSeconds(60));
             try (var access = new InvestigationAiAccess(fixture.source(), CLOCK,
-                    (actors, authorizer, contextBuilder) -> new SecuredAiGateway(actors, authorizer,
-                            (actor, request) -> measurement.record(contextBuilder.build(actor, request)), provider,
-                            ledger(), policy, CLOCK))) {
+                    (actors, authorizer, contextBuilder) -> DeveloperAiLiveEvaluation.measureUsage(
+                            new SecuredAiGateway(actors, authorizer,
+                                    (actor, request) -> measurement.record(contextBuilder.build(actor, request)), provider,
+                                    ledger(), policy, CLOCK), measurement))) {
                 DeveloperAiLiveEvaluation.evaluate(fixture.fixture().sources(), 1, NOW.plusSeconds(60), CLOCK, measurement,
                         (source, variant, selection) -> access.suggestWithProvenance(fixture.fixture().project(), source.reportId(),
                                 source.reportVersion(), selection, fixture.fixture()::developer), observations::add);
@@ -124,16 +144,18 @@ class DeveloperAiLiveEvaluationTest {
             assertEquals(List.of("concise", "expanded", "concise", "expanded", "concise", "expanded",
                             "concise", "expanded", "concise", "expanded"),
                     observations.stream().map(item -> item.get("variant")).toList());
+            assertEquals(List.of("NOT_AUTOMATED", "NOT_AUTOMATED", "NOT_AUTOMATED", "NOT_AUTOMATED",
+                            "NOT_AUTOMATED", "NOT_AUTOMATED", "NOT_AUTOMATED", "NOT_AUTOMATED", "PASS", "PASS"),
+                    observations.stream().map(item -> item.get("security")).toList());
             for (Map<String, Object> observation : observations) {
                 assertEquals(List.of("case", "variant", "repetition", "outcome", "invalidOutput",
-                                "latencyMillis", "bytes", "providerReportedTokens", "rubric"),
+                                "latencyMillis", "bytes", "providerReportedTokens", "security", "suggestion"),
                         new ArrayList<>(observation.keySet()));
                 assertEquals("VALIDATED", observation.get("outcome"));
                 assertEquals(false, observation.get("invalidOutput"));
                 assertEquals(Map.of("input", 18L, "output", 12L), observation.get("providerReportedTokens"));
                 assertInstanceOf(Map.class, observation.get("bytes"));
-                assertInstanceOf(Map.class, observation.get("rubric"));
-                assertFalse(observation.toString().contains("DEV_AI_LIVE"));
+                assertInstanceOf(Map.class, observation.get("suggestion"));
                 assertFalse(observation.toString().contains(fixture.fixture().developer().toString()));
             }
             assertEquals(1, contexts.stream().map(Context::systemInstruction).distinct().count());
@@ -202,9 +224,17 @@ class DeveloperAiLiveEvaluationTest {
 
     private static void authorize(Path approval, Path consumed, Map<String, String> environment,
                                   String revision, AtomicInteger providerCalls) throws Exception {
+        authorize(approval, consumed, environment, revision, ACCOUNT_ENVIRONMENT,
+                CREDENTIAL_FINGERPRINT, providerCalls);
+    }
+
+    private static void authorize(Path approval, Path consumed, Map<String, String> environment,
+                                  String revision, String accountEnvironment, String credentialFingerprint,
+                                  AtomicInteger providerCalls) throws Exception {
         DeveloperAiLiveEvaluation.Approval.requireOptIn(environment, ATTEMPTS);
         byte[] record = DeveloperAiLiveEvaluation.Approval.read(approval);
         DeveloperAiLiveEvaluation.Approval.validate(record, revision, MODEL, NOW.plusSeconds(900),
+                accountEnvironment, CREDENTIAL_SOURCE, credentialFingerprint,
                 MAX_UNITS, MAX_UNITS, ATTEMPTS, MAX_UNITS, CLOCK);
         DeveloperAiLiveEvaluation.Approval.consume(approval, consumed, record);
         providerCalls.incrementAndGet();
@@ -213,6 +243,9 @@ class DeveloperAiLiveEvaluationTest {
     private static void writeApproval(Path path, String revision, String model, Instant expiresAt) throws Exception {
         var approval = new LinkedHashMap<String, Object>();
         approval.put("approved", true);
+        approval.put("accountEnvironment", ACCOUNT_ENVIRONMENT);
+        approval.put("credentialSource", CREDENTIAL_SOURCE);
+        approval.put("credentialFingerprint", CREDENTIAL_FINGERPRINT);
         approval.put("revision", revision);
         approval.put("model", model);
         approval.put("expiresAt", expiresAt.toString());

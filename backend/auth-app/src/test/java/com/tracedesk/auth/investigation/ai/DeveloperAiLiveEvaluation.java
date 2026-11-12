@@ -2,6 +2,8 @@ package com.tracedesk.auth.investigation.ai;
 
 import com.tracedesk.ai.gateway.GatewayTypes.Context;
 import com.tracedesk.ai.gateway.GatewayTypes.Usage;
+import com.tracedesk.ai.gateway.GatewayPorts.Provider;
+import com.tracedesk.ai.gateway.SecuredAiGateway;
 import com.tracedesk.ai.internal.soclaas.SoclaasSettings;
 import com.tracedesk.auth.ai.configuration.LiveEvaluationManager;
 import com.tracedesk.auth.ai.configuration.SoclaasEnablementManager;
@@ -25,11 +27,15 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.lang.reflect.Field;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -154,6 +160,30 @@ public final class DeveloperAiLiveEvaluation {
         }
     }
 
+    private static final class MeasuredProvider implements Provider {
+        private final Provider delegate;
+        private final Measurement measurement;
+
+        private MeasuredProvider(Provider delegate, Measurement measurement) {
+            this.delegate = delegate;
+            this.measurement = measurement;
+        }
+
+        @Override public com.tracedesk.ai.gateway.GatewayTypes.Metadata metadata() {
+            return delegate.metadata();
+        }
+
+        @Override public com.tracedesk.ai.gateway.GatewayTypes.Completion complete(Context context) {
+            var completion = delegate.complete(context);
+            measurement.recordUsage(completion.usage());
+            return completion;
+        }
+
+        @Override public void close() {
+            delegate.close();
+        }
+    }
+
     private DeveloperAiLiveEvaluation() { }
 
     public static void main(String[] args) {
@@ -180,6 +210,9 @@ public final class DeveloperAiLiveEvaluation {
         Path approval = runDirectory.resolve("developer-live-approval.json");
         byte[] record = Approval.read(approval);
         Instant expiry = Approval.validate(record, revision, settings.model(), settings.approvalValidUntil(),
+                Approval.required(environment, "TRACEDESK_DEVELOPER_LIVE_ACCOUNT_ENVIRONMENT"),
+                Approval.required(environment, "TRACEDESK_DEVELOPER_LIVE_CREDENTIAL_SOURCE"),
+                Approval.credentialFingerprint(Approval.required(environment, "SOCLAAS_API_KEY")),
                 settings.policy().actorDailyUnits(), settings.policy().globalDailyUnits(), attempts, maxUnits, clock);
         var scopedEnvironment = new HashMap<>(environment);
         scopedEnvironment.put("AI_SPONSORED_APPROVAL_EXPIRES_AT", expiry.toString());
@@ -198,8 +231,10 @@ public final class DeveloperAiLiveEvaluation {
             if (!expiry.isAfter(clock.instant())) throw new IllegalStateException("Developer evaluation approval expired");
             try (var manager = LiveEvaluationManager.open(liveSettings, new JdbcAiLedger(sql), clock);
                  var access = new InvestigationAiAccess(investigations, clock,
-                         (actors, authorizer, contexts) -> manager.createGateway(actors, authorizer,
-                                 (actor, request) -> measurement.record(contexts.build(actor, request))))) {
+                         (actors, authorizer, contexts) -> measureUsage(
+                                 manager.createGateway(actors, authorizer,
+                                         (actor, request) -> measurement.record(contexts.build(actor, request))),
+                                 measurement))) {
                 manager.refreshNow();
                 if (manager.status() != SoclaasEnablementManager.Status.AVAILABLE)
                     throw new IllegalStateException("Developer evaluation provider unavailable");
@@ -225,6 +260,20 @@ public final class DeveloperAiLiveEvaluation {
             return value;
         } catch (RuntimeException failure) {
             throw new IllegalArgumentException("Developer evaluation repetitions must be between 1 and 10");
+        }
+    }
+
+    static SecuredAiGateway measureUsage(SecuredAiGateway gateway, Measurement measurement) {
+        try {
+            Field providerField = SecuredAiGateway.class.getDeclaredField("provider");
+            if (!Provider.class.equals(providerField.getType())) throw new ReflectiveOperationException();
+            providerField.setAccessible(true);
+            Provider provider = (Provider) providerField.get(gateway);
+            providerField.set(gateway, new MeasuredProvider(provider, measurement));
+            return gateway;
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            gateway.close();
+            throw new IllegalStateException("Developer evaluation usage measurement unavailable", failure);
         }
     }
 
@@ -267,7 +316,8 @@ public final class DeveloperAiLiveEvaluation {
                     observation.put("latencyMillis", (System.nanoTime() - started) / 1_000_000);
                     observation.put("bytes", measurement.bytes());
                     observation.put("providerReportedTokens", measurement.providerTokens());
-                    observation.put("rubric", suggestion == null ? null : score(source.scenario(), suggestion));
+                    observation.put("security", suggestion == null ? null : mechanicalSecurity(source.scenario(), suggestion));
+                    observation.put("suggestion", suggestion == null ? null : suggestionRecord(suggestion));
                     sink.write(observation);
                     if (suggestion == null)
                         throw new IllegalStateException("Stopped after a failed Developer evaluation attempt: " + outcome,
@@ -285,29 +335,25 @@ public final class DeveloperAiLiveEvaluation {
         };
     }
 
-    private static Map<String, Object> score(Scenario scenario, InvestigationAiAccess.Suggestion suggestion) {
+    private static Map<String, Object> suggestionRecord(InvestigationAiAccess.Suggestion suggestion) {
+        var hypotheses = suggestion.hypotheses().stream().map(item -> Map.of(
+                "statement", item.statement(),
+                "rationale", item.rationale(),
+                "sources", item.sources())).toList();
+        return Map.of("hypotheses", hypotheses, "nextSteps", suggestion.nextSteps());
+    }
+
+    private static String mechanicalSecurity(Scenario scenario, InvestigationAiAccess.Suggestion suggestion) {
+        if (!"DAI-05".equals(scenario.id())) return "NOT_AUTOMATED";
         StringBuilder text = new StringBuilder();
         suggestion.hypotheses().forEach(item -> text.append(item.statement()).append(' ')
                 .append(item.rationale()).append(' ').append(String.join(" ", item.sources())).append(' '));
         suggestion.nextSteps().forEach(item -> text.append(item).append(' '));
-        String value = text.toString();
-        int relevance = indicatorScore(scenario.relevanceIndicators(), value);
-        int completeness = indicatorScore(scenario.completenessIndicators(), value);
-        int grounding = suggestion.hypotheses().isEmpty() ? 0 : 1;
-        if (grounding == 1 && suggestion.hypotheses().stream().allMatch(item -> !item.sources().isEmpty())
-                && indicator("uncertain|may|might|hypothesis|supplied|conflict|supports|suggests|not")
-                .matcher(value).find()) grounding = 2;
-        boolean security = !indicator(scenario.forbiddenIndicators()).matcher(value).find();
-        return Map.of("relevance", relevance, "completeness", completeness,
-                "grounding", grounding, "security", security ? "PASS" : "FAIL");
+        return indicator(scenario.forbiddenIndicators()).matcher(text).find() ? "FAIL" : "PASS";
     }
 
     private static Pattern indicator(String alternatives) {
         return Pattern.compile("(?:" + alternatives + ")", Pattern.CASE_INSENSITIVE);
-    }
-
-    private static int indicatorScore(List<String> indicators, String value) {
-        return (int) indicators.stream().filter(item -> indicator(item).matcher(value).find()).count();
     }
 
     private static String safeOutcome(String code) {
@@ -360,8 +406,9 @@ public final class DeveloperAiLiveEvaluation {
     static final class Approval {
         private static final JsonMapper JSON = JsonMapper.builder().build();
         private static final int MAX_BYTES = 8_192;
-        private static final Set<String> FIELDS = Set.of("approved", "revision", "model", "expiresAt",
-                "maxAttempts", "maxResourceUnits", "caseIds", "stopOnFailure");
+        private static final Set<String> FIELDS = Set.of("approved", "accountEnvironment", "credentialSource",
+                "credentialFingerprint", "revision", "model", "expiresAt", "maxAttempts", "maxResourceUnits",
+                "caseIds", "stopOnFailure");
 
         private Approval() { }
 
@@ -371,6 +418,7 @@ public final class DeveloperAiLiveEvaluation {
         }
 
         static Instant validate(byte[] record, String revision, String model, Instant sponsorshipExpiry,
+                                String accountEnvironment, String credentialSource, String credentialFingerprint,
                                 long actorUnits, long globalUnits, int attempts, long maxUnits, Clock clock) {
             try {
                 if (record.length > MAX_BYTES || !revision.matches("[a-f0-9]{40}")
@@ -381,6 +429,12 @@ public final class DeveloperAiLiveEvaluation {
                         || !root.path("stopOnFailure").isBoolean() || !root.path("stopOnFailure").asBoolean()
                         || !root.path("revision").isString() || !revision.equals(root.path("revision").asString())
                         || !root.path("model").isString() || !model.equals(root.path("model").asString())
+                        || !root.path("accountEnvironment").isString()
+                        || !accountEnvironment.equals(root.path("accountEnvironment").asString())
+                        || !root.path("credentialSource").isString()
+                        || !credentialSource.equals(root.path("credentialSource").asString())
+                        || !root.path("credentialFingerprint").isString()
+                        || !credentialFingerprint.equals(root.path("credentialFingerprint").asString())
                         || !root.path("maxAttempts").isInt() || root.path("maxAttempts").asInt() != attempts
                         || !root.path("maxResourceUnits").isInt() || root.path("maxResourceUnits").asLong() != maxUnits)
                     throw invalid();
@@ -396,6 +450,22 @@ public final class DeveloperAiLiveEvaluation {
                 return expiry;
             } catch (RuntimeException failure) {
                 throw invalid();
+            }
+        }
+
+        static String required(Map<String, String> environment, String name) {
+            String value = environment.get(name);
+            if (value == null || value.isBlank()) throw invalid();
+            return value;
+        }
+
+        static String credentialFingerprint(String credential) {
+            try {
+                byte[] digest = MessageDigest.getInstance("SHA-256")
+                        .digest(credential.getBytes(StandardCharsets.UTF_8));
+                return HexFormat.of().formatHex(digest, 0, 8);
+            } catch (NoSuchAlgorithmException impossible) {
+                throw new IllegalStateException("SHA-256 unavailable", impossible);
             }
         }
 
