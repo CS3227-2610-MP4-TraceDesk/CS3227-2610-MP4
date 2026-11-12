@@ -1,0 +1,1 @@
+Independently assess the design proposal against the task, the cited evidence, accessibility and existing TraceDesk conventions. Identify actionable findings with their reasoning and severity, including any unsupported assumptions. State limits and do not rubber-stamp the proposal.

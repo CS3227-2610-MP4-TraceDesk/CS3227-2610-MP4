@@ -46,3 +46,7 @@ Only mark a criterion complete after its evidence exists. Passing transport test
 does not prove role authorization, database safety or deployment readiness. Keep
 failed/skipped/unavailable checks visible. Do not copy raw provider payloads,
 credentials, user content or private agent reasoning into evidence.
+
+## UI research
+
+For substantial UI design investigations, see the [UI research workflow](ui-research/README.md) and its [runner specification](specs/ui-research-runner.md). It is a development tool; an actual run and review must be recorded before claiming either occurred.
