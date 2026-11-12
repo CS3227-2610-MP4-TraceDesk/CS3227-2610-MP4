@@ -173,7 +173,8 @@ trusted request-local state, as the Reporter adapter holds its source kind, and 
 `Authorizer` checks all of the following on every call, from fresh reads:
 
 1. The live session actor equals the resolved actor.
-2. Active user, project and `DEVELOPER` membership.
+2. Active user, project and membership, with the user's fresh persisted account role
+   equal to `DEVELOPER` (ADR 002); the legacy membership role is not authoritative.
 3. The report exists in the project, the actor is its current assignee and it is
    `IN_PROGRESS`.
 4. Every selected note exists on this report.
