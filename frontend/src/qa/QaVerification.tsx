@@ -1,9 +1,12 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Button } from '@openai/apps-sdk-ui/components/Button'
 import { Input } from '@openai/apps-sdk-ui/components/Input'
+import { Select } from '@openai/apps-sdk-ui/components/Select'
 import { SegmentedControl } from '@openai/apps-sdk-ui/components/SegmentedControl'
 import { Textarea } from '@openai/apps-sdk-ui/components/Textarea'
 import { VerificationBoard, VerificationCheckInspector } from '../preview/qa/QaVerificationBoard'
+import type { TestTemplate } from '../preview/qa/qaTemplateFixtures'
+import { applyQaTemplate } from './applyQaTemplate'
 import { ReportApiError } from '../reports/reportApi'
 import { requestVerification, type Decision, type Verification } from './verificationApi'
 import '../preview/qa/qa-review-workspace.css'
@@ -12,6 +15,7 @@ type Props = {
   projectId: string
   reportId: string
   reportVersion: number
+  templates: TestTemplate[]
   review: Verification | null
   setReview: (review: Verification | null) => void
   busy: boolean
@@ -21,7 +25,7 @@ type Props = {
   onSaved: (review: Verification) => void
 }
 
-export function QaVerification({ projectId, reportId, reportVersion, review, setReview, busy, setBusy,
+export function QaVerification({ projectId, reportId, reportVersion, review, setReview, templates, busy, setBusy,
   onSessionExpired, onSummary, onSaved }: Props) {
   const [saved, setSaved] = useState<Verification | null>(null)
   const [layout, setLayout] = useState<'Board' | 'List'>('Board')
@@ -30,6 +34,7 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [templateId, setTemplateId] = useState('')
   const request = useRef<AbortController | null>(null)
 
   function loadOrSave(decision?: Decision) {
@@ -100,6 +105,19 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
   const canAdd = Boolean(editable && title.trim() && names.length < 30 && !names.includes(title.trim().toLowerCase()))
   const canClose = Boolean(editable && valid && names.length && review?.checks.every(check => check.result === 'Pass'))
 
+  const template = templates.find(item => item.id === templateId)
+  function applyTemplate() {
+    if (!review || !editable || !template) return
+    const result = applyQaTemplate(review, template)
+    if ('error' in result) {
+      setNotice(result.error)
+      return
+    }
+    setReview(result.draft)
+    setTemplateId('')
+    setNotice('Added ' + result.added + ' pending ' + (result.added === 1 ? 'check' : 'checks') + ' to the draft. Save Verification to keep them.')
+  }
+
   return <section className="qa-verification-content" aria-label="Verification checklist">
     <div className="qa-review-heading">
       <h2>Verification</h2>
@@ -128,6 +146,12 @@ export function QaVerification({ projectId, reportId, reportVersion, review, set
           onChange={event => setTitle(event.target.value)} />
         <Button type="submit" color="secondary" variant="soft" disabled={!canAdd}>Add check</Button>
       </form>}
+      {editable && templates.length > 0 && <div className="qa-add-check">
+        <Select aria-label="Test template" placeholder="Choose template" value={templateId}
+          options={templates.map(item => ({ value: item.id, label: item.name }))}
+          onChange={item => setTemplateId(item.value)} />
+        <Button color="secondary" variant="soft" disabled={!template} onClick={applyTemplate}>Apply template</Button>
+      </div>}
       {layout === 'Board' ? <VerificationBoard checks={review.checks} selectedIndex={selected} onSelect={setSelected} />
         : <ul className="qa-checklist">{review.checks.map((check, index) => <li key={index}>
           <Button block color="secondary" variant="ghost" aria-pressed={selected === index}
