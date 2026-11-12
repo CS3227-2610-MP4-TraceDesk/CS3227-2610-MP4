@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 const mocks = vi.hoisted(() => ({
@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   fetchReport: vi.fn(),
   fetchResolutions: vi.fn(),
   requestVerification: vi.fn(),
+  fetchReviewedByMe: vi.fn(),
+  fetchQaTemplates: vi.fn(),
 }))
 
 vi.mock('../reports/reportApi', async original => ({
@@ -16,8 +18,19 @@ vi.mock('../developer/developerApi', async original => ({
 }))
 vi.mock('./verificationApi', () => ({ requestVerification: mocks.requestVerification }))
 vi.mock('./QaAssignment', () => ({ QaAssignment: () => null }))
+vi.mock('./qaHistoryApi', async original => ({
+  ...(await original()), fetchReviewedByMe: mocks.fetchReviewedByMe,
+}))
+vi.mock('./qaTemplatesApi', async original => ({
+  ...(await original()), fetchQaTemplates: mocks.fetchQaTemplates,
+}))
 
 import { QaWorkspace } from './QaWorkspace'
+
+beforeEach(() => {
+  mocks.fetchReviewedByMe.mockResolvedValue({ items: [], nextCursor: null })
+  mocks.fetchQaTemplates.mockResolvedValue([])
+})
 
 afterEach(() => {
   cleanup()
@@ -59,6 +72,12 @@ it('restores each bug tab and draft and protects a draft from a changed server v
   fireEvent.click(within(screen.getByRole('group', { name: 'Bug review sections' })).getByRole('button', { name: 'Verification' }))
   fireEvent.change(await screen.findByLabelText('Verification notes'), { target: { value: 'Draft for first bug' } })
   fireEvent.change(screen.getByRole('textbox', { name: 'New check' }), { target: { value: 'Unsubmitted check' } })
+  const group = within(screen.getByRole('complementary', { name: 'Verification' }))
+    .getByText('Awaiting verification').closest('details')!
+  fireEvent.click(group.querySelector('summary')!)
+  expect(group).not.toHaveAttribute('open')
+  expect(screen.getByLabelText('Verification notes')).toHaveValue('Draft for first bug')
+  fireEvent.click(group.querySelector('summary')!)
   fireEvent.click(screen.getByRole('button', { name: 'Back to verification queue' }))
 
   await open(second.title)
@@ -77,4 +96,36 @@ it('restores each bug tab and draft and protects a draft from a changed server v
   expect(mocks.requestVerification.mock.calls.every(call => call[3] === undefined)).toBe(true)
   fireEvent.click(screen.getByRole('button', { name: 'Discard edits and reload' }))
   await waitFor(() => expect(screen.getByLabelText('Verification notes')).toHaveValue(''))
+})
+
+it('groups bugs under disclosures and keeps all queue filters in the main view', async () => {
+  const ready = { id: 'ready', title: 'Awaiting bug', status: 'READY_FOR_QA', updatedAt: '2026-11-12T00:00:00Z' }
+  const open = { id: 'open', title: 'Unassigned bug', status: 'OPEN', updatedAt: '2026-11-12T00:00:00Z' }
+  mocks.fetchReports.mockImplementation(async (_project, status) => ({
+    items: status === 'READY_FOR_QA' ? [ready] : [ready, open], nextCursor: null,
+  }))
+  mocks.fetchReviewedByMe.mockResolvedValue({
+    items: [{ reportId: 'past', title: 'Reviewed bug', resolutionId: 'resolution-past', revision: 2,
+      decision: 'CLOSE', reviewedAt: '2026-11-11T00:00:00Z', reviewerUserId: 'qa' }], nextCursor: null,
+  })
+  render(<QaWorkspace project={{ id: 'project', name: 'QA project' }} theme="dark"
+    onThemeChange={vi.fn()} onSessionExpired={vi.fn()} onSignOut={vi.fn()} onChooseWorkspace={vi.fn()}
+    signingOut={false} signOutError={null} />)
+
+  const sidebar = within(screen.getByRole('complementary', { name: 'Verification' }))
+  expect(await sidebar.findByRole('button', { name: 'Awaiting bug' })).toBeVisible()
+  expect(await sidebar.findByRole('button', { name: 'Reviewed bug · Revision 2' })).toBeVisible()
+  expect(sidebar.queryByRole('button', { name: 'Awaiting verification' })).not.toBeInTheDocument()
+  expect(sidebar.queryByRole('button', { name: 'Reviewed by me' })).not.toBeInTheDocument()
+  expect(sidebar.queryByRole('button', { name: 'All bugs' })).not.toBeInTheDocument()
+
+  fireEvent.click(within(screen.getByRole('group', { name: 'Bug queues' })).getByRole('button', { name: 'All bugs' }))
+  expect(await within(screen.getByRole('main')).findByRole('button', { name: /Unassigned bug/ })).toBeVisible()
+  fireEvent.click(within(screen.getByRole('group', { name: 'Bug queues' })).getByRole('button', { name: 'Reviewed by me' }))
+  expect(await within(screen.getByRole('main')).findByRole('button', { name: /Reviewed bug, revision 2/ })).toBeVisible()
+  expect(mocks.fetchReviewedByMe).toHaveBeenCalledWith('project', null, expect.any(AbortSignal))
+
+  fireEvent.change(sidebar.getByRole('searchbox', { name: 'Search review queue' }), { target: { value: 'Awaiting' } })
+  expect(sidebar.getByRole('button', { name: 'Awaiting bug' })).toBeVisible()
+  expect(sidebar.queryByRole('button', { name: 'Reviewed bug · Revision 2' })).not.toBeInTheDocument()
 })
