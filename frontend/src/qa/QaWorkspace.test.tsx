@@ -56,21 +56,21 @@ it('restores each bug tab and draft and protects a draft from a changed server v
   }
 
   await open(first.title)
-  fireEvent.click(within(screen.getByRole('group', { name: 'Bug review sections' })).getByRole('button', { name: 'Verification', exact: true }))
+  fireEvent.click(within(screen.getByRole('group', { name: 'Bug review sections' })).getByRole('button', { name: 'Verification' }))
   fireEvent.change(await screen.findByLabelText('Verification notes'), { target: { value: 'Draft for first bug' } })
   fireEvent.change(screen.getByRole('textbox', { name: 'New check' }), { target: { value: 'Unsubmitted check' } })
   fireEvent.click(screen.getByRole('button', { name: 'Back to verification queue' }))
 
   await open(second.title)
   expect(screen.getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-pressed', 'true')
-  fireEvent.click(within(screen.getByRole('group', { name: 'Bug review sections' })).getByRole('button', { name: 'Verification', exact: true }))
+  fireEvent.click(within(screen.getByRole('group', { name: 'Bug review sections' })).getByRole('button', { name: 'Verification' }))
   expect(await screen.findByLabelText('Verification notes')).toHaveValue('')
   fireEvent.change(screen.getByLabelText('Verification notes'), { target: { value: 'Second draft' } })
   fireEvent.click(screen.getByRole('button', { name: 'Back to verification queue' }))
 
   firstVersion = 2
   await open(first.title)
-  expect(within(screen.getByRole('group', { name: 'Bug review sections' })).getByRole('button', { name: 'Verification', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  expect(within(screen.getByRole('group', { name: 'Bug review sections' })).getByRole('button', { name: 'Verification' })).toHaveAttribute('aria-pressed', 'true')
   expect(await screen.findByLabelText('Verification notes')).toHaveValue('Draft for first bug')
   expect(await screen.findByText('The report changed. Reload verification before saving again.')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Save verification' })).toBeDisabled()
