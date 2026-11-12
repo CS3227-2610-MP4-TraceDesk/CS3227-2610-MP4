@@ -169,7 +169,8 @@ Issue #24 extends the development QA workspace with a bug-scoped overview,
 review discussion, Verification board and list, and Test templates. A reviewer
 can close a ready bug once every named check passes or reopen it with a reason.
 Applying a template copies its cases and guidance into the selected bug. Later
-template edits and deletions leave those copies intact.
+template edits and deletions leave those copies intact. The authenticated
+workflow is specified in [QA verification templates](qa-templates.md).
 
 The simulated AI review opens beside the selected bug on wide workspaces and
 stacks on narrow workspaces. The Change map returns when chat is collapsed.

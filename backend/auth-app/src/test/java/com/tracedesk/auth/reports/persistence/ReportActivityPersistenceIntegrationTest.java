@@ -48,7 +48,7 @@ class ReportActivityPersistenceIntegrationTest {
             investigations.propose(developer,project,report.id(),resolution,6,UUID.randomUUID(),base.plusSeconds(6));
             var checks=List.of(new VerificationCommand.Check("private-check-canary",VerificationCommand.Result.Pass,"private-check-note-canary"));
             new VerificationStore(sql,Clock.fixed(base.plusSeconds(7),ZoneOffset.UTC)).write(qa,project,report.id(),new VerificationCommand(7,checks,"private-QA-note-canary",VerificationCommand.Decision.CLOSE,""));
-            var upgrade=Flyway.configure().dataSource(db).locations("classpath:db/migration").schemas(db.schema()).defaultSchema(db.schema()).load().migrate();
+            var upgrade=Flyway.configure().dataSource(db).locations("classpath:db/migration").schemas(db.schema()).defaultSchema(db.schema()).target("16").load().migrate();
             assertEquals(1,upgrade.migrationsExecuted,"only forward migration V16 should apply after V15");
             var service=new ReportService(reports,new ReportCursorSigner(),Clock.fixed(base.plusSeconds(10),ZoneOffset.UTC));
             var history=service.activity(owner,project,report.id(),100,null).items();

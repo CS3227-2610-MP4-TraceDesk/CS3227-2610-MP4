@@ -8,7 +8,9 @@ import type { TestTemplate } from './qaTemplateFixtures'
 
 type TestTemplatesProps = {
   items: TestTemplate[]
-  onChange: (items: TestTemplate[]) => void
+  onChange?: (items: TestTemplate[]) => void
+  onSaveTemplate?: (template: TestTemplate) => Promise<void>
+  onDeleteTemplate?: (id: string) => Promise<void>
   selectedId: string
   onSelect: (id: string) => void
 }
@@ -22,9 +24,9 @@ function TemplateEditor({
   onDelete,
 }: {
   initial: TestTemplate
-  onSave: (template: TestTemplate) => void
+  onSave: (template: TestTemplate) => Promise<void>
   onCancel: () => void
-  onDelete: () => void
+  onDelete: () => Promise<void>
 }) {
   const [name, setName] = useState(initial.name)
   const [whenToUse, setWhenToUse] = useState(initial.whenToUse ?? '')
@@ -44,8 +46,9 @@ function TemplateEditor({
   )
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  function save(event: FormEvent<HTMLFormElement>) {
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const cases = testCases.map((testCase) => ({
       ...testCase,
@@ -53,8 +56,16 @@ function TemplateEditor({
       steps: testCase.steps.trim(),
       expectedResult: testCase.expectedResult.trim(),
     }))
-    if (!name.trim() || !cases.length) {
-      setError('Enter a template name and at least one test case.')
+    if (!name.trim() || Array.from(name.trim()).length > 120) {
+      setError('Enter a template name of up to 120 characters.')
+      return
+    }
+    if (Array.from(whenToUse).length > 1_000 || Array.from(preconditions).length > 1_000) {
+      setError('When to use and preconditions must each be 1,000 characters or fewer.')
+      return
+    }
+    if (cases.length < 1 || cases.length > 30) {
+      setError('Add between 1 and 30 test cases.')
       return
     }
     if (cases.some((testCase) => !testCase.name)) {
@@ -65,14 +76,26 @@ function TemplateEditor({
       setError('Use a different check name for each test case.')
       return
     }
-    onSave({
-      id: initial.id || crypto.randomUUID(),
-      name: name.trim(),
-      whenToUse: whenToUse.trim(),
-      preconditions: preconditions.trim(),
-      testCases: cases,
-      checks: cases.map((testCase) => testCase.name),
-    })
+    if (cases.some((testCase) => Array.from(testCase.name).length > 300 || Array.from(testCase.steps).length > 1_000 || Array.from(testCase.expectedResult).length > 1_000)) {
+      setError('Check names must be at most 300 characters; steps and expected results must each be at most 1,000.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      await onSave({
+        id: initial.id || crypto.randomUUID(),
+        name: name.trim(),
+        whenToUse: whenToUse.trim(),
+        preconditions: preconditions.trim(),
+        testCases: cases,
+        checks: cases.map((testCase) => testCase.name),
+      })
+    } catch {
+      setError('Template could not be saved. Your changes are still here; try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function updateCase(id: string, field: 'name' | 'steps' | 'expectedResult', value: string) {
@@ -85,6 +108,7 @@ function TemplateEditor({
   return (
     <div className="qa-report-editor">
       <h1>{initial.id ? 'Edit template' : 'New template'}</h1>
+      {saving && <p role="status">{confirmDelete ? 'Deleting template…' : 'Saving template…'}</p>}
       <form className="qa-report-form" onSubmit={save}>
         <div className="qa-report-short-fields">
           <div className="qa-report-field-row">
@@ -92,6 +116,7 @@ function TemplateEditor({
             <Input
               id="template-name"
               required
+              maxLength={120}
               value={name}
               onChange={(event) => {
                 setName(event.target.value)
@@ -104,6 +129,7 @@ function TemplateEditor({
             <Textarea
               id="template-when"
               rows={2}
+              maxLength={1_000}
               value={whenToUse}
               onChange={(event) => setWhenToUse(event.target.value)}
             />
@@ -113,6 +139,7 @@ function TemplateEditor({
             <Textarea
               id="template-preconditions"
               rows={2}
+              maxLength={1_000}
               value={preconditions}
               onChange={(event) => setPreconditions(event.target.value)}
             />
@@ -126,6 +153,7 @@ function TemplateEditor({
               variant="ghost"
               size="sm"
               type="button"
+              disabled={saving || testCases.length >= 30}
               onClick={() => {
                 const id = crypto.randomUUID()
                 setTestCases((items) => [...items, { id, name: '', steps: '', expectedResult: '' }])
@@ -160,12 +188,14 @@ function TemplateEditor({
                   <Input
                     id={`case-name-${testCase.id}`}
                     value={testCase.name}
+                    maxLength={300}
                     onChange={(event) => updateCase(testCase.id, 'name', event.target.value)}
                   />
                   <label htmlFor={`case-steps-${testCase.id}`}>Steps</label>
                   <Textarea
                     id={`case-steps-${testCase.id}`}
                     rows={3}
+                    maxLength={1_000}
                     value={testCase.steps}
                     onChange={(event) => updateCase(testCase.id, 'steps', event.target.value)}
                   />
@@ -173,6 +203,7 @@ function TemplateEditor({
                   <Textarea
                     id={`case-result-${testCase.id}`}
                     rows={2}
+                    maxLength={1_000}
                     value={testCase.expectedResult}
                     onChange={(event) => updateCase(testCase.id, 'expectedResult', event.target.value)}
                   />
@@ -181,6 +212,7 @@ function TemplateEditor({
                     variant="ghost"
                     size="sm"
                     type="button"
+                    disabled={saving}
                     onClick={() => {
                       setTestCases((items) => items.filter((item) => item.id !== testCase.id))
                       setError('')
@@ -195,11 +227,11 @@ function TemplateEditor({
         </section>
         {error && <p role="alert">{error}</p>}
         <div className="qa-report-actions">
-          <Button color="secondary" variant="ghost" type="button" onClick={onCancel}>
+          <Button color="secondary" variant="ghost" type="button" disabled={saving} onClick={onCancel}>
             Cancel
           </Button>
-          <Button color="primary" type="submit">
-            Save template
+          <Button color="primary" type="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save template'}
           </Button>
         </div>
       </form>
@@ -210,16 +242,22 @@ function TemplateEditor({
               <h2>Delete this template?</h2>
               <p>Existing bug checklists keep their checks.</p>
               <div className="qa-report-actions">
-                <Button color="secondary" variant="ghost" onClick={() => setConfirmDelete(false)}>
+                <Button color="secondary" variant="ghost" disabled={saving} onClick={() => setConfirmDelete(false)}>
                   Keep template
                 </Button>
-                <Button color="danger" onClick={onDelete}>
-                  Delete template
+                <Button color="danger" disabled={saving} onClick={async () => {
+                  setSaving(true)
+                  setError('')
+                  try { await onDelete() }
+                  catch { setError('Template could not be deleted. Try again.') }
+                  finally { setSaving(false) }
+                }}>
+                  {saving ? 'Deleting…' : 'Delete template'}
                 </Button>
               </div>
             </div>
           ) : (
-            <Button color="danger" variant="ghost" onClick={() => setConfirmDelete(true)}>
+            <Button color="danger" variant="ghost" disabled={saving} onClick={() => setConfirmDelete(true)}>
               Delete template
             </Button>
           )}
@@ -229,7 +267,7 @@ function TemplateEditor({
   )
 }
 
-export function QaTestTemplates({ items, onChange, selectedId, onSelect }: TestTemplatesProps) {
+export function QaTestTemplates({ items, onChange, onSaveTemplate, onDeleteTemplate, selectedId, onSelect }: TestTemplatesProps) {
   const [search, setSearch] = useState('')
   const selected = items.find((template) => template.id === selectedId)
 
@@ -238,17 +276,21 @@ export function QaTestTemplates({ items, onChange, selectedId, onSelect }: TestT
       <TemplateEditor
         key={selectedId}
         initial={selected ?? emptyTemplate}
-        onSave={(template) => {
-          onChange(
-            selected
-              ? items.map((item) => (item.id === selected.id ? template : item))
-              : [...items, template],
-          )
+        onSave={async (template) => {
+          if (onSaveTemplate) await onSaveTemplate(template)
+          else if (onChange) onChange(
+              selected
+                ? items.map((item) => (item.id === selected.id ? template : item))
+                : [...items, template],
+            )
+          else throw new Error('Template save is unavailable')
           onSelect('')
         }}
         onCancel={() => onSelect('')}
-        onDelete={() => {
-          onChange(items.filter((item) => item.id !== selectedId))
+        onDelete={async () => {
+          if (onDeleteTemplate) await onDeleteTemplate(selectedId)
+          else if (onChange) onChange(items.filter((item) => item.id !== selectedId))
+          else throw new Error('Template deletion is unavailable')
           onSelect('')
         }}
       />
