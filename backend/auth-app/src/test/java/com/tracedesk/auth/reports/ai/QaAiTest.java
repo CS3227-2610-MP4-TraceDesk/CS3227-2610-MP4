@@ -30,7 +30,7 @@ class QaAiTest {
 
     private InvestigationRepository.Resolution resolution(int revision) {
         return new InvestigationRepository.Resolution(UUID.randomUUID(), SOURCE, ACTOR, revision,
-                "Root " + revision, "Deduplicate refunds", "Refresh the list", "PRIVATE-REF-CANARY", NOW);
+                "Root " + revision, "Deduplicate refunds", "Refresh the list", "PRIVATE-REF-CANARY", NOW, null);
     }
 
     private QaAiService service() {
