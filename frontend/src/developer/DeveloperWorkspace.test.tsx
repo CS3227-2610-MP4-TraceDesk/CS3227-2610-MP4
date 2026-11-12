@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   createNote: vi.fn(),
   updateNote: vi.fn(),
   deleteNote: vi.fn(),
+  requestInvestigationSuggestions: vi.fn(),
 }))
 
 vi.mock('./developerApi', async (original) => ({ ...(await original()), ...mocks }))
@@ -297,6 +298,68 @@ describe('Developer workspace', () => {
       expect(await screen.findByText('Latest cause')).toBeInTheDocument()
       expect(screen.getByText('Earlier revisions (1)')).toBeInTheDocument()
       expect(screen.queryByLabelText('Root cause')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('investigation suggestions', () => {
+    const workingReport = { ...report, status: 'IN_PROGRESS' as const, version: 2 }
+    const suggestion = {
+      capability: 'INVESTIGATION' as const, promptVersion: 'investigation-suggestion-v1' as const,
+      reportId, reportVersion: 2,
+      reportFields: ['title', 'description', 'environment', 'reproductionSteps', 'expectedBehavior', 'actualBehavior'],
+      sourceNotes: [],
+      hypotheses: [{ statement: 'Inspect the startup path', rationale: 'The failure begins during startup.', sources: ['description'] }],
+      nextSteps: ['Reproduce with debug logging'],
+    }
+
+    function setUp(properties = props()) {
+      window.history.replaceState(null, '', `/?workspace=developer&project=${project}`)
+      mocks.fetchDeveloperContext.mockResolvedValue({ project: { id: project, name: 'Developer Project' }, role: 'DEVELOPER' })
+      mocks.fetchDeveloperReports.mockResolvedValue({ items: [workingReport], nextCursor: null })
+      mocks.fetchDeveloperReport.mockResolvedValue(workingReport)
+      mocks.fetchNotes.mockResolvedValue({ items: [note], nextCursor: null })
+      render(<DeveloperWorkspace {...properties} />)
+      return properties
+    }
+
+    async function openPanel() {
+      fireEvent.click((await screen.findByText(report.title, { exact: true })).closest('button')!)
+      await screen.findByRole('heading', { name: 'Investigation suggestions' })
+    }
+
+    it('removes the panel and note actions after a 403 generation denial', async () => {
+      mocks.requestInvestigationSuggestions.mockRejectedValue(new DeveloperApiError(403, 'FORBIDDEN'))
+      setUp()
+      await openPanel()
+      fireEvent.click(screen.getByRole('button', { name: 'Get suggestions' }))
+      expect(await screen.findByText(/access changed/i)).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Investigation suggestions' })).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Add a private note')).not.toBeInTheDocument()
+    })
+
+    it('uses the existing session-expired flow for a 401 generation response', async () => {
+      mocks.requestInvestigationSuggestions.mockRejectedValue(new DeveloperApiError(401, 'UNAUTHENTICATED'))
+      const properties = setUp()
+      await openPanel()
+      fireEvent.click(screen.getByRole('button', { name: 'Get suggestions' }))
+      await waitFor(() => expect(properties.onSessionExpired).toHaveBeenCalledTimes(1))
+    })
+
+    it('shows the shared freshness warning after focus revalidation and preserves the AI-assisted draft', async () => {
+      mocks.requestInvestigationSuggestions.mockResolvedValue(suggestion)
+      setUp()
+      await openPanel()
+      fireEvent.click(screen.getByRole('button', { name: 'Get suggestions' }))
+      fireEvent.click(await screen.findByRole('checkbox', { name: suggestion.hypotheses[0].statement }))
+      fireEvent.click(screen.getByRole('button', { name: 'Add selected to draft' }))
+      const draft = screen.getByLabelText('Editable private-note draft')
+      fireEvent.change(draft, { target: { value: 'Keep this edited draft' } })
+
+      mocks.fetchDeveloperReport.mockResolvedValue({ ...workingReport, version: 3 })
+      fireEvent.focus(window)
+      expect(await screen.findByText(/investigation changed since it was last refreshed/i)).toBeInTheDocument()
+      expect(screen.getByLabelText('Editable private-note draft')).toHaveValue('Keep this edited draft')
+      expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument()
     })
   })
 

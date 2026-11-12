@@ -38,6 +38,21 @@
 .developer-detail-field dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .developer-detail-logs dd { overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
 .developer-notes { display: grid; gap: 16px; margin-top: 28px; padding: 18px; border: 1px solid var(--td-line); border-radius: 16px; background: var(--td-sidebar); }
+.developer-ai { display: grid; gap: 16px; margin-top: 28px; padding: 18px; border: 1px solid var(--td-line); border-radius: 16px; background: var(--td-sidebar); }
+.developer-ai > p, .developer-ai-draft > p { color: var(--td-muted); }
+.developer-ai-context { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-top: 12px; }
+.developer-ai-context fieldset { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 14px; border: 1px solid var(--td-line); border-radius: 10px; }
+.developer-ai-context legend { padding: 0 4px; font-size: 14px; font-weight: 600; }
+.developer-ai-preview { display: grid; gap: 14px; padding: 14px; border: 1px solid var(--td-line); border-radius: 10px; background: var(--td-page); }
+.developer-ai-preview h3 { font-size: 16px; }
+.developer-ai-preview h4 { font-size: 14px; }
+.developer-ai-list { display: grid; gap: 12px; margin: 0; padding-left: 22px; }
+.developer-ai-list > li { min-width: 0; overflow-wrap: anywhere; }
+.developer-ai-list > li > p { margin-top: 8px; white-space: pre-wrap; }
+.developer-ai-draft { display: grid; gap: 8px; padding-top: 4px; }
+.developer-ai-draft > label { font-size: 14px; font-weight: 600; }
+.developer-ai-draft textarea { width: 100%; resize: vertical; }
+.developer-freshness-warning { margin-top: 20px; }
 .developer-section-heading h2 { font-size: 18px; }
 .developer-section-heading p, .developer-note-byline { margin-top: 4px; color: var(--td-muted); font-size: 13px; }
 .developer-note-list { display: grid; gap: 12px; padding: 0; list-style: none; }
@@ -66,6 +81,9 @@
   .developer-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
   .developer-assignment { grid-column: 1 / -1; text-align: left; }
   .developer-title-row > button { align-self: flex-start; }
+  .developer-ai-context { grid-template-columns: 1fr; }
+  .developer-ai .developer-note-actions, .developer-ai .developer-composer-foot { align-items: stretch; flex-direction: column; }
+  .developer-ai .developer-note-actions > *, .developer-ai .developer-composer-foot > button { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .developer-row { transition: none; }

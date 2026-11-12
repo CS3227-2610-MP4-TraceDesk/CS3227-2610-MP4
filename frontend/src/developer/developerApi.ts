@@ -30,6 +30,23 @@ export type ProposedResolution = ResolutionFields & {
 export type ResolutionPage = { items: ProposedResolution[]; nextCursor: string | null }
 export type ResolutionProposal = { report: ReportDetail; resolution: ProposedResolution }
 export type DeveloperReportScope = 'assigned-to-me' | 'all'
+export const investigationReportFields = ['title', 'description', 'environment', 'reproductionSteps', 'expectedBehavior', 'actualBehavior', 'textLogs'] as const
+export type InvestigationReportField = typeof investigationReportFields[number]
+export type InvestigationSelection = {
+  expectedVersion: number
+  reportFields: InvestigationReportField[]
+  notes: { id: string; expectedVersion: number }[]
+}
+export type InvestigationSuggestion = {
+  capability: 'INVESTIGATION'
+  promptVersion: 'investigation-suggestion-v1'
+  reportId: string
+  reportVersion: number
+  reportFields: InvestigationReportField[]
+  sourceNotes: { ref: string; id: string; version: number }[]
+  hypotheses: { statement: string; rationale: string; sources: string[] }[]
+  nextSteps: string[]
+}
 
 export class DeveloperApiError extends Error {
   constructor(readonly status: number, readonly code?: string, readonly currentVersion?: number) {
@@ -40,6 +57,21 @@ export class DeveloperApiError extends Error {
 
 function object(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function exactKeys(value: Record<string, unknown>, expected: readonly string[]) {
+  return Object.keys(value).length === expected.length && expected.every(key => Object.hasOwn(value, key))
+}
+
+function safeAiText(value: unknown, maximumCodePoints: number, maximumBytes: number): value is string {
+  if (typeof value !== 'string' || !value.trim() || Array.from(value).length > maximumCodePoints ||
+    new TextEncoder().encode(value).length > maximumBytes) return false
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0
+    if ((code < 32 && code !== 9 && code !== 10 && code !== 13) || (code >= 127 && code <= 159) ||
+      (code >= 0xd800 && code <= 0xdfff)) return false
+  }
+  return true
 }
 
 async function failure(response: Response): Promise<DeveloperApiError> {
@@ -171,6 +203,69 @@ export async function fetchNotes(projectId: string, reportId: string, cursor: st
 export async function createNote(projectId: string, reportId: string, body: string, key: string, signal?: AbortSignal): Promise<InvestigationNote> {
   return json(await mutate(`/api/projects/${projectId}/reports/${reportId}/notes`, 'POST', JSON.stringify({ body }), key, signal),
     (value): value is InvestigationNote => isNote(value, projectId) && value.reportId === reportId, 201)
+}
+
+function isInvestigationSuggestion(value: unknown, reportId: string, selection: InvestigationSelection): value is InvestigationSuggestion {
+  if (!object(value) || !exactKeys(value, ['capability', 'promptVersion', 'reportId', 'reportVersion', 'reportFields', 'sourceNotes', 'hypotheses', 'nextSteps']) ||
+    value.capability !== 'INVESTIGATION' || value.promptVersion !== 'investigation-suggestion-v1' ||
+    value.reportId !== reportId || value.reportVersion !== selection.expectedVersion ||
+    !Array.isArray(value.reportFields) || value.reportFields.length !== selection.reportFields.length ||
+    !value.reportFields.every((field, index) => field === selection.reportFields[index]) ||
+    !Array.isArray(value.sourceNotes) || value.sourceNotes.length !== selection.notes.length ||
+    !Array.isArray(value.hypotheses) || value.hypotheses.length > 3 ||
+    !Array.isArray(value.nextSteps) || value.nextSteps.length > 4) return false
+
+  const sourceLabels = new Set<string>(selection.reportFields)
+  for (let index = 0; index < value.sourceNotes.length; index += 1) {
+    const source = value.sourceNotes[index]
+    const expected = selection.notes[index]
+    if (!object(source) || !exactKeys(source, ['ref', 'id', 'version']) || source.ref !== `note${index + 1}` ||
+      source.id !== expected.id || source.version !== expected.expectedVersion) return false
+    sourceLabels.add(source.ref)
+  }
+  for (const hypothesis of value.hypotheses) {
+    if (!object(hypothesis) || !exactKeys(hypothesis, ['statement', 'rationale', 'sources']) ||
+      !safeAiText(hypothesis.statement, 300, 1_200) || !safeAiText(hypothesis.rationale, 500, 2_000) ||
+      !Array.isArray(hypothesis.sources) || hypothesis.sources.length < 1 || hypothesis.sources.length > 4 ||
+      new Set(hypothesis.sources).size !== hypothesis.sources.length ||
+      !hypothesis.sources.every(source => typeof source === 'string' && sourceLabels.has(source))) return false
+  }
+  return value.nextSteps.every(step => safeAiText(step, 240, 960))
+}
+
+/** A generation has no idempotency key and is never automatically replayed. */
+export async function requestInvestigationSuggestions(projectId: string, reportId: string, selection: InvestigationSelection, signal?: AbortSignal): Promise<InvestigationSuggestion> {
+  if (!isCanonicalUuid(projectId) || !isCanonicalUuid(reportId) || !Number.isSafeInteger(selection.expectedVersion) || selection.expectedVersion < 1 ||
+    selection.reportFields.length < 1 || selection.reportFields.length > investigationReportFields.length ||
+    new Set(selection.reportFields).size !== selection.reportFields.length ||
+    !selection.reportFields.every(field => investigationReportFields.includes(field)) || selection.notes.length > 5 ||
+    new Set(selection.notes.map(note => note.id)).size !== selection.notes.length ||
+    !selection.notes.every(note => isCanonicalUuid(note.id) && Number.isSafeInteger(note.expectedVersion) && note.expectedVersion > 0)) {
+    throw new DeveloperApiError(400, 'INVALID_REQUEST')
+  }
+  try {
+    const token = await getCsrfToken(signal)
+    if (signal?.aborted) throw new DOMException('Request aborted', 'AbortError')
+    const response = await fetch(`/api/projects/${projectId}/reports/${reportId}/investigation/suggestions`, {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store', signal,
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
+      body: JSON.stringify(selection),
+    })
+    if (response.status !== 200) throw await failure(response)
+    let value: unknown
+    try {
+      const raw = await response.text()
+      if (new TextEncoder().encode(raw).length > 24 * 1024) throw new Error('Invalid response')
+      value = JSON.parse(raw)
+    } catch { throw new DeveloperApiError(502, 'INVALID_RESPONSE') }
+    if (!isInvestigationSuggestion(value, reportId, selection)) throw new DeveloperApiError(502, 'INVALID_RESPONSE')
+    return value
+  } catch (error) {
+    if (signal?.aborted) throw new DOMException('Request aborted', 'AbortError')
+    if (error instanceof DeveloperApiError) throw error
+    if (error instanceof AuthApiError) throw new DeveloperApiError(error.status, error.code)
+    throw new DeveloperApiError(0, 'NETWORK_ERROR')
+  }
 }
 
 export async function updateNote(projectId: string, reportId: string, noteId: string, body: string, expectedVersion: number, signal?: AbortSignal): Promise<InvestigationNote> {

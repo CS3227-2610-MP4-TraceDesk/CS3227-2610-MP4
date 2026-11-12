@@ -53,7 +53,7 @@ export default defineConfig({
       },
     }] : []),
     ...(!localSetupOnly && !liveBrowserOnly ? [
-      { name: 'production', testMatch: ['**/foundation.e2e.ts', '**/reporter-states.e2e.ts', '**/reporter-ai.e2e.ts', '**/developer-states.e2e.ts'] },
+      { name: 'production', testMatch: ['**/foundation.e2e.ts', '**/reporter-states.e2e.ts', '**/reporter-ai.e2e.ts', '**/developer-states.e2e.ts', '**/developer-ai.e2e.ts'] },
       {
         name: 'development',
         testMatch: ['**/login-preview.e2e.ts', '**/workspace-preview.e2e.ts'],
