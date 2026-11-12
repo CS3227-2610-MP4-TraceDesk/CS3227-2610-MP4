@@ -121,8 +121,16 @@ it('groups bugs under disclosures and keeps all queue filters in the main view',
 
   fireEvent.click(within(screen.getByRole('group', { name: 'Bug queues' })).getByRole('button', { name: 'All bugs' }))
   expect(await within(screen.getByRole('main')).findByRole('button', { name: /Unassigned bug/ })).toBeVisible()
+  expect(within(screen.getByRole('main')).getByRole('heading', { name: 'Verification' })).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Grid view' }))
   fireEvent.click(within(screen.getByRole('group', { name: 'Bug queues' })).getByRole('button', { name: 'Reviewed by me' }))
   expect(await within(screen.getByRole('main')).findByRole('button', { name: /Reviewed bug, revision 2/ })).toBeVisible()
+  expect(within(screen.getByRole('main')).getByRole('heading', { name: 'Verification' })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Grid view' })).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('button', { name: 'Sort bugs' })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Display options' })).toBeVisible()
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Find bug' }), { target: { value: 'missing' } })
+  expect(within(screen.getByRole('main')).queryByRole('button', { name: /Reviewed bug, revision 2/ })).not.toBeInTheDocument()
   expect(mocks.fetchReviewedByMe).toHaveBeenCalledWith('project', null, expect.any(AbortSignal))
 
   fireEvent.change(sidebar.getByRole('searchbox', { name: 'Search review queue' }), { target: { value: 'Awaiting' } })
