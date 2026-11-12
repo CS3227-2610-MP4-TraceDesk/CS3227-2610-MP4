@@ -118,3 +118,12 @@ tasks.register('localReporterBrowserProbe', JavaExec) {
     javaLauncher = javaToolchains.launcherFor(java.toolchain)
     workingDir = rootProject.projectDir
 }
+
+tasks.register('qaAiLiveEvaluation', JavaExec) {
+    group = 'verification'
+    description = 'Explicit opt-in, four-attempt synthetic QA live evaluation.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.tracedesk.auth.reports.ai.QaAiLiveEvaluation'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+}

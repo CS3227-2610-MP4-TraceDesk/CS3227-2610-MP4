@@ -210,3 +210,5 @@ bytes, failures, and provider-reported usage only when actually observed.
 Status: specified before implementation. No criterion is verified by this file;
 live provider, operator approval, account setup, deployment target and human
 integration owner are outstanding.
+
+For issue #70, see the [role AI evidence inventory and remaining run plan](../qa/evidence/role-ai-validation.md).

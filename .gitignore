@@ -48,3 +48,6 @@ workflow/reporter/runs/
 
 # Generated local-only Reporter setup credentials.
 /.local/
+
+# QA live evaluation approvals and sanitized local observations.
+workflow/qa/runs/
