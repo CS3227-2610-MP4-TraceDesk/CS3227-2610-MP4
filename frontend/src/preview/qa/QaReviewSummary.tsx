@@ -5,9 +5,10 @@ import { Disclosure } from '../../shared/Disclosure'
 
 import type { QaBug } from './qaFixtures'
 
-export function QaReviewSummary({ bug, comment, showChangeMap = false, resolution, description, environment }: {
+export function QaReviewSummary({ bug, comment, activityContent, showChangeMap = false, resolution, description, environment }: {
   bug: QaBug
   comment?: ReactNode
+  activityContent?: ReactNode
   showChangeMap?: boolean
   resolution?: ReactNode
   description?: string
@@ -65,6 +66,7 @@ export function QaReviewSummary({ bug, comment, showChangeMap = false, resolutio
               <p>{entry.text}</p>
             </Disclosure>
           ))}
+          {activityContent}
         </section>
         {comment}
       </div>

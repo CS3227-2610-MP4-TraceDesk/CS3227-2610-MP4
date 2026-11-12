@@ -4,13 +4,16 @@ import { Code, Sparkle } from '@openai/apps-sdk-ui/components/Icon'
 import { DeveloperApiError, fetchResolutions, type ProposedResolution } from '../developer/developerApi'
 import { QaReviewSummary } from '../preview/qa/QaReviewSummary'
 import type { QaBug } from '../preview/qa/qaFixtures'
+import type { TestTemplate } from '../preview/qa/qaTemplateFixtures'
 import { fetchReport, ReportApiError, type AssignmentResult, type ReportDetail, type ReportStatus } from '../reports/reportApi'
 import { Disclosure } from '../shared/Disclosure'
 import { QaAiPanel } from './QaAiPanel'
+import { QaDiscussion } from './QaDiscussion'
 import { QaAssignment } from './QaAssignment'
 import { QaContextShortcuts } from './QaContextShortcuts'
 import type { QaReviewDraft } from './qaReviewDraft'
 import { QaVerification } from './QaVerification'
+import { QaHistoricalReviewPanel } from './QaHistoricalReviewPanel'
 import type { Verification } from './verificationApi'
 
 const statuses: Record<ReportStatus, QaBug['status']> = {
@@ -36,9 +39,10 @@ async function readResolutionHistory(projectId: string, reportId: string, signal
   return resolutions.sort((left, right) => right.revision - left.revision)
 }
 
-export function QaReportSummary({ project, reportId, onSessionExpired, onDecision, onAssignmentConfirmed, draft, onDraftChange, onAccessDenied }: {
+export function QaReportSummary({ project, reportId, onSessionExpired, onDecision, onAssignmentConfirmed, draft, onDraftChange, onAccessDenied, templates }: {
   project: { id: string; name: string }
   reportId: string
+  templates: TestTemplate[]
   draft: QaReviewDraft
   onDraftChange: (patch: Partial<QaReviewDraft>) => void
   onAccessDenied: () => void
@@ -54,6 +58,7 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
   const [verificationStale, setVerificationStale] = useState(false)
   const denied = useRef(onAccessDenied)
   const [verificationBusy, setVerificationBusy] = useState(true)
+  const [historicalResolution, setHistoricalResolution] = useState<string | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
   const aiTrigger = useRef<HTMLButtonElement>(null)
 
@@ -94,6 +99,9 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
   </section>
 
   const { report, resolutions } = detail
+  if (historicalResolution) return <QaHistoricalReviewPanel key={historicalResolution} projectId={project.id}
+    reportId={reportId} resolutionId={historicalResolution} onSessionExpired={onSessionExpired}
+    onBack={() => setHistoricalResolution(null)} />
   function addSuggestedChecks(titles: string[]) {
     if (verificationBusy) return 'Wait for the Verification checklist to finish loading.'
     if (!review) return 'Open Verification and reload the checklist before adding checks.'
@@ -171,7 +179,7 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
     </div>}
     {verificationVisited && <div hidden={!verifying}>
       <QaVerification projectId={project.id} reportId={report.id} reportVersion={report.version} onSessionExpired={onSessionExpired}
-        draft={draft} onDraftChange={onDraftChange} busy={verificationBusy} setBusy={setVerificationBusy}
+        draft={draft} onDraftChange={onDraftChange} templates={templates} busy={verificationBusy} setBusy={setVerificationBusy}
         onStaleChange={setVerificationStale} onAccessDenied={onAccessDenied}
         onSummary={() => selectVerification(false)} onSaved={review => {
           if (review.status !== 'READY_FOR_QA') onDecision(review)
@@ -197,6 +205,7 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
       lastActivity: report.updatedAt, expected: report.expectedBehavior, actual: report.actualBehavior,
       steps: report.reproductionSteps, logs: report.textLogs, checks: [], entries: [],
     }} description={report.description} environment={report.environment}
+      activityContent={<QaDiscussion projectId={project.id} reportId={reportId} onSessionExpired={onSessionExpired} />}
       resolution={<>
       <QaAssignment projectId={project.id} reportId={report.id} assignedDeveloperId={report.assignedDeveloperId}
         reportVersion={report.version} closed={report.status === 'CLOSED'} onSessionExpired={onSessionExpired} onRefresh={refreshAssignment} />
@@ -211,6 +220,9 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
             <div><dt>Verification steps</dt><dd>{resolution.verificationSteps}</dd></div>
             {resolution.fixReference && <div><dt>Fix reference</dt><dd>{resolution.fixReference}</dd></div>}
           </dl>
+          {(resolution.rejection || (report.status === 'CLOSED' && resolution.id === resolutions[0]?.id)) &&
+            <Button color="secondary" variant="soft" size="sm"
+              onClick={() => setHistoricalResolution(resolution.id)}>View verification result</Button>}
         </Disclosure>)}
       </section></>}
     />

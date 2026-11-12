@@ -16,8 +16,7 @@ latest proposed resolution. Each resolution starts with its own checklist.
   rejected, and prior resolution checks never carry over automatically.
 
 The awaiting-verification queue removes a report after a decision. The
-send-back reason is stored with its resolution. QA review history is tracked in
-issue #64.
+send-back reason is stored with its resolution. [QA review history](qa-history.md) is tracked in issue #64.
 
 ## Developer handoff (issue #63)
 
@@ -32,7 +31,8 @@ issue #64.
   checklist results and private verification notes.
 
 AI suggestions can be added to the Verification draft through explicit
-selection. Templates and discussion are separate slices.
+selection. [QA review discussion](qa-discussion.md) is scoped to active QA
+reviewers in the project.
 
 ## Local verification
 
