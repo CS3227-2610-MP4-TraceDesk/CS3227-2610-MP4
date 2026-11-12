@@ -10,6 +10,7 @@ import type { TrayItem } from '../shell/IconTray'
 import { ReportApiError, isCanonicalUuid, type ReportDetail, type ReportStatus, type ReportSummary } from '../reports/reportApi'
 import { reportFieldRules, reportFields } from '../reports/reportValidation'
 import { Disclosure } from '../shared/Disclosure'
+import { DeveloperAiPanel } from './DeveloperAiPanel'
 import {
   createNote,
   deleteNote,
@@ -123,6 +124,7 @@ export function DeveloperWorkspace({
   const [resolutionsState, setResolutionsState] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle')
   const [resolutionDrafts, setResolutionDrafts] = useState<Record<string, ResolutionFields>>({})
   const [resolutionNeedsRefresh, setResolutionNeedsRefresh] = useState(false)
+  const [investigationChanged, setInvestigationChanged] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
   const contextAbort = useRef<AbortController | null>(null)
@@ -130,8 +132,11 @@ export function DeveloperWorkspace({
   const detailAbort = useRef<AbortController | null>(null)
   const notesAbort = useRef<AbortController | null>(null)
   const resolutionsAbort = useRef<AbortController | null>(null)
+  const revalidationAbort = useRef<AbortController | null>(null)
   const mutationAbort = useRef<AbortController | null>(null)
   const mutationScope = useRef(0)
+  const detailRef = useRef<ReportDetail | null>(null)
+  const notesRef = useRef<InvestigationNote[]>([])
   const projectInputRef = useRef<HTMLInputElement>(null)
 
   const draftKey = projectId && selectedId ? `${projectId}:${selectedId}` : ''
@@ -140,6 +145,9 @@ export function DeveloperWorkspace({
   const canWriteNotes = Boolean(assigned && detail && (detail.status === 'IN_PROGRESS' || detail.status === 'READY_FOR_QA'))
   const canPropose = Boolean(assigned && detail?.status === 'IN_PROGRESS' && notesState !== 'denied')
   const resolutionDraft = draftKey ? resolutionDrafts[draftKey] ?? emptyResolution : emptyResolution
+
+  useEffect(() => { detailRef.current = detail }, [detail])
+  useEffect(() => { notesRef.current = notes }, [notes])
 
   const invalidateMutations = useCallback(() => {
     mutationScope.current += 1
@@ -153,11 +161,13 @@ export function DeveloperWorkspace({
     detailAbort.current?.abort()
     notesAbort.current?.abort()
     resolutionsAbort.current?.abort()
+    revalidationAbort.current?.abort()
     invalidateMutations()
     setResolutions([])
     setResolutionsState('idle')
     setResolutionDrafts({})
     setResolutionNeedsRefresh(false)
+    setInvestigationChanged(false)
     setReports([])
     setNextCursor(null)
     setListState('idle')
@@ -191,6 +201,8 @@ export function DeveloperWorkspace({
     detailAbort.current?.abort()
     notesAbort.current?.abort()
     resolutionsAbort.current?.abort()
+    revalidationAbort.current?.abort()
+    revalidationAbort.current?.abort()
     mutationAbort.current?.abort()
   }, [])
 
@@ -326,12 +338,53 @@ export function DeveloperWorkspace({
     }
   }, [handleAuthFailure, loadResolutions, projectId, selectedId, sessionUserId])
 
+  const revalidateSelectedDetail = useCallback(async () => {
+    const current = detailRef.current
+    if (!current || current.id !== selectedId || current.assignedDeveloperId !== sessionUserId) return
+    revalidationAbort.current?.abort()
+    const controller = new AbortController()
+    revalidationAbort.current = controller
+    try {
+      const refreshed = await fetchDeveloperReport(projectId, current.id, controller.signal)
+      if (controller.signal.aborted || detailRef.current?.id !== current.id) return
+      if (refreshed.assignedDeveloperId !== sessionUserId) {
+        setNotesState('denied')
+        setActionMessage('Your assignment changed. Private notes and investigation actions are no longer available.')
+        return
+      }
+      const page = await fetchNotes(projectId, current.id, null, controller.signal)
+      if (controller.signal.aborted || detailRef.current?.id !== current.id) return
+      const reportChanged = refreshed.version !== current.version || refreshed.status !== current.status ||
+        refreshed.assignedDeveloperId !== current.assignedDeveloperId
+      const currentNotes = notesRef.current
+      const notesChanged = currentNotes.length !== page.items.length || currentNotes.some((note, index) => {
+        const fresh = page.items[index]
+        return !fresh || fresh.id !== note.id || fresh.version !== note.version
+      })
+      if (reportChanged || notesChanged) setInvestigationChanged(true)
+    } catch (error) {
+      if (controller.signal.aborted) return
+      const outcome = handleAuthFailure(error)
+      if (outcome === 'denied') {
+        setNotesState('denied')
+        setActionMessage('Your access changed. Private notes and investigation actions are no longer available.')
+      }
+    }
+  }, [handleAuthFailure, projectId, selectedId, sessionUserId])
+
   useEffect(() => {
     if (!selectedId) return
     let active = true
     queueMicrotask(() => { if (active) void loadDetail(selectedId) })
     return () => { active = false }
   }, [loadDetail, selectedId])
+
+  useEffect(() => {
+    if (!selectedId || detailState !== 'ready') return
+    const revalidate = () => { void revalidateSelectedDetail() }
+    window.addEventListener('focus', revalidate)
+    return () => window.removeEventListener('focus', revalidate)
+  }, [detailState, revalidateSelectedDetail, selectedId])
 
   function openProject(event: React.FormEvent) {
     event.preventDefault()
@@ -377,7 +430,10 @@ export function DeveloperWorkspace({
   }
 
   function retryDetail() {
-    if (selectedId) void loadDetail(selectedId)
+    if (selectedId) {
+      setInvestigationChanged(false)
+      void loadDetail(selectedId)
+    }
   }
 
   const selectReport = useCallback((reportId: string | null) => {
@@ -392,6 +448,7 @@ export function DeveloperWorkspace({
     setResolutionsState('idle')
     setResolutionDrafts({})
     setResolutionNeedsRefresh(false)
+    setInvestigationChanged(false)
     setSelectedId(reportId)
   }, [invalidateMutations])
 
@@ -460,6 +517,7 @@ export function DeveloperWorkspace({
       const outcome = handleAuthFailure(error)
       if (outcome === 'denied') await recoverAfterDenied('Your assignment changed. The investigation was not started.', () => mutationIsCurrent(controller, scope))
       else if (outcome === 'unavailable' || failure?.code === 'STALE_VERSION' || failure?.code === 'INVALID_STATE') {
+        if (failure?.code === 'STALE_VERSION' || failure?.code === 'INVALID_STATE') setInvestigationChanged(true)
         setActionMessage('The investigation could not be confirmed. Refresh this report before trying again.')
       }
     } finally {
@@ -505,6 +563,43 @@ export function DeveloperWorkspace({
     }
   }
 
+  async function saveAiDraft(body: string): Promise<boolean> {
+    if (!detail || !draftKey || !canWriteNotes || actionBusy || !body.trim() || Array.from(body).length > 8_000) return false
+    setActionBusy(true)
+    setActionMessage(null)
+    const { controller, scope } = beginMutation()
+    const attemptKey = `${draftKey}:ai`
+    try {
+      const priorAttempt = noteAttempts[attemptKey]
+      const attempt = priorAttempt?.body === body ? priorAttempt : { body, key: crypto.randomUUID() }
+      setNoteAttempts(previous => ({ ...previous, [attemptKey]: attempt }))
+      const created = await createNote(projectId, detail.id, body, attempt.key, controller.signal)
+      if (!mutationIsCurrent(controller, scope)) return false
+      setNotes(previous => [...previous, created])
+      setNoteAttempts(previous => { const next = { ...previous }; delete next[attemptKey]; return next })
+      setActionMessage('Private note saved after server confirmation.')
+      return true
+    } catch (error) {
+      if (!mutationIsCurrent(controller, scope)) return false
+      const failure = apiError(error)
+      const outcome = handleAuthFailure(error)
+      if (outcome === 'denied') await recoverAfterDenied('Your assignment changed. Your AI-assisted draft remains only in this page until you leave it.', () => mutationIsCurrent(controller, scope))
+      else if (outcome === 'unavailable' || failure?.code === 'INVALID_STATE') setActionMessage('The note was not confirmed. Your draft is preserved; refresh and try again.')
+      else setActionMessage('The note could not be saved. Your draft is preserved.')
+      return false
+    } finally {
+      if (mutationIsCurrent(controller, scope)) {
+        mutationAbort.current = null
+        setActionBusy(false)
+      }
+    }
+  }
+
+  function handleAiProtectedFailure(error: DeveloperApiError) {
+    const outcome = handleAuthFailure(error)
+    if (outcome === 'denied') void recoverAfterDenied('Your access changed. Private notes and investigation actions are no longer available.')
+  }
+
   async function saveNote(note: InvestigationNote) {
     const body = editDrafts[note.id] ?? note.body
     if (!body.trim() || Array.from(body).length > 8_000) {
@@ -526,7 +621,10 @@ export function DeveloperWorkspace({
       const failure = apiError(error)
       const outcome = handleAuthFailure(error)
       if (outcome === 'denied') await recoverAfterDenied('Your assignment changed. Your edited text remains only in this page until you leave it.', () => mutationIsCurrent(controller, scope))
-      else if (failure?.code === 'STALE_VERSION') setActionMessage('This note changed on the server. Your edited text is preserved; refresh before saving again.')
+      else if (failure?.code === 'STALE_VERSION') {
+        setInvestigationChanged(true)
+        setActionMessage('This note changed on the server. Your edited text is preserved; refresh before saving again.')
+      }
       else setActionMessage('The update was not confirmed. Your edited text is preserved.')
     } finally {
       if (mutationIsCurrent(controller, scope)) {
@@ -551,7 +649,10 @@ export function DeveloperWorkspace({
       const failure = apiError(error)
       const outcome = handleAuthFailure(error)
       if (outcome === 'denied') await recoverAfterDenied('Your assignment changed. The note was not deleted.', () => mutationIsCurrent(controller, scope))
-      else if (failure?.code === 'STALE_VERSION') setActionMessage('This note changed on the server. Refresh before deleting it.')
+      else if (failure?.code === 'STALE_VERSION') {
+        setInvestigationChanged(true)
+        setActionMessage('This note changed on the server. Refresh before deleting it.')
+      }
       else setActionMessage('The delete could not be confirmed. Refresh before trying again.')
     } finally {
       if (mutationIsCurrent(controller, scope)) {
@@ -590,6 +691,7 @@ export function DeveloperWorkspace({
       else if (failure?.code === 'RESOLUTION_LIMIT') setActionMessage('This bug has reached its limit of 50 proposed resolutions. Your text is preserved.')
       else if (outcome === 'unavailable') {
         setResolutionNeedsRefresh(true)
+        if (failure?.code === 'STALE_VERSION' || failure?.code === 'INVALID_STATE') setInvestigationChanged(true)
         setActionMessage('The proposed resolution was not confirmed. Your text is preserved; refresh this bug before sending it again.')
       }
     } finally {
@@ -697,7 +799,10 @@ export function DeveloperWorkspace({
     return <article className="developer-detail"><div className="developer-detail-top"><Button color="secondary" variant="ghost" onClick={() => selectReport(null)}>Back to bugs</Button><Badge color={statusColor(detail.status)}>{statusLabel(detail.status)}</Badge><span className="developer-version">Version {detail.version}</span></div>
       <div className="developer-title-row"><div><h1>{detail.title}</h1><p className="developer-detail-meta">Bug {detail.id} · {assigned ? 'Assigned to you' : detail.assignedDeveloperId ? 'Assigned to another Developer' : 'Unassigned'}</p></div>{assigned && notesState !== 'denied' && detail.status === 'OPEN' && <Button color="primary" disabled={actionBusy} loading={actionBusy} onClick={() => void start()}>Start investigation</Button>}</div>
       {actionMessage && <p className="developer-action-message" role="status">{actionMessage}</p>}
+      {investigationChanged && <div className="developer-inline-notice developer-freshness-warning" role="alert"><p>The investigation changed since it was last refreshed. Your drafts are preserved.</p><Button color="secondary" variant="outline" onClick={retryDetail}>Refresh</Button></div>}
       <dl className="developer-detail-fields">{reportFields.map(field => <div key={field} className={field === 'textLogs' ? 'developer-detail-field developer-detail-logs' : 'developer-detail-field'}><dt>{reportFieldRules[field].label}</dt><dd>{detail[field] || <span className="muted">No text provided</span>}</dd></div>)}</dl>
+      {assigned && detail.status === 'IN_PROGRESS' && notesState !== 'denied' && <DeveloperAiPanel key={`${projectId}:${detail.id}:${sessionUserId}`} projectId={projectId} reportId={detail.id} reportVersion={detail.version} notes={notes} disabled={actionBusy}
+        onSaveDraft={saveAiDraft} onProtectedFailure={handleAiProtectedFailure} onSourceStale={() => setInvestigationChanged(true)} />}
       {renderResolutions()}
       {renderNotes()}
     </article>

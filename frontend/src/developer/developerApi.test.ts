@@ -7,6 +7,7 @@ import {
   fetchNotes,
   fetchResolutions,
   proposeResolution,
+  requestInvestigationSuggestions,
   startInvestigation,
   updateNote,
 } from './developerApi'
@@ -65,6 +66,51 @@ describe('proposed resolution API', () => {
 })
 
 describe('developer API', () => {
+  it('requests typed investigation suggestions once with CSRF, versions and exact selection', async () => {
+    const selection = {
+      expectedVersion: 2,
+      reportFields: ['title', 'description'] as const,
+      notes: [{ id: note, expectedVersion: 1 }],
+    }
+    const suggestion = {
+      capability: 'INVESTIGATION', promptVersion: 'investigation-suggestion-v1', reportId: report, reportVersion: 2,
+      reportFields: ['title', 'description'], sourceNotes: [{ ref: 'note1', id: note, version: 1 }],
+      hypotheses: [{ statement: 'Check startup', rationale: 'The report describes startup failure.', sources: ['description', 'note1'] }],
+      nextSteps: ['Reproduce with debug logs'],
+    }
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(200, { token: 'csrf' }))
+      .mockResolvedValueOnce(response(200, suggestion))
+    vi.stubGlobal('fetch', fetchMock)
+    const controller = new AbortController()
+
+    await expect(requestInvestigationSuggestions(project, report, { ...selection, reportFields: [...selection.reportFields] }, controller.signal)).resolves.toEqual(suggestion)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const [path, init] = fetchMock.mock.calls[1]
+    expect(path).toBe(`/api/projects/${project}/reports/${report}/investigation/suggestions`)
+    expect(init).toMatchObject({ method: 'POST', credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+    expect(new Headers(init.headers).get('X-CSRF-TOKEN')).toBe('csrf')
+    expect(new Headers(init.headers).get('Idempotency-Key')).toBeNull()
+    expect(JSON.parse(init.body)).toEqual(selection)
+  })
+
+  it('maps suggestion error codes without replay and rejects invalid provenance', async () => {
+    const selection = { expectedVersion: 2, reportFields: ['title'] as const, notes: [] }
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(200, { token: 'csrf' }))
+      .mockResolvedValueOnce(response(400, { error: { code: 'AI_CONTEXT_TOO_LARGE', message: 'fixed' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(requestInvestigationSuggestions(project, report, { ...selection, reportFields: [...selection.reportFields] })).rejects.toMatchObject({ status: 400, code: 'AI_CONTEXT_TOO_LARGE' })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    fetchMock.mockResolvedValueOnce(response(200, { token: 'csrf' }))
+      .mockResolvedValueOnce(response(200, {
+        capability: 'INVESTIGATION', promptVersion: 'investigation-suggestion-v1', reportId: report, reportVersion: 99,
+        reportFields: ['title'], sourceNotes: [], hypotheses: [], nextSteps: [],
+      }))
+    await expect(requestInvestigationSuggestions(project, report, { ...selection, reportFields: [...selection.reportFields] })).rejects.toMatchObject({ status: 502, code: 'INVALID_RESPONSE' })
+  })
+
   it('loads only server-validated Developer context and sends an assignment filter only for My work', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(response(200, { project: { id: project, name: 'Project' }, role: 'DEVELOPER' }))
