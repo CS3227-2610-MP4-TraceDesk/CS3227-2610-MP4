@@ -5,6 +5,11 @@ and reviewing proposed fixes. This guide starts the current application on your
 computer with Docker, PostgreSQL, Spring Boot, and the React frontend. It is for
 local development, not production deployment.
 
+For role workflows, see the [User Guide](docs/UserGuide.md). For architecture,
+security, testing and the development process, see the [Developer Guide](docs/DeveloperGuide.md)
+and [Reflections](docs/Reflections.md). The [documentation website source](docs/index.md)
+is included; publication is a separate step.
+
 ## Requirements
 
 - Docker Desktop with Docker Compose
