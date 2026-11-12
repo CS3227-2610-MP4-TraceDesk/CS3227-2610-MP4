@@ -139,6 +139,15 @@
   margin: 12px 0 24px;
 }
 
+.shell-sidebar-group:has(> .shell-sidebar-group-disclosure) {
+  margin-bottom: 4px;
+}
+
+.shell-sidebar-group:has(> .shell-sidebar-group-disclosure) +
+.shell-sidebar-group:has(> .shell-sidebar-group-disclosure) {
+  margin-top: 4px;
+}
+
 .shell-sidebar-group h2 {
   padding: 0 8px 8px;
   color: var(--td-muted);
