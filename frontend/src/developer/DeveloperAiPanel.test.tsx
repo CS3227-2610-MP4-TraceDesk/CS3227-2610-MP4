@@ -93,6 +93,27 @@ describe('Developer AI panel', () => {
     expect(screen.queryByText(suggestion.hypotheses[0].statement, { exact: true })).not.toBeInTheDocument()
   })
 
+  it.each([
+    ['field', 'Logs or error text'],
+    ['note', 'Private note 1'],
+  ])('clears the preview and editable draft when the %s selection changes', async (_, selectionLabel) => {
+    requestInvestigationSuggestions.mockResolvedValue(suggestion)
+    setup()
+    fireEvent.click(screen.getByText('Choose AI context'))
+    fireEvent.click(screen.getByRole('button', { name: 'Get suggestions' }))
+    await screen.findByText(suggestion.hypotheses[0].statement, { exact: true })
+    fireEvent.click(screen.getByRole('checkbox', { name: suggestion.hypotheses[0].statement }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add selected to draft' }))
+    expect((screen.getByLabelText('Editable private-note draft') as HTMLTextAreaElement).value).toContain('Hypothesis')
+
+    fireEvent.click(screen.getByRole('checkbox', { name: selectionLabel }))
+    expect(screen.queryByText('Suggestion preview')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Get suggestions' }))
+    await screen.findByText(suggestion.hypotheses[0].statement, { exact: true })
+    expect(screen.getByLabelText('Editable private-note draft')).toHaveValue('')
+  })
+
   it('discards a late response after the report identity changes', async () => {
     const pending = deferred<InvestigationSuggestion>()
     requestInvestigationSuggestions.mockReturnValue(pending.promise)

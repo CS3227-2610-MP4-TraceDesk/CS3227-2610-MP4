@@ -106,6 +106,7 @@ export function DeveloperAiPanel({
     setPending(false)
     setResult(null)
     setSelectedItems(new Set())
+    setDraft('')
     setMessage(null)
     setFailure(false)
   }
