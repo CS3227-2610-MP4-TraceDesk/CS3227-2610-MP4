@@ -26,6 +26,12 @@ queue filter tabs. The library queue supports its specified filters and opens th
 selected bug. Contextual sidebars can collapse, and overlay on mobile. Preserve
 the rail when a sidebar is collapsed. Keep the account control compact at bottom.
 
+QA sidebar group headings are muted, keyboard-operable disclosures using shared
+opening motion. Collapsing a group preserves the open bug and verification draft.
+Awaiting verification, Reviewed by me and All bugs remain queue filters in the
+main view. Search filters the sidebar's bug and review items. Each group reports
+its own loading, empty or failed state, including when the other queue is active.
+
 Reporter rail contains Reports plus bottom Settings; saved environment management
 is outside the MVP and has no navigation destination or placeholder page. Submitted
 reports and drafts live within Reports. New report is a button within Reports.
