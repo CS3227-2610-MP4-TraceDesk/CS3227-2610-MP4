@@ -14,6 +14,7 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
@@ -394,6 +395,7 @@ class InvestigationAiHttpsIntegrationTest {
         @Bean TestAiProvider testAiProvider(Clock clock) { return new TestAiProvider(clock); }
 
         @Bean(destroyMethod = "close")
+        @Primary
         SoclaasEnablementManager testSoclaasEnablementManager(Clock clock, JdbcTemplate sql,
                                                               TestAiProvider provider) {
             Policy policy = new Policy(true, 9_001, 1_000_000, 500_000, 4, 1, Duration.ofSeconds(60));
