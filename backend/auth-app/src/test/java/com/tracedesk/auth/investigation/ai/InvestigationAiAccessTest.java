@@ -13,7 +13,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import java.time.*;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.*;
+import java.util.function.Function;
 import static com.tracedesk.ai.gateway.GatewayPorts.*;
 import static com.tracedesk.ai.gateway.GatewayTypes.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,6 +37,8 @@ class InvestigationAiAccessTest {
         final AtomicInteger contextReads=new AtomicInteger(), calls=new AtomicInteger(), authCalls=new AtomicInteger(), noteReads=new AtomicInteger();
         final AtomicInteger metadataCalls=new AtomicInteger();
         final AtomicReference<UUID> live=new AtomicReference<>();
+        final AtomicReference<Function<Context,Completion>> completion=new AtomicReference<>(
+                context -> new Completion(OUTPUT,new Usage(20,20)));
         final Ledger ledger;
         final InvestigationAiSource source;
         final Provider provider;
@@ -73,7 +78,7 @@ class InvestigationAiAccessTest {
                 };
                 provider=new Provider() {
                     public Metadata metadata() { metadataCalls.incrementAndGet(); beforeDispatch.run(); return new Metadata("synthetic-model",1,NOW.plusSeconds(900),1); }
-                    public Completion complete(Context context) { calls.incrementAndGet(); beforeDelivery.run(); return new Completion(OUTPUT,new Usage(20,20)); }
+                    public Completion complete(Context context) { calls.incrementAndGet(); beforeDelivery.run(); return completion.get().apply(context); }
                 };
             } catch(Exception | Error failure) { db.close(); throw failure; }
         }
@@ -273,6 +278,113 @@ class InvestigationAiAccessTest {
                 }
                 assertEquals(before,f.businessSnapshot(),scenario);
             }
+        }
+    }
+
+    @Test void tdDev30_completionDeadlineReturnsUnavailableWithoutDeliveryAndSettlesUsage() throws Exception {
+        try(var f=new Fixture(); var service=f.service()) {
+            var before=f.businessSnapshot();
+            f.completion.set(context -> {
+                try { Thread.sleep(Duration.ofSeconds(31)); }
+                catch(InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new GatewayFailure(GatewayFailure.Code.AI_UNAVAILABLE);
+                }
+                return new Completion(OUTPUT,new Usage(20,20));
+            });
+
+            f.denied("AI_UNAVAILABLE",503,
+                    () -> service.suggest(f.project,f.report,1,f.selection(),f.live::get));
+
+            assertEquals(1,f.calls.get());
+            verify(f.ledger,times(1)).settle(any(),eq(Outcome.FAILURE),isNull(),any());
+            assertEquals(1,f.sql.queryForObject(
+                    "select count(*) from td_ai_tickets where state='TERMINAL' and outcome='FAILURE'",
+                    Integer.class));
+            assertEquals(0,f.sql.queryForObject("select count(*) from td_ai_tickets where state<>'TERMINAL'",
+                    Integer.class));
+            assertEquals(before,f.businessSnapshot());
+        }
+    }
+
+    @Test void tdDev30_cancelledBackendCompletionSuppressesDeliveryAndSettlesExactlyOnce() throws Exception {
+        try(var f=new Fixture(); var service=f.service()) {
+            var before=f.businessSnapshot();
+            var entered=new CountDownLatch(1);
+            var release=new CountDownLatch(1);
+            var failure=new AtomicReference<Throwable>();
+            f.completion.set(context -> {
+                entered.countDown();
+                try { release.await(); }
+                catch(InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new GatewayFailure(GatewayFailure.Code.AI_UNAVAILABLE);
+                }
+                return new Completion(OUTPUT,new Usage(20,20));
+            });
+            Thread request=Thread.ofPlatform().start(() -> {
+                try { service.suggest(f.project,f.report,1,f.selection(),f.live::get); }
+                catch(Throwable thrown) { failure.set(thrown); }
+            });
+            assertTrue(entered.await(5,TimeUnit.SECONDS),"fake provider was not entered");
+
+            request.interrupt();
+            request.join(5_000);
+            release.countDown();
+
+            assertFalse(request.isAlive(),"cancelled request must terminate");
+            var denied=assertInstanceOf(ReportService.Failure.class,failure.get());
+            assertEquals("AI_UNAVAILABLE",denied.code());
+            assertEquals(503,denied.status());
+            verify(f.ledger,times(1)).settle(any(),eq(Outcome.CANCELLED),isNull(),any());
+            assertEquals(1,f.sql.queryForObject(
+                    "select count(*) from td_ai_tickets where state='TERMINAL' and outcome='CANCELLED'",
+                    Integer.class));
+            assertEquals(0,f.sql.queryForObject("select count(*) from td_ai_tickets where state<>'TERMINAL'",
+                    Integer.class));
+            assertEquals(before,f.businessSnapshot());
+        }
+    }
+
+    @Test void tdDev30_secondConcurrentRequestForActorIsUnavailableWhileFirstCompletes() throws Exception {
+        try(var f=new Fixture(); var service=f.service()) {
+            var before=f.businessSnapshot();
+            var entered=new CountDownLatch(1);
+            var release=new CountDownLatch(1);
+            var firstResult=new AtomicReference<InvestigationAiOutput.Result>();
+            var firstFailure=new AtomicReference<Throwable>();
+            f.completion.set(context -> {
+                entered.countDown();
+                try { assertTrue(release.await(5,TimeUnit.SECONDS),"first completion was not released"); }
+                catch(InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError(interrupted);
+                }
+                return new Completion(OUTPUT,new Usage(20,20));
+            });
+            Thread first=Thread.ofPlatform().start(() -> {
+                try { firstResult.set(service.suggest(f.project,f.report,1,f.selection(),f.live::get)); }
+                catch(Throwable thrown) { firstFailure.set(thrown); }
+            });
+            assertTrue(entered.await(5,TimeUnit.SECONDS),"first fake provider was not entered");
+
+            f.denied("AI_UNAVAILABLE",503,
+                    () -> service.suggest(f.project,f.report,1,f.selection(),f.live::get));
+            release.countDown();
+            first.join(5_000);
+
+            assertFalse(first.isAlive(),"first request must complete");
+            assertNull(firstFailure.get());
+            assertNotNull(firstResult.get());
+            assertTrue(firstResult.get().hypotheses().isEmpty());
+            assertEquals(1,f.calls.get(),"the rejected concurrent request must not reach completion");
+            verify(f.ledger,times(1)).settle(any(),eq(Outcome.SUCCESS),eq(40L),any());
+            assertEquals(1,f.sql.queryForObject(
+                    "select count(*) from td_ai_tickets where state='TERMINAL' and outcome='SUCCESS'",
+                    Integer.class));
+            assertEquals(0,f.sql.queryForObject("select count(*) from td_ai_tickets where state<>'TERMINAL'",
+                    Integer.class));
+            assertEquals(before,f.businessSnapshot());
         }
     }
 }

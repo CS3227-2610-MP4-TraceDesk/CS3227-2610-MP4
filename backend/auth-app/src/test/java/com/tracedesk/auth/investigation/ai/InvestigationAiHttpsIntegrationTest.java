@@ -348,10 +348,11 @@ class InvestigationAiHttpsIntegrationTest {
     private static void assertError(HttpResponse<String> response, int status, String code) {
         assertEquals(status, response.statusCode(), response.body());
         assertEquals(code, jsonField(response.body(), "code"));
-        assertFalse(response.body().contains(REPORT_CANARY));
-        assertFalse(response.body().contains(LOG_CANARY));
-        assertFalse(response.body().contains(NOTE_CANARY));
-        assertFalse(response.body().contains(REPLY_CANARY));
+        String headers = response.headers().map().toString();
+        for (String canary : canaries()) {
+            assertFalse(response.body().contains(canary), "error body must exclude canary");
+            assertFalse(headers.contains(canary), "error headers must exclude canary");
+        }
     }
 
     private static HttpResponse<String> send(HttpClient client, URI base, String method, String path,
