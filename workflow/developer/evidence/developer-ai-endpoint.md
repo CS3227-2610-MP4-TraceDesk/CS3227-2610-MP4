@@ -1,0 +1,19 @@
+# DEV-AI endpoint verification
+
+- Feature and criterion IDs: issue #31 backend endpoint; TD-DEV-26, TD-DEV-27 and TD-DEV-28.
+- Date and author; reviewer identity if a separate review occurred: 2026-11-13, Codex implementation/self-review; no independent reviewer was used.
+- Revision (or base revision plus uncommitted-change identity): base `64aeed7c4ac60afbc4eb3354fd807890699e595c` on `feat/dev-ai-31-endpoint`, plus the uncommitted endpoint working tree. Git could not create the shared-worktree `index.lock` outside the writable workspace, so the requested commit was unavailable.
+- Environment, tools and versions: Windows PowerShell, Java 25.0.4.1, Gradle 9.6.1; fake provider for deterministic API tests; no provider network call.
+- Exact reproducible commands:
+  - `$env:GRADLE_USER_HOME='D:\MP4-wt-dev-ai-endpoint\.gradle-task-cache'; .\gradlew.bat :backend:auth-app:compileJava :backend:auth-app:compileTestJava --no-daemon`
+  - `$env:GRADLE_USER_HOME='D:\MP4-wt-dev-ai-endpoint\.gradle-task-cache'; .\gradlew.bat :backend:auth-app:test --tests com.tracedesk.auth.investigation.ai.InvestigationAiControllerTest --no-daemon`
+  - `$env:GRADLE_USER_HOME='D:\MP4-wt-dev-ai-endpoint\.gradle-task-cache'; .\gradlew.bat :backend:auth-app:test --tests 'com.tracedesk.auth.investigation.ai.InvestigationAiContextTest' --tests 'com.tracedesk.auth.investigation.ai.InvestigationAiOutputTest' --tests 'com.tracedesk.auth.investigation.ai.InvestigationAiC*' --tests 'com.tracedesk.auth.investigation.ai.InvestigationAiV*' --tests 'com.tracedesk.auth.investigation.ai.InvestigationAiControllerTest' --no-daemon`
+  - `$env:GRADLE_USER_HOME='D:\MP4-wt-dev-ai-endpoint\.gradle-task-cache'; .\gradlew.bat :backend:auth-app:test --tests 'com.tracedesk.auth.investigation.ai.*' --no-daemon`
+  - `docker ps --format "{{.Names}} {{.Ports}}"`
+- Passed / failed / skipped / unavailable counts: compile passed. New controller suite passed 4/4, 0 failed, 0 skipped. Deterministic DEV-AI context/output/controller suite passed 42/42, 0 failed, 0 skipped. The complete DEV-AI package executed 61 tests: 42 passed, 19 failed at isolated-database fixture startup, 0 skipped; those 19 are unavailable because the required `TRACEDESK_TEST_DATABASE_*` settings were absent. Docker was unavailable because the command is not installed.
+- Artifact locations and relevant assertions: `InvestigationAiControllerTest` covers 8 KiB at/over, request collection and integer bounds, strict JSON/UUID/framing, every endpoint error code, authorization before context/provider, disabled AI after role denial, exact response keys, no mutation and controller transport isolation. Existing `InvestigationAiContextTest`, `InvestigationAiOutputTest` and hidden boundary tests cover exact context/output limits and strict model output.
+- Criteria satisfied and criteria remaining: deterministic endpoint evidence supports the backend portions of TD-DEV-26..28. Isolated PostgreSQL authorization/migration execution remains unverified in this environment, and the requested commit remains blocked by Git metadata permissions; TD-DEV-29, TD-DEV-30, UI, live provider, deployment and independent review remain outside this task.
+- Findings with severity, source location, impact and correction: no unresolved finding from self-review. The endpoint delegates only to `InvestigationAiAccess`; the route-specific filter enforces 8192 bytes and V19 extends the bounded security-event route constraint.
+- Review independence and limits: self-review only; no independent review claim. Fake-provider tests do not prove production provider availability, live session infrastructure or deployed PostgreSQL behavior.
+- Live/deployed checks actually performed: none.
+- Human decision, only if supplied, with source and scope: the user requested issue #31 backend endpoint implementation and commit in this task; no deployment or push was authorized.

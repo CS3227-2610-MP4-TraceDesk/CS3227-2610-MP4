@@ -1,6 +1,7 @@
 package com.tracedesk.auth.investigation.persistence;
 
 import com.tracedesk.auth.investigation.application.InvestigationRepository;
+import com.tracedesk.auth.investigation.ai.InvestigationAiSource;
 import com.tracedesk.auth.investigation.domain.InvestigationNoteData;
 import com.tracedesk.auth.investigation.domain.ProposedResolutionData;
 import com.tracedesk.auth.reports.application.ReportRepository;
@@ -19,7 +20,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public class InvestigationStore implements InvestigationRepository {
+public class InvestigationStore implements InvestigationRepository, InvestigationAiSource {
     private static final String RESOLUTION_COLUMNS = """
             r.id,r.report_id,r.author_user_id,r.revision,r.root_cause,r.change_summary,
             r.verification_steps,r.fix_reference,r.created_at
@@ -38,6 +39,14 @@ public class InvestigationStore implements InvestigationRepository {
                 from td_projects p join td_project_memberships m on m.project_id=p.id
                 join td_users u on u.id=m.user_id where m.user_id=? and p.id=?
                 """, rs -> rs.next() ? Optional.of(mapMembership(rs)) : Optional.empty(), actor, project);
+    }
+
+    @Override public Optional<ReportRepository.Report> report(UUID project, UUID report) {
+        return loadReport(project, report);
+    }
+
+    @Override public Optional<Note> note(UUID project, UUID report, UUID note) {
+        return loadNote(project, report, note);
     }
 
     @Override public ReportRepository.Report start(UUID actor, UUID project, UUID report, int expectedVersion,

@@ -16,17 +16,19 @@ import java.nio.charset.StandardCharsets;
 
 /** Caps Developer mutation JSON bodies, including chunked requests. */
 public final class InvestigationBodyLimitFilter extends OncePerRequestFilter {
-    private static final int LIMIT = 64 * 1024;
+    private static final int MUTATION_LIMIT = 64 * 1024;
+    private static final int SUGGESTION_LIMIT = 8 * 1024;
     private final AuthStore store;
     public InvestigationBodyLimitFilter(AuthStore store) { this.store = store; }
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
         if (!("POST".equals(request.getMethod()) || "PATCH".equals(request.getMethod()) || "DELETE".equals(request.getMethod()))) return true;
-        return !request.getRequestURI().matches("/api/projects/[^/]+/reports/[^/]+/(investigation/start|resolutions|notes(?:/[^/]+)?)");
+        return !request.getRequestURI().matches("/api/projects/[^/]+/reports/[^/]+/(investigation/(?:start|suggestions)|resolutions|notes(?:/[^/]+)?)");
     }
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        byte[] body = request.getInputStream().readNBytes(LIMIT + 1);
-        if (body.length > LIMIT || ("DELETE".equals(request.getMethod()) && body.length > 0)) {
+        int limit = request.getRequestURI().endsWith("/investigation/suggestions") ? SUGGESTION_LIMIT : MUTATION_LIMIT;
+        byte[] body = request.getInputStream().readNBytes(limit + 1);
+        if (body.length > limit || ("DELETE".equals(request.getMethod()) && body.length > 0)) {
             try {
                 store.event("DEVELOPER_INVALID_REQUEST", route(request.getRequestURI()), 400, null, null);
                 writeError(response, 400, "INVALID_REQUEST");
@@ -37,6 +39,7 @@ public final class InvestigationBodyLimitFilter extends OncePerRequestFilter {
     }
     private static String route(String path) {
         if (path.endsWith("/investigation/start")) return "/api/projects/{projectId}/reports/{reportId}/investigation/start";
+        if (path.endsWith("/investigation/suggestions")) return "/api/projects/{projectId}/reports/{reportId}/investigation/suggestions";
         if (path.matches(".*/reports/[^/]+/resolutions$")) return "/api/projects/{projectId}/reports/{reportId}/resolutions";
         if (path.matches(".*/notes/[^/]+$")) return "/api/projects/{projectId}/reports/{reportId}/notes/{noteId}";
         return "/api/projects/{projectId}/reports/{reportId}/notes";
