@@ -71,12 +71,25 @@ class ResolutionPersistenceIntegrationTest {
             assertEquals("CHECKS_NOT_PASSED", failure(() -> new VerificationCommand(3, List.of(pending), "", CLOSE, "")).code());
             assertEquals(4, qaStore.write(qa, project, report, save).version());
             assertEquals(List.of(pending), qaStore.read(qa, project, report).checks());
+            assertNull(developerStore.resolutions(developer, project, report, 25, null).items().getFirst().rejection());
             assertEquals("STALE_VERSION", failure(() -> qaStore.write(qa, project, report, save)).code());
 
             var back = qaStore.write(qa, project, report, new VerificationCommand(4, List.of(pending), "Staging", SEND_BACK, "Still duplicated"));
             assertEquals("IN_PROGRESS", back.status());
             assertEquals("Still duplicated", qaStore.read(qa, project, report).reason());
-            developerStore.propose(developer, project, report, VALID, back.version(), UUID.randomUUID(), NOW);
+            var rejection = developerStore.resolutions(developer, project, report, 25, null).items().getFirst().rejection();
+            assertEquals("Still duplicated", rejection.reason());
+            assertEquals(qa, rejection.reviewerUserId());
+            assertNotNull(rejection.createdAt());
+            assertEquals(rejection, developerStore.resolutions(qa, project, report, 25, null).items().getFirst().rejection());
+            assertEquals("FORBIDDEN", failure(() -> developerStore.resolutions(reporter, project, report, 25, null)).code());
+            assertEquals("NOT_FOUND", failure(() -> developerStore.resolutions(developer, foreign, report, 25, null)).code());
+
+            var proposal = developerStore.propose(developer, project, report, VALID, back.version(), UUID.randomUUID(), NOW);
+            assertNull(proposal.resolution().rejection());
+            var history = developerStore.resolutions(developer, project, report, 25, null).items();
+            assertEquals(rejection, history.getFirst().rejection());
+            assertNull(history.getLast().rejection());
             var next = qaStore.read(qa, project, report);
             assertEquals(2, next.revision());
             assertTrue(next.checks().isEmpty());
