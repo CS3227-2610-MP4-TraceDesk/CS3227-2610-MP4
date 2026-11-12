@@ -13,6 +13,7 @@ export interface ReporterFixtureMetadata {
   login: string
   nonmemberLogin: string
   developerLogin: string
+  developerFixtureReporterLogin: string
   qaLogin: string
   developerId: string
   assignedReportId: string
