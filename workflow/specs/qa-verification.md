@@ -31,7 +31,8 @@ send-back reason is stored with its resolution. [QA review history](qa-history.m
   checklist results and private verification notes.
 
 AI suggestions can be added to the Verification draft through explicit
-selection. Templates and discussion are separate slices.
+selection. [QA review discussion](qa-discussion.md) is scoped to active QA
+reviewers in the project.
 
 ## Local verification
 
