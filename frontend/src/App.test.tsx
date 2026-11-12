@@ -354,6 +354,7 @@ describe('login and server session flow', () => {
       }
       if (path === reportPath) return reply(200, report)
       if (path.startsWith(`${reportPath}/resolutions?`)) return reply(200, { items: [], nextCursor: null })
+      if (path === `${reportPath}/qa-comments`) return reply(200, { items: [], nextCursor: null })
       if (path === `${reportPath}/assignment`) {
         if (init?.method !== 'PATCH') return reply(200, {
           assignedDeveloperId: report.assignedDeveloperId, assignmentEligible: report.assignedDeveloperId === candidate,
