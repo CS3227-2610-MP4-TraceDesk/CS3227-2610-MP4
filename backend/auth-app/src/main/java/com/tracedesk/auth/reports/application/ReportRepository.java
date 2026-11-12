@@ -22,6 +22,9 @@ public interface ReportRepository {
     record DraftSummary(UUID id, UUID projectId, String title, Instant createdAt, Instant updatedAt,
                         Instant expiresAt, int version, UUID submittedReportId) { }
     record DraftPage(List<DraftSummary> items, boolean hasMore) { }
+    record Activity(String id, String eventCode, Instant occurredAt, String priorStatus, String newStatus,
+                    Integer priorVersion, Integer newVersion) { }
+    record ActivityPage(List<Activity> items, boolean hasMore) { }
     Optional<Membership> membership(UUID actor, UUID project);
     Report create(UUID actor, UUID project, UUID idempotencyKey, ReportData data, UUID requestId, Instant now);
     Page list(UUID actor, UUID project, String status, Boolean assignedToMe, int limit, Instant beforeUpdatedAt, UUID beforeId);
@@ -36,4 +39,5 @@ public interface ReportRepository {
     void deleteDraft(UUID actor, UUID project, UUID draft, int expectedVersion, UUID requestId, Instant now);
     Report updateReport(UUID actor, UUID project, UUID report, int expectedVersion, ReportData fields, UUID requestId, Instant now);
     Report submitDraft(UUID actor, UUID project, UUID draft, int expectedVersion, UUID key, UUID requestId, Instant now);
+    ActivityPage activity(UUID actor, UUID project, UUID report, int limit, Instant afterOccurredAt, Long afterId);
 }

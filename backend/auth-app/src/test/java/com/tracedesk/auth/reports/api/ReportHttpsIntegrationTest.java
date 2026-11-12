@@ -115,6 +115,45 @@ class ReportHttpsIntegrationTest {
                 assertEquals(reportId, parse(ownerDetail.body()).path("id").asText());
                 assertEquals(CANARY + "\nline two 🧭", parse(ownerDetail.body()).path("description").asText());
 
+                String activityPath = reports + "/" + reportId + "/activity";
+                HttpResponse<String> activity = request(reporter, base, "GET", activityPath, null, null);
+                assertEquals(200, activity.statusCode()); secure(activity);
+                JsonNode activityJson = parse(activity.body());
+                assertEquals(Set.of("items", "nextCursor"), Set.copyOf(onlyKeys(activityJson)));
+                assertEquals(1, activityJson.path("items").size());
+                JsonNode submitted = activityJson.path("items").get(0);
+                assertEquals(Set.of("id", "eventCode", "occurredAt", "priorStatus", "newStatus", "priorVersion", "newVersion"), Set.copyOf(onlyKeys(submitted)));
+                assertTrue(submitted.path("id").isTextual());
+                assertEquals("REPORT_CREATED", submitted.path("eventCode").asText());
+                assertTrue(submitted.path("priorStatus").isNull());
+                assertEquals("OPEN", submitted.path("newStatus").asText());
+                assertFalse(activity.body().contains(CANARY));
+                assertFalse(activity.body().contains(fixture.ownerId().toString()));
+                assertEquals(401, anonymous(base, clientTls, "GET", activityPath, null, null, null).statusCode());
+                for (Session staff : List.of(developer, qa)) assertEquals(403, request(staff, base, "GET", activityPath, null, null).statusCode());
+                for (Session invisible : List.of(otherReporter, foreignReporter)) {
+                    var hidden = request(invisible, base, "GET", activityPath, null, null);
+                    assertEquals(404, hidden.statusCode()); secure(hidden);
+                    assertFalse(hidden.body().contains("REPORT_CREATED"));
+                }
+                assertEquals(404, request(reporter, base, "GET", "/api/projects/" + fixture.foreignProjectId() + "/reports/" + reportId + "/activity", null, null).statusCode());
+                for (String query : List.of("?limit=0", "?limit=101", "?limit=-1", "?limit=no", "?limit=1&limit=2", "?role=REPORTER", "?actor=" + fixture.ownerId())) {
+                    var invalid = request(reporter, base, "GET", activityPath + query, null, null);
+                    assertEquals(400, invalid.statusCode()); assertEquals("INVALID_REQUEST", errorCode(invalid)); secure(invalid);
+                }
+                assertEquals(400, request(reporter, base, "GET", reports + "/bad-id/activity", null, null).statusCode());
+                var badActivityCursor = request(reporter, base, "GET", activityPath + "?cursor=tampered", null, null);
+                assertEquals(400, badActivityCursor.statusCode()); assertEquals("INVALID_CURSOR", errorCode(badActivityCursor));
+                assertTrue(sql.queryForObject("select count(*) from td_security_events where route_template=? and event_code='REPORT_CURSOR_INVALID'", Integer.class,
+                        "/api/projects/{projectId}/reports/{reportId}/activity") > 0);
+                sql.execute("alter table td_business_audit_events rename to td_business_audit_activity_unavailable");
+                try {
+                    var unavailableActivity = request(reporter, base, "GET", activityPath, null, null);
+                    assertEquals(503, unavailableActivity.statusCode()); secure(unavailableActivity);
+                    assertEquals("SERVICE_UNAVAILABLE", errorCode(unavailableActivity));
+                    assertFalse(unavailableActivity.body().contains("items"));
+                } finally { sql.execute("alter table td_business_audit_activity_unavailable rename to td_business_audit_events"); }
+
                 HttpResponse<String> replay = request(reporter, base, "POST", reports, body, key);
                 assertEquals(201, replay.statusCode(), replay.body());
                 assertEquals(reportId, parse(replay.body()).path("id").asText(), "same-key replay returns the same report");
@@ -227,18 +266,21 @@ class ReportHttpsIntegrationTest {
                 sql.update("update td_project_memberships set state='DISABLED' where project_id=? and user_id=?", fixture.projectId(), fixture.ownerId());
                 try {
                     assertEquals(404, request(reporter, base, "GET", reports + "/" + reportId, null, null).statusCode());
+                    assertEquals(404, request(reporter, base, "GET", activityPath, null, null).statusCode());
                 } finally {
                     sql.update("update td_project_memberships set state='ACTIVE' where project_id=? and user_id=?", fixture.projectId(), fixture.ownerId());
                 }
                 sql.update("update td_users set enabled=false where id=?", fixture.ownerId());
                 try {
                     assertEquals(404, request(reporter, base, "GET", reports + "/" + reportId, null, null).statusCode());
+                    assertEquals(404, request(reporter, base, "GET", activityPath, null, null).statusCode());
                 } finally {
                     sql.update("update td_users set enabled=true where id=?", fixture.ownerId());
                 }
                 sql.update("update td_projects set enabled=false where id=?", fixture.projectId());
                 try {
                     assertEquals(404, request(reporter, base, "GET", reports + "/" + reportId, null, null).statusCode());
+                    assertEquals(404, request(reporter, base, "GET", activityPath, null, null).statusCode());
                 } finally {
                     sql.update("update td_projects set enabled=true where id=?", fixture.projectId());
                 }
@@ -254,6 +296,7 @@ class ReportHttpsIntegrationTest {
                 HttpResponse<String> eventOutage;
                 try {
                     eventOutage = request(foreignReporter, base, "GET", reports + "/" + reportId, null, null);
+                    assertEquals(503, request(otherReporter, base, "GET", activityPath, null, null).statusCode());
                 } finally {
                     sql.execute("alter table td_security_events_unavailable rename to td_security_events");
                 }

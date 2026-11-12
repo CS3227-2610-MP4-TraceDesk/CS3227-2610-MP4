@@ -190,6 +190,8 @@ public final class ReporterBrowserFixture {
                         projectId, qaId);
                 sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'REPORTER','ACTIVE')",
                         projectId, reporterId);
+                sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'REPORTER','ACTIVE')",
+                        projectId, developerFixtureReporterId);
                 sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'DEVELOPER','ACTIVE')",
                         projectId, developerId);
                 sql.update("insert into td_project_memberships(project_id,user_id,role,state) values(?,?,'DEVELOPER','ACTIVE')",
@@ -203,6 +205,7 @@ public final class ReporterBrowserFixture {
                         deniedProjectId + "\",\"reporterId\":\"" + reporterId + "\",\"login\":\"" + login +
                         "\",\"nonmemberLogin\":\"" + nonmemberLogin + "\",\"developerLogin\":\"" +
                         developerLogin + "\",\"qaLogin\":\"" + qaLogin + "\",\"developerId\":\"" + developerId +
+                        "\",\"developerFixtureReporterLogin\":\"" + developerFixtureReporterLogin +
                         "\",\"assignedReportId\":\"" + assignedReportId +
                         "\",\"unassignedReportId\":\"" + unassignedReportId + "\"}");
                 Files.move(metadataTemp, metadata, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
