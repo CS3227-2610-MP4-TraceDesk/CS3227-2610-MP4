@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@openai/apps-sdk-ui/components/Button'
-import { ArrowLeft, Bug, Check, Folder, Search } from '@openai/apps-sdk-ui/components/Icon'
+import { ArrowLeft, Bug, Check, FileDocument, Folder, Search } from '@openai/apps-sdk-ui/components/Icon'
 import { Input } from '@openai/apps-sdk-ui/components/Input'
 import { QaQueue } from '../preview/qa/QaQueue'
 import { matchesBugSearch } from '../preview/qa/qaFixtures'
@@ -8,11 +8,16 @@ import { fetchReports, ReportApiError, type ReportSummary } from '../reports/rep
 import { AppShell } from '../shell/AppShell'
 import { SidebarGroup, SidebarItem } from '../shell/Sidebar'
 import { QaReportSummary } from './QaReportSummary'
+import { QaTemplateLibrary } from './QaTemplateLibrary'
+import { fetchQaTemplates, type QaTemplateRecord } from './qaTemplatesApi'
 import '../preview/qa/qa-preview.css'
 import '../preview/workspace-preview.css'
 import './qa-workspace.css'
 
-const items = [{ id: 'verification', label: 'Verification', icon: <Check /> }]
+const items = [
+  { id: 'verification', label: 'Verification', icon: <Check /> },
+  { id: 'templates', label: 'Test templates', icon: <FileDocument /> },
+]
 const statusLabels: Record<ReportSummary['status'], 'Open' | 'Investigating' | 'Ready for QA' | 'Closed'> = {
   OPEN: 'Open', IN_PROGRESS: 'Investigating', READY_FOR_QA: 'Ready for QA', CLOSED: 'Closed',
 }
@@ -33,6 +38,10 @@ export function QaWorkspace({
 }: QaWorkspaceProps) {
   const [area, setArea] = useState('verification')
   const [destination, setDestination] = useState<'awaiting' | 'all'>('awaiting')
+  const [templates, setTemplates] = useState<QaTemplateRecord[]>([])
+  const [templateId, setTemplateId] = useState('')
+  const [templatesStatus, setTemplatesStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
+  const [templateReload, setTemplateReload] = useState(0)
   const [search, setSearch] = useState('')
   const [decisionNotice, setDecisionNotice] = useState('')
   const [selectedId, setSelectedId] = useState('')
@@ -68,12 +77,30 @@ export function QaWorkspace({
     return () => controller.abort()
   }, [project.id, cursor, destination, reload, onSessionExpired])
 
+  useEffect(() => {
+    let active = true
+    void fetchQaTemplates(project.id).then(records => {
+      if (!active) return
+      setTemplates(records)
+      setTemplatesStatus('ready')
+    }, failure => {
+      if (!active) return
+      if (failure instanceof ReportApiError && failure.status === 401) onSessionExpired()
+      else {
+        if (failure instanceof ReportApiError && [403, 404].includes(failure.status)) setTemplates([])
+        setTemplatesStatus('failed')
+      }
+    })
+    return () => { active = false }
+  }, [project.id, templateReload, onSessionExpired])
+
   const selected = reports.find(report => report.id === selectedId)
   const bugs = reports.map(report => ({
     id: report.id, title: report.title, status: statusLabels[report.status], lastActivity: report.updatedAt,
   }))
   const matching = bugs.filter(bug => matchesBugSearch(bug, search))
   const settings = area === 'settings'
+  const library = area === 'templates'
   const queueName = destination === 'all' ? 'All bugs' : 'Awaiting verification'
 
   function selectDestination(next: typeof destination) {
@@ -88,7 +115,7 @@ export function QaWorkspace({
   }
 
   const pageControls = <div className="qa-page-controls">
-    {state === 'loading' && <p role="status">Loading reports…</p>}
+    {state === 'loading' && <p role="status">Loading reportsâ€¦</p>}
     {state === 'failed' && <>
       <p role="alert">{destination === 'all' ? 'Could not load project bugs.' : 'Could not load reports awaiting verification.'}</p>
       <Button color="secondary" variant="outline" onClick={() => {
@@ -104,12 +131,20 @@ export function QaWorkspace({
 
   return <AppShell items={items} activeId={area} onSelect={setArea}
     headerContent={<div className="qa-bug-header">
-      {selected && !settings && <Button color="secondary" variant="ghost" uniform
+      {selected && !settings && !library && <Button color="secondary" variant="ghost" uniform
         aria-label={destination === 'all' ? 'Back to all bugs' : 'Back to verification queue'} onClick={() => setSelectedId('')}><ArrowLeft /></Button>}
       <Folder aria-hidden="true" />
-      <span>{!settings && selected ? selected.title : project.name}</span>
+      <span>{!settings && !library && selected ? selected.title : project.name}</span>
     </div>}
-    sidebar={!settings ? {
+    sidebar={library ? {
+      title: 'Test templates',
+      renderItems: dismiss => <SidebarGroup title="Saved templates">
+        <SidebarItem label="All templates" icon={<FileDocument />} selected={!templateId}
+          onSelect={() => { setTemplateId(''); dismiss() }} />
+        {templates.map(template => <SidebarItem key={template.id} label={template.name} icon={<FileDocument />}
+          selected={templateId === template.id} onSelect={() => { setTemplateId(template.id); dismiss() }} />)}
+      </SidebarGroup>,
+    } : !settings ? {
       title: 'Verification',
       renderItems: dismiss => <>
         <div className="preview-sidebar-search">
@@ -136,11 +171,23 @@ export function QaWorkspace({
         </Button>
         <Button color="secondary" variant="outline" onClick={onChooseWorkspace}>Choose another project</Button>
         <Button color="secondary" variant="ghost" onClick={onSignOut} disabled={signingOut}>
-          {signingOut ? 'Signing out…' : 'Sign out'}
+          {signingOut ? 'Signing outâ€¦' : 'Sign out'}
         </Button>
       </div>
       {signOutError && <p role="alert">{signOutError}</p>}
-    </section> : <>
+    </section> : library ? <>
+      {templatesStatus === 'loading' && <p className="qa-queue-view" role="status">Loading test templates…</p>}
+      {templatesStatus === 'failed' && <div className="qa-queue-view">
+        <p role="alert">Could not load test templates.</p>
+        <Button color="secondary" variant="soft" onClick={() => {
+          setTemplatesStatus('loading')
+          setTemplateReload(value => value + 1)
+        }}>Retry</Button>
+      </div>}
+      {templatesStatus === 'ready' && <QaTemplateLibrary projectId={project.id} templates={templates}
+        onTemplatesChange={setTemplates} selectedId={templateId} onSelect={setTemplateId}
+        onSessionExpired={onSessionExpired} />}
+    </> : <>
       {!selected && decisionNotice && <p className="qa-queue-view" role="status">{decisionNotice}</p>}
       {state === 'denied' ? <section className="qa-queue-view">
         <h1>Verification</h1>
@@ -150,7 +197,7 @@ export function QaWorkspace({
         <QaQueue items={bugs} search={search} onSearch={setSearch} onOpenBug={setSelectedId}
           hidden={Boolean(selected)} awaitingOnly allBugs={destination === 'all'} footer={pageControls} />
       ) : <section className="qa-queue-view"><h1>{destination === 'all' ? queueName : 'Verification'}</h1>{pageControls}</section>}
-      {selected && <QaReportSummary key={selected.id} project={project} reportId={selected.id}
+      {selected && <QaReportSummary key={selected.id} project={project} reportId={selected.id} templates={templates}
         onSessionExpired={onSessionExpired} onDecision={({ status, version }) => {
           setReports(current => destination === 'awaiting'
             ? current.filter(report => report.id !== selected.id)

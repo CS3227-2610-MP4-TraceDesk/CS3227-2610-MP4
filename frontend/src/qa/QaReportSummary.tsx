@@ -4,6 +4,7 @@ import { Code, Sparkle } from '@openai/apps-sdk-ui/components/Icon'
 import { DeveloperApiError, fetchResolutions, type ProposedResolution } from '../developer/developerApi'
 import { QaReviewSummary } from '../preview/qa/QaReviewSummary'
 import type { QaBug } from '../preview/qa/qaFixtures'
+import type { TestTemplate } from '../preview/qa/qaTemplateFixtures'
 import { fetchReport, ReportApiError, type AssignmentResult, type ReportDetail, type ReportStatus } from '../reports/reportApi'
 import { Disclosure } from '../shared/Disclosure'
 import { QaAiPanel } from './QaAiPanel'
@@ -34,9 +35,10 @@ async function readResolutionHistory(projectId: string, reportId: string, signal
   return resolutions.sort((left, right) => right.revision - left.revision)
 }
 
-export function QaReportSummary({ project, reportId, onSessionExpired, onDecision, onAssignmentConfirmed }: {
+export function QaReportSummary({ project, reportId, onSessionExpired, onDecision, onAssignmentConfirmed, templates }: {
   project: { id: string; name: string }
   reportId: string
+  templates: TestTemplate[]
   onSessionExpired: () => void
   onDecision: (review: Verification) => void
   onAssignmentConfirmed: (reportId: string, result: AssignmentResult) => void
@@ -145,7 +147,7 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
     </div>}
     {verificationVisited && <div hidden={!verifying}>
       <QaVerification projectId={project.id} reportId={report.id} reportVersion={report.version} onSessionExpired={onSessionExpired}
-        review={review} setReview={setReview} busy={verificationBusy} setBusy={setVerificationBusy}
+        review={review} setReview={setReview} templates={templates} busy={verificationBusy} setBusy={setVerificationBusy}
         onSummary={() => setVerifying(false)} onSaved={review => {
           if (review.status !== 'READY_FOR_QA') onDecision(review)
           else setDetail(current => current && review.version > current.report.version
