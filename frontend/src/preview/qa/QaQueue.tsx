@@ -23,13 +23,14 @@ type QaQueueProps = {
   awaitingOnly?: boolean
   allBugs?: boolean
   footer?: React.ReactNode
+  filters?: React.ReactNode
   search: string
   onSearch: (value: string) => void
   onOpenBug: (id: string) => void
   hidden: boolean
 }
 
-export function QaQueue({ items, search, onSearch, onOpenBug, hidden, awaitingOnly, allBugs, footer }: QaQueueProps) {
+export function QaQueue({ items, search, onSearch, onOpenBug, hidden, awaitingOnly, allBugs, footer, filters }: QaQueueProps) {
   const [queue, setQueue] = useState<(typeof qaQueues)[number]>(qaQueues[0])
   const [layout, setLayout] = useState<'list' | 'grid'>('list')
   const [sort, setSort] = useState<'recent' | 'name'>('recent')
@@ -68,11 +69,11 @@ export function QaQueue({ items, search, onSearch, onOpenBug, hidden, awaitingOn
           </AnimatedPopover>
         </div>
       </header>
-      {!awaitingOnly && <div className="qa-queue-tabs" role="group" aria-label="Bug queues">
+      {filters ?? (!awaitingOnly && <div className="qa-queue-tabs" role="group" aria-label="Bug queues">
         {qaQueues.map(item => (
           <Button key={item.label} color="secondary" variant="ghost" size="lg" selected={queue === item} aria-pressed={queue === item} onClick={() => setQueue(item)}>{item.label}</Button>
         ))}
-      </div>}
+      </div>)}
       {layout === 'list' && <div className="qa-ticket-columns"><span>Name</span><span>Last activity</span></div>}
       <div className={layout === 'grid' ? 'qa-ticket-list qa-ticket-grid' : 'qa-ticket-list'}>
         {bugs.map(bug => (
