@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createReport, fetchReportActivity, isCanonicalUuid, ReportApiError } from './reportApi'
+import { createReport, fetchAssignment, fetchReportActivity, isCanonicalUuid, ReportApiError } from './reportApi'
 
 const projectId = '44b10495-a536-4c6e-a410-93bd2d9330fd'
 const reportId = '76989078-9c82-4ac5-9218-fc2b262f47e9'
@@ -120,5 +120,20 @@ describe('report activity transport', () => {
   ])('rejects private fields, unsupported events or invalid metadata', async invalid => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply(200, { items: [invalid], nextCursor: null })))
     await expect(fetchReportActivity(projectId, reportId, null)).rejects.toMatchObject({ status: 502, code: 'INVALID_RESPONSE' })
+  })
+})
+
+describe('QA assignment labels', () => {
+  it('accepts only bounded normalized-login labels paired with candidate IDs', async () => {
+    const candidate = '11111111-1111-4111-8111-111111111111'
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(reply(200, {
+      assignedDeveloperId: candidate, assignedDeveloperLogin: 'developer.one', assignmentEligible: true,
+      items: [{ id: candidate, login: 'developer.one' }], nextCursor: null, version: 2,
+    })).mockResolvedValueOnce(reply(200, {
+      assignedDeveloperId: candidate, assignedDeveloperLogin: null, assignmentEligible: true,
+      items: [{ id: candidate, login: 'developer.one' }], nextCursor: null, version: 2,
+    })))
+    await expect(fetchAssignment(projectId, reportId, null, new AbortController().signal)).resolves.toMatchObject({ assignedDeveloperLogin: 'developer.one' })
+    await expect(fetchAssignment(projectId, reportId, null, new AbortController().signal)).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
   })
 })

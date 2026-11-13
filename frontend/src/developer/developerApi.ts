@@ -1,5 +1,5 @@
 import { AuthApiError, getCsrfToken } from '../auth/sessionApi'
-import { fetchReport, fetchReports, isCanonicalUuid, isReportDetail, type ReportDetail, type ReportPage, type ReportStatus } from '../reports/reportApi'
+import { fetchReport, fetchReports, isCanonicalUuid, isReportDetail, type AssignmentResult, type ReportDetail, type ReportPage, type ReportStatus } from '../reports/reportApi'
 
 export type DeveloperContext = { project: { id: string; name: string }; role: 'DEVELOPER' }
 export type InvestigationNote = {
@@ -190,6 +190,22 @@ export function fetchDeveloperReport(projectId: string, reportId: string, signal
 export async function startInvestigation(projectId: string, reportId: string, expectedVersion: number, signal?: AbortSignal): Promise<ReportDetail> {
   const response = await mutate(`/api/projects/${projectId}/reports/${reportId}/investigation/start`, 'POST', JSON.stringify({ expectedVersion }), undefined, signal)
   return json(response, (value): value is ReportDetail => isReportDetail(value, projectId) && value.id === reportId && value.status === 'IN_PROGRESS')
+}
+
+function isAssignmentResult(value: unknown, expectedVersion: number, expectedAssignee: string | null): value is AssignmentResult {
+  return object(value) && exactKeys(value, ['assignedDeveloperId', 'version', 'updatedAt']) &&
+    value.assignedDeveloperId === expectedAssignee && Number.isSafeInteger(value.version) &&
+    Number(value.version) > expectedVersion && typeof value.updatedAt === 'string' && Number.isFinite(Date.parse(value.updatedAt))
+}
+
+export async function claimReport(projectId: string, reportId: string, expectedVersion: number, actorId: string, signal?: AbortSignal): Promise<AssignmentResult> {
+  return json(await mutate(`/api/projects/${projectId}/reports/${reportId}/claim`, 'POST', JSON.stringify({ expectedVersion }), undefined, signal),
+    (value): value is AssignmentResult => isAssignmentResult(value, expectedVersion, actorId))
+}
+
+export async function releaseReport(projectId: string, reportId: string, expectedVersion: number, reason: string, signal?: AbortSignal): Promise<AssignmentResult> {
+  return json(await mutate(`/api/projects/${projectId}/reports/${reportId}/release`, 'POST', JSON.stringify({ expectedVersion, reason }), undefined, signal),
+    (value): value is AssignmentResult => isAssignmentResult(value, expectedVersion, null))
 }
 
 export async function fetchNotes(projectId: string, reportId: string, cursor: string | null, signal?: AbortSignal): Promise<NotePage> {

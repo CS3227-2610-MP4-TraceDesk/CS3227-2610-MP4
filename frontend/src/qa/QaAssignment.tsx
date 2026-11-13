@@ -26,6 +26,7 @@ export function QaAssignment({ projectId, reportId, assignedDeveloperId, reportV
   const [message, setMessage] = useState('')
   const [denied, setDenied] = useState(false)
   const [refreshRequired, setRefreshRequired] = useState(false)
+  const [currentLabel, setCurrentLabel] = useState<{ id: string; login: string } | null>(null)
   const request = useRef<AbortController | null>(null)
 
   useEffect(() => () => request.current?.abort(), [])
@@ -67,7 +68,7 @@ export function QaAssignment({ projectId, reportId, assignedDeveloperId, reportV
       const next = await fetchAssignment(projectId, reportId, cursor, controller.signal)
       if (controller.signal.aborted) return
       if (cursor && page && (page.version !== next.version || page.assignmentEligible !== next.assignmentEligible ||
-        page.assignedDeveloperId !== next.assignedDeveloperId)) {
+        page.assignedDeveloperId !== next.assignedDeveloperId || page.assignedDeveloperLogin !== next.assignedDeveloperLogin)) {
         setRefreshRequired(true)
         setMessage('This assignment changed. Refresh it before trying again.')
         onRefresh()
@@ -75,6 +76,8 @@ export function QaAssignment({ projectId, reportId, assignedDeveloperId, reportV
       }
       const items = cursor && page ? [...page.items, ...next.items.filter(item => !page.items.some(existing => existing.id === item.id))] : next.items
       setPage({ ...next, items, nextCursor: next.nextCursor === cursor ? null : next.nextCursor })
+      setCurrentLabel(next.assignedDeveloperId && next.assignedDeveloperLogin
+        ? { id: next.assignedDeveloperId, login: next.assignedDeveloperLogin } : null)
       setRefreshRequired(false)
       if (next.version !== reportVersion) onRefresh()
     } catch (error) {
@@ -108,6 +111,8 @@ export function QaAssignment({ projectId, reportId, assignedDeveloperId, reportV
         ...(needsReason ? { reason } : {}),
       }, controller.signal)
       if (controller.signal.aborted) return
+      const selectedLogin = page.items.find(item => item.id === confirmed.assignedDeveloperId)?.login
+      setCurrentLabel(confirmed.assignedDeveloperId && selectedLogin ? { id: confirmed.assignedDeveloperId, login: selectedLogin } : null)
       setPage(null)
       setDeveloper('')
       setReason('')
@@ -125,7 +130,7 @@ export function QaAssignment({ projectId, reportId, assignedDeveloperId, reportV
 
   return <section className="qa-summary-fix qa-developer-assignment" aria-labelledby="qa-assignment-heading">
     <h2 id="qa-assignment-heading">Developer assignment</h2>
-    <p>Current developer: {currentDeveloper ?? 'Unassigned'}{currentDeveloper && page && !page.assignmentEligible ? ' (no longer eligible)' : ''}</p>
+    <p>Current developer: {currentDeveloper ? (currentLabel?.id === currentDeveloper ? currentLabel.login : page?.assignedDeveloperLogin ?? currentDeveloper) : 'Unassigned'}{currentDeveloper && page && !page.assignmentEligible ? ' (no longer eligible)' : ''}</p>
     {message && <p role={message === 'Developer assignment updated.' ? 'status' : 'alert'}>{message}</p>}
     {busy && <p role="status">{page ? 'Updating assignment details…' : 'Loading assignment details…'}</p>}
     {!closed && !denied && (!page || needsRefresh) && <Button type="button" color="secondary" variant="outline" size="sm"
@@ -135,7 +140,7 @@ export function QaAssignment({ projectId, reportId, assignedDeveloperId, reportV
       <Select id="qa-assignment-developer" value={developer} disabled={busy || needsRefresh}
         TriggerView={AssignmentTrigger} placeholder="Choose a developer" size="sm" listMaxWidth={360} onChange={item => setDeveloper(item.value)}
         options={[
-          ...choices.map(item => ({ value: item.id, label: item.id })),
+          ...choices.map(item => ({ value: item.id, label: item.login })),
           ...(currentDeveloper ? [{ value: clearAssignment, label: 'Clear assignment' }] : []),
         ]} />
       {!choices.length && !page.nextCursor && <p className="muted">No other eligible developers are available.</p>}

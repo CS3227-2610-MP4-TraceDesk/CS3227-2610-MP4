@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   fetchResolutions: vi.fn(),
   proposeResolution: vi.fn(),
   startInvestigation: vi.fn(),
+  claimReport: vi.fn(),
+  releaseReport: vi.fn(),
   createNote: vi.fn(),
   updateNote: vi.fn(),
   deleteNote: vi.fn(),
@@ -97,6 +99,27 @@ describe('Developer workspace', () => {
     expect(await screen.findByText('Private investigation notes are available only to the current assignee.')).toBeInTheDocument()
     expect(mocks.fetchNotes).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: 'Start investigation' })).not.toBeInTheDocument()
+  })
+
+  it('claims an open queue item and preserves the release reason on a stale failure', async () => {
+    window.history.replaceState(null, '', `/?workspace=developer&project=${project}`)
+    const unassigned = { ...report, assignedDeveloperId: null }
+    mocks.fetchDeveloperContext.mockResolvedValue({ project: { id: project, name: 'Developer Project' }, role: 'DEVELOPER' })
+    mocks.fetchDeveloperReports.mockResolvedValue({ items: [unassigned], nextCursor: null })
+    mocks.fetchDeveloperReport.mockResolvedValue(unassigned)
+    mocks.claimReport.mockResolvedValue({ assignedDeveloperId: actor, version: 2, updatedAt: '2026-11-08T00:03:00Z' })
+    mocks.releaseReport.mockRejectedValue(new DeveloperApiError(409, 'STALE_VERSION', 3))
+
+    render(<DeveloperWorkspace {...props()} />)
+    fireEvent.click((await screen.findByText(report.title, { exact: true })).closest('button')!)
+    fireEvent.click(await screen.findByRole('button', { name: 'Claim' }))
+    await waitFor(() => expect(mocks.claimReport).toHaveBeenCalledWith(project, reportId, 1, actor, expect.any(AbortSignal)))
+    const reason = await screen.findByLabelText('Reason')
+    fireEvent.change(reason, { target: { value: 'Waiting for the platform team' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Release' }))
+    await waitFor(() => expect(mocks.releaseReport).toHaveBeenCalledWith(project, reportId, 2, 'Waiting for the platform team', expect.any(AbortSignal)))
+    expect(await screen.findByText(/reason is preserved/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Reason')).toHaveValue('Waiting for the platform team')
   })
 
   it('preserves a note draft on a recoverable failure and removes actions after reassignment', async () => {

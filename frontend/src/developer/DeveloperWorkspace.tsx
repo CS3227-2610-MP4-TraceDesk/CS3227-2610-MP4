@@ -8,11 +8,12 @@ import { AppShell } from '../shell/AppShell'
 import { SidebarGroup, SidebarItem } from '../shell/Sidebar'
 import type { TrayItem } from '../shell/IconTray'
 import { ReportApiError, isCanonicalUuid, type ReportDetail, type ReportStatus, type ReportSummary } from '../reports/reportApi'
-import { reportFieldRules, reportFields } from '../reports/reportValidation'
+import { ReportDetailLayout } from '../reports/ReportDetailLayout'
 import { Disclosure } from '../shared/Disclosure'
 import { DeveloperAiPanel } from './DeveloperAiPanel'
 import {
   createNote,
+  claimReport,
   deleteNote,
   DeveloperApiError,
   fetchDeveloperContext,
@@ -21,6 +22,7 @@ import {
   fetchNotes,
   fetchResolutions,
   proposeResolution,
+  releaseReport,
   startInvestigation,
   updateNote,
   type DeveloperContext,
@@ -127,6 +129,7 @@ export function DeveloperWorkspace({
   const [investigationChanged, setInvestigationChanged] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
+  const [releaseReasons, setReleaseReasons] = useState<Record<string, string>>({})
   const contextAbort = useRef<AbortController | null>(null)
   const listAbort = useRef<AbortController | null>(null)
   const detailAbort = useRef<AbortController | null>(null)
@@ -145,6 +148,7 @@ export function DeveloperWorkspace({
   const canWriteNotes = Boolean(assigned && detail && (detail.status === 'IN_PROGRESS' || detail.status === 'READY_FOR_QA'))
   const canPropose = Boolean(assigned && detail?.status === 'IN_PROGRESS' && notesState !== 'denied')
   const resolutionDraft = draftKey ? resolutionDrafts[draftKey] ?? emptyResolution : emptyResolution
+  const releaseReason = draftKey ? releaseReasons[draftKey] ?? '' : ''
 
   useEffect(() => { detailRef.current = detail }, [detail])
   useEffect(() => { notesRef.current = notes }, [notes])
@@ -181,6 +185,7 @@ export function DeveloperWorkspace({
     setNoteDrafts({})
     setNoteAttempts({})
     setEditDrafts({})
+    setReleaseReasons({})
     setActionMessage(null)
     setActionBusy(false)
   }, [invalidateMutations])
@@ -528,6 +533,53 @@ export function DeveloperWorkspace({
     }
   }
 
+  async function claim() {
+    if (!detail || detail.status !== 'OPEN' || detail.assignedDeveloperId || actionBusy) return
+    setActionBusy(true); setActionMessage(null)
+    const { controller, scope } = beginMutation()
+    try {
+      const result = await claimReport(projectId, detail.id, detail.version, sessionUserId, controller.signal)
+      if (!mutationIsCurrent(controller, scope)) return
+      setDetail(current => current?.id === detail.id ? { ...current, ...result } : current)
+      setNotesState('ready')
+      setActionMessage('You claimed this bug after the server confirmed the change.')
+      await loadReports()
+    } catch (error) {
+      if (!mutationIsCurrent(controller, scope)) return
+      const failure = apiError(error); const outcome = handleAuthFailure(error)
+      if (outcome === 'denied') await recoverAfterDenied('This bug could not be claimed.', () => mutationIsCurrent(controller, scope))
+      else if (outcome === 'unavailable' || failure?.code === 'STALE_VERSION' || failure?.code === 'INVALID_STATE') {
+        setInvestigationChanged(true); setActionMessage('This claim could not be confirmed. Refresh the report before trying again.')
+      }
+    } finally { if (mutationIsCurrent(controller, scope)) { mutationAbort.current = null; setActionBusy(false) } }
+  }
+
+  async function release() {
+    if (!detail || !assigned || actionBusy) return
+    const reason = releaseReason
+    if (!reason.trim() || Array.from(reason).length > 500 || new TextEncoder().encode(reason).length > 2000) {
+      setActionMessage('Enter a release reason of at most 500 characters and 2,000 bytes.'); return
+    }
+    setActionBusy(true); setActionMessage(null)
+    const { controller, scope } = beginMutation()
+    try {
+      const result = await releaseReport(projectId, detail.id, detail.version, reason, controller.signal)
+      if (!mutationIsCurrent(controller, scope)) return
+      setDetail(current => current?.id === detail.id ? { ...current, ...result } : current)
+      setNotes([]); setNotesState('denied')
+      setReleaseReasons(current => ({ ...current, [draftKey]: '' }))
+      setActionMessage('You released this bug back to the queue.')
+      await loadReports()
+    } catch (error) {
+      if (!mutationIsCurrent(controller, scope)) return
+      const failure = apiError(error); const outcome = handleAuthFailure(error)
+      if (outcome === 'denied') await recoverAfterDenied('Your assignment changed. The bug was not released.', () => mutationIsCurrent(controller, scope))
+      else if (outcome === 'unavailable' || failure?.code === 'STALE_VERSION' || failure?.code === 'INVALID_STATE') {
+        setInvestigationChanged(true); setActionMessage('The release could not be confirmed. Your reason is preserved; refresh before trying again.')
+      } else if (failure?.code === 'VALIDATION_ERROR') setActionMessage('Check the release reason and try again.')
+    } finally { if (mutationIsCurrent(controller, scope)) { mutationAbort.current = null; setActionBusy(false) } }
+  }
+
   async function addNote() {
     if (!detail || !draftKey || !canWriteNotes || actionBusy) return
     const body = noteDraft
@@ -796,16 +848,24 @@ export function DeveloperWorkspace({
     if (detailState === 'loading') return <p className="developer-status" role="status">Loading bug…</p>
     if (detailState === 'denied' || detailState === 'unavailable') return <section className="developer-notice" role="alert"><h1>{detailState === 'denied' ? 'Bug unavailable' : 'Bug temporarily unavailable'}</h1><p>{detailState === 'denied' ? 'This bug is unavailable to your account.' : 'TraceDesk could not load this bug.'}</p><Button color="secondary" variant="outline" onClick={retryDetail}>Retry</Button><Button color="secondary" variant="ghost" onClick={() => selectReport(null)}>Back to bugs</Button></section>
     if (!detail) return null
-    return <article className="developer-detail"><div className="developer-detail-top"><Button color="secondary" variant="ghost" onClick={() => selectReport(null)}>Back to bugs</Button><Badge color={statusColor(detail.status)}>{statusLabel(detail.status)}</Badge><span className="developer-version">Version {detail.version}</span></div>
-      <div className="developer-title-row"><div><h1>{detail.title}</h1><p className="developer-detail-meta">Bug {detail.id} · {assigned ? 'Assigned to you' : detail.assignedDeveloperId ? 'Assigned to another Developer' : 'Unassigned'}</p></div>{assigned && notesState !== 'denied' && detail.status === 'OPEN' && <Button color="primary" disabled={actionBusy} loading={actionBusy} onClick={() => void start()}>Start investigation</Button>}</div>
-      {actionMessage && <p className="developer-action-message" role="status">{actionMessage}</p>}
-      {investigationChanged && <div className="developer-inline-notice developer-freshness-warning" role="alert"><p>The investigation changed since it was last refreshed. Your drafts are preserved.</p><Button color="secondary" variant="outline" onClick={retryDetail}>Refresh</Button></div>}
-      <dl className="developer-detail-fields">{reportFields.map(field => <div key={field} className={field === 'textLogs' ? 'developer-detail-field developer-detail-logs' : 'developer-detail-field'}><dt>{reportFieldRules[field].label}</dt><dd>{detail[field] || <span className="muted">No text provided</span>}</dd></div>)}</dl>
-      {assigned && detail.status === 'IN_PROGRESS' && notesState !== 'denied' && <DeveloperAiPanel key={`${projectId}:${detail.id}:${sessionUserId}`} projectId={projectId} reportId={detail.id} reportVersion={detail.version} notes={notes} disabled={actionBusy}
-        onSaveDraft={saveAiDraft} onProtectedFailure={handleAiProtectedFailure} onSourceStale={() => setInvestigationChanged(true)} />}
-      {renderResolutions()}
-      {renderNotes()}
-    </article>
+    const releaseTooLong = Array.from(releaseReason).length > 500 || new TextEncoder().encode(releaseReason).length > 2000
+    return <div className="developer-detail"><ReportDetailLayout report={{
+      id: detail.id, title: detail.title, statusLabel: statusLabel(detail.status), statusColor: statusColor(detail.status),
+      projectName: context?.project.name ?? detail.projectId, description: detail.description, environment: detail.environment,
+      expectedBehavior: detail.expectedBehavior, actualBehavior: detail.actualBehavior,
+      reproductionSteps: detail.reproductionSteps, textLogs: detail.textLogs,
+    }} metadata={<><span>{assigned ? 'Assigned to you' : detail.assignedDeveloperId ? 'Assigned to another Developer' : 'Unassigned'}</span><span>Version {detail.version}</span></>}
+      topActions={<><Button color="secondary" variant="ghost" onClick={() => selectReport(null)}>Back to bugs</Button>
+        {!detail.assignedDeveloperId && detail.status === 'OPEN' && <Button color="primary" disabled={actionBusy} loading={actionBusy} onClick={() => void claim()}>Claim</Button>}
+        {assigned && notesState !== 'denied' && detail.status === 'OPEN' && <Button color="primary" disabled={actionBusy} loading={actionBusy} onClick={() => void start()}>Start investigation</Button>}</>}
+      panels={<>
+        {(assigned && (detail.status === 'OPEN' || detail.status === 'IN_PROGRESS')) && <section className="developer-notes" aria-labelledby="developer-release-heading"><div className="developer-section-heading"><div><h2 id="developer-release-heading">Release assignment</h2><p>Return this bug to the queue with a reason.</p></div></div><label htmlFor="developer-release-reason">Reason</label><Textarea id="developer-release-reason" rows={2} value={releaseReason} invalid={releaseTooLong} disabled={actionBusy} onChange={event => setReleaseReasons(current => ({ ...current, [draftKey]: event.target.value }))} />{releaseTooLong && <p role="alert">Use at most 500 characters and 2,000 bytes.</p>}<div className="developer-note-actions"><Button color="secondary" variant="outline" disabled={actionBusy || !releaseReason.trim() || releaseTooLong} onClick={() => void release()}>Release</Button></div></section>}
+        {actionMessage && <p className="developer-action-message" role="status">{actionMessage}</p>}
+        {investigationChanged && <div className="developer-inline-notice developer-freshness-warning" role="alert"><p>The investigation changed since it was last refreshed. Your drafts are preserved.</p><Button color="secondary" variant="outline" onClick={retryDetail}>Refresh</Button></div>}
+        {assigned && detail.status === 'IN_PROGRESS' && notesState !== 'denied' && <DeveloperAiPanel key={`${projectId}:${detail.id}:${sessionUserId}`} projectId={projectId} reportId={detail.id} reportVersion={detail.version} notes={notes} disabled={actionBusy} onSaveDraft={saveAiDraft} onProtectedFailure={handleAiProtectedFailure} onSourceStale={() => setInvestigationChanged(true)} />}
+        {renderResolutions()}{renderNotes()}
+      </>} />
+    </div>
   }
 
   function renderSettings() {
