@@ -19,7 +19,8 @@ An active Developer in a project can see the reports assigned to them (My work)
 and the shared fields of every report in the project (All bugs). The currently
 assigned Developer can start investigation, keep private investigation notes,
 request Reporter clarification, and submit a proposed resolution that moves the
-report to QA. QA owns assignment, closure and rejection. Domain/application
+report to QA. Developers ordinarily self-pick work; QA owns assignment override,
+closure and rejection. Domain/application
 policy owns authorization, transitions, versioning and persistence; UI role state,
 preview fixtures and AI output are never identity or authority.
 
@@ -32,7 +33,7 @@ only Developer-owned behavior:
 | --- | --- |
 | Report fields, list/detail/progress, cursors, error shape and precedence | TD-RPT (unchanged) |
 | Lifecycle edges and `startInvestigation`/`proposeResolution` command signatures | TD-RPT (unchanged); this contract adds their HTTP interface, fields and audit |
-| Assignment, reassignment, clear and invalid-assignment recovery | TD-RPT rules; implementation in QA-ASSIGN #32 (TD-ASG) |
+| Developer claim/release and QA reassignment/clear override | **This contract** for claim/release; QA-ASSIGN #32 (TD-ASG) for override |
 | Clarification request/reply data, caps, versions and endpoints | TD-RPT; Developer request UI and tests here (TD-DEV-16–20) |
 | Developer context read, investigation notes, proposed resolutions | **This contract** |
 | QA rejection-reason representation | **This contract** (see [QA rejection representation](#qa-rejection-representation)) |
@@ -88,15 +89,19 @@ Design choices:
   only status through TD-RPT progress. This assumes Reporters may be external
   users (current leaning). If the team decides Reporters are internal
   employees, Reporter read access to resolutions should be revisited.
-- A Developer can never self-assign, reassign or clear an assignment (TD-RPT,
-  TD-ASG). Synthetic pre-assigned fixtures may support DEV-DATA tests, but they do
-  not prove the production assignment journey, which requires QA-ASSIGN #32.
+- An active same-project Developer may claim an unassigned `OPEN` report only for
+  themselves. They may release a report they currently hold while it is `OPEN` or
+  `IN_PROGRESS`; release requires a nonblank reason of at most 500 Unicode code
+  points and 2,000 UTF-8 bytes. Developers cannot name another assignee, reassign,
+  or clear someone else's assignment. QA retains the TD-ASG override.
 
 ## Lifecycle preconditions
 
 | Command | Actor | Required status | Result | Report version |
 | --- | --- | --- | --- | --- |
 | Start investigation | Assigned Developer | `OPEN` | `IN_PROGRESS` | +1 |
+| Claim | Active same-project Developer; report unassigned | `OPEN` | actor becomes assignee | +1 |
+| Release | Current assigned Developer; nonblank bounded reason | `OPEN` or `IN_PROGRESS` | assignment cleared | +1 |
 | Create/edit/delete any note on the report | Assigned Developer | `IN_PROGRESS` or `READY_FOR_QA` | note row changes | **unchanged** |
 | Request clarification | Assigned Developer | `IN_PROGRESS` or `READY_FOR_QA` | TD-RPT clarification request | +1 (TD-RPT) |
 | Propose resolution | Assigned Developer | `IN_PROGRESS` | resolution revision appended; `READY_FOR_QA` | +1 |
@@ -186,8 +191,8 @@ the audit event carries no reason text.
 
 ### Request bodies
 
-Every state-changing request body on a route introduced by this contract (start,
-note and resolution routes) is capped at 64 KiB including JSON framing; the
+Every state-changing request body on a route introduced by this contract (claim,
+release, start, note and resolution routes) is capped at 64 KiB including JSON framing; the
 TD-RPT clarification route keeps its own TD-RPT limits unchanged; the aggregate decoded text of a resolution is at most 48,800 UTF-8 bytes
 (the sum of its field maxima). Unknown fields, duplicate keys, nulls, wrong types
 and server-owned fields (`id`, actor/author, `projectId`, `reportId`, `status`,
@@ -208,6 +213,8 @@ unchanged.
 | `GET /api/projects/{projectId}/reports?assignedToMe=true` (existing) | TD-RPT bounded query | My work list |
 | `GET /api/projects/{projectId}/reports` (existing) | TD-RPT bounded query | All bugs list |
 | `POST /api/projects/{projectId}/reports/{reportId}/investigation/start` | `{expectedVersion}` | `200` TD-RPT report detail, status `IN_PROGRESS` |
+| `POST /api/projects/{projectId}/reports/{reportId}/claim` | `{expectedVersion}` | `200 {assignedDeveloperId,version,updatedAt}`; assignee is the session actor |
+| `POST /api/projects/{projectId}/reports/{reportId}/release` | `{expectedVersion,reason}` | `200 {assignedDeveloperId:null,version,updatedAt}` |
 | `GET /api/projects/{projectId}/reports/{reportId}/notes?limit=&cursor=` | bounded query | `200 {items,nextCursor}`; assigned Developer only |
 | `POST /api/projects/{projectId}/reports/{reportId}/notes` | `{body}`; `Idempotency-Key` | `201` note |
 | `PATCH /api/projects/{projectId}/reports/{reportId}/notes/{noteId}` | `{body,expectedVersion}` | `200` note |
@@ -242,6 +249,16 @@ step 7, outcomes are deterministic: a repeated start after success returns
 `409 INVALID_STATE` (report no longer `OPEN`); a repeated propose while the report
 is still `READY_FOR_QA` returns `409 INVALID_STATE`; a repeated propose after QA
 rejection has returned the report to `IN_PROGRESS` returns `409 STALE_VERSION`.
+
+Claim and release derive the actor from the trusted session and require CSRF.
+Their strict JSON bodies reject missing, null, unknown, duplicate or wrong-typed
+fields. After authorization and report locking, an incorrect expected version
+returns `STALE_VERSION` with the current authorized version. Claiming an assigned
+report or a report outside `OPEN`, and releasing a report not held by the actor or
+outside `OPEN`/`IN_PROGRESS`, return `INVALID_STATE`. Each success updates the
+assignee, timestamp and report version and inserts exactly one `REPORT_CLAIMED` or
+`REPORT_RELEASED` business audit event in the same transaction. The release reason
+is validated but is not stored in audit or returned.
 
 Note creation takes a required canonical UUID `Idempotency-Key` with TD-RPT replay
 semantics (operation `NOTE_CREATE`, 24-hour retention, SHA-256 body digest only,
@@ -406,7 +423,7 @@ drafts. AI never starts investigation, proposes a resolution or changes status.
 ## Acceptance criteria
 
 TD-DEV-01–05 are contract criteria for this issue: they may pass independent
-specification review. Runtime criteria TD-DEV-06–30 belong to the delivery issues
+specification review. Runtime criteria TD-DEV-06–34 belong to the delivery issues
 listed below and remain pending until implemented and verified on a recorded
 candidate. Implementation uses fresh TraceDesk migrations, isolated synthetic test
 databases and no `.env*` files or live data.
@@ -418,6 +435,10 @@ databases and no `.env*` files or live data.
 | **TD-DEV-03** | Start, note create/edit/delete and propose follow the precondition, locking, version, idempotency, atomic audit and denied/stale/failed/reassigned/concurrent outcomes above; note mutations do not change report version or `updated_at`. | Isolated PostgreSQL tests: one audit per success with exact per-event columns; rollback on audit failure; duplicate start (`INVALID_STATE`), duplicate propose before and after QA rejection (`INVALID_STATE`/`STALE_VERSION`); Developer note create versus QA reassignment under the global lock order without deadlock, and injected serialization failure yielding `503` with nothing committed; synchronized reassignment/revocation versus start, note and propose; QA reject versus Developer clarification; note replay and changed-body conflict. |
 | **TD-DEV-04** | Routes, request/response allowlists, error mapping, `developer-context`, and the My work/All bugs/detail/notes/clarification/handoff UI behavior match this contract with server-side trusted identity. | Per-route direct API tests for allowed/denied/stale/unavailable; step-4 role `403` with nonexistent report IDs; non-assignee `403` identical for real and random note IDs; forged actor/role/status/assignee fields; cursor binding; browser-to-real-backend journeys including stale/reassigned/session-expired states and input preservation. |
 | **TD-DEV-05** | Criteria map to tests and evidence; actual coordination and independent contract review are recorded without claiming unimplemented behavior or human approval. | Independent reviewer reads this contract for contradictions with TD-RPT/TD-AUTH, authorization-before-selection, transaction/audit coverage and test derivability; evidence records revision, findings and corrections under `workflow/developer/evidence/`. |
+| **TD-DEV-31** | An active same-project Developer can claim only an unassigned `OPEN` report for the trusted session actor with expected-version concurrency. | API and isolated PostgreSQL tests cover success, wrong role/project, inactive membership, assigned/non-open state, stale version and a competing claim. |
+| **TD-DEV-32** | The current assigned Developer can release an `OPEN` or `IN_PROGRESS` report only with a valid nonblank reason bounded to 500 code points and 2,000 UTF-8 bytes. | Boundary, multibyte, blank, wrong-assignee, state and stale tests; UI preserves the reason on recoverable failure. |
+| **TD-DEV-33** | Claim/release update the report and exactly one matching business audit event in one transaction; persistence or audit failure leaves neither partial change. | Migration constraint and rollback/concurrency integration tests for `REPORT_CLAIMED` and `REPORT_RELEASED`. |
+| **TD-DEV-34** | The Developer report detail offers Claim when eligible and Release/Start investigation when held, without weakening existing note, resolution, CSRF, identity or draft-preservation behavior. | API client validation and component tests for allowed, denied, stale and recoverable-failure states. |
 
 ### DEV-DATA (#27) executable acceptance criteria
 
@@ -508,5 +529,5 @@ approved product and architecture and were part of that review. This approval
 covers the contract only, not implementation, verification or release. Specified: behavior and future test mapping only. One independent
 contract review and its corrections are recorded in
 [DEV-PLAN evidence](../developer/evidence/developer-investigation-plan.md).
-TD-DEV-06–30 are worded in their GitHub delivery issues and are planned, not
-accepted. Pending: all runtime implementation and verification.
+TD-DEV-06–30 retain their owning delivery evidence status. TD-DEV-31–34 remain
+pending until claim/release implementation is verified.
