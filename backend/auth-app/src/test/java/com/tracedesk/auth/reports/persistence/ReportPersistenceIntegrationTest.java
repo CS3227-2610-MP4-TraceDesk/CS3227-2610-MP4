@@ -46,11 +46,12 @@ class ReportPersistenceIntegrationTest {
 
             assertEquals(2, reports.assignmentCandidates(qa, project, report, null, 25).items().size());
             var firstPage = reports.assignmentCandidates(qa, project, report, null, 1);
-            var lastPage = reports.assignmentCandidates(qa, project, report, firstPage.items().getFirst(), 1);
+            var lastPage = reports.assignmentCandidates(qa, project, report, firstPage.items().getFirst().id(), 1);
             assertTrue(firstPage.hasMore());
             assertFalse(lastPage.hasMore());
             assertEquals(java.util.Set.of(first, second),
-                    java.util.Set.of(firstPage.items().getFirst(), lastPage.items().getFirst()));
+                    java.util.Set.of(firstPage.items().getFirst().id(), lastPage.items().getFirst().id()));
+            assertTrue(firstPage.items().getFirst().login().startsWith("assignment-"));
             assertEquals("FORBIDDEN", assertThrows(ReportService.Failure.class,
                     () -> reports.changeAssignment(first, project, report, first, null, 1, UUID.randomUUID(), now)).code());
             assertEquals("INVALID_TARGET", assertThrows(ReportService.Failure.class,
@@ -73,7 +74,8 @@ class ReportPersistenceIntegrationTest {
             var invalid = reports.assignmentCandidates(qa, project, report, null, 25);
             assertEquals(first, invalid.assignedDeveloperId());
             assertFalse(invalid.assignmentEligible());
-            assertEquals(List.of(second), invalid.items());
+            assertEquals(List.of(second), invalid.items().stream().map(candidate -> candidate.id()).toList());
+            assertEquals("assignment-first@example.test", invalid.assignedDeveloperLogin());
             assertEquals("NOT_FOUND", assertThrows(ReportService.Failure.class,
                     () -> investigations.start(first, project, report, 3, UUID.randomUUID(), now)).code());
             assertEquals(second, reports.changeAssignment(qa, project, report, second, "Transfer", 3, UUID.randomUUID(), now).assignedDeveloperId());
@@ -97,6 +99,73 @@ class ReportPersistenceIntegrationTest {
                             where report_id=? and (prior_assignee_id is not null or new_assignee_id is not null)
                             order by id
                             """, String.class, report));
+        }
+    }
+
+    @Test void developerClaimAndReleaseAreVersionedAuthorizedAndAtomic() throws Exception {
+        try (IsolatedPostgres db = IsolatedPostgres.open(System.getenv())) {
+            Flyway.configure().dataSource(db).locations("classpath:db/migration").load().migrate();
+            JdbcTemplate sql = new JdbcTemplate(db);
+            ReportStore reports = new ReportStore(sql);
+            UUID project = UUID.randomUUID();
+            sql.update("insert into td_projects(id,name) values(?,?)", project, "Self pickup");
+            UUID reporter = member(sql, project, "claim-reporter", "REPORTER");
+            UUID developer = member(sql, project, "claim-developer", "DEVELOPER");
+            UUID other = member(sql, project, "claim-other", "DEVELOPER");
+            Instant now = Instant.parse("2026-11-13T01:02:03Z");
+            UUID report = reports.create(reporter, project, UUID.randomUUID(),
+                    new ReportData("Claim", "description", "environment", "steps", "expected", "actual", ""),
+                    UUID.randomUUID(), now).id();
+
+            assertEquals("FORBIDDEN", assertThrows(ReportService.Failure.class,
+                    () -> reports.claim(reporter, project, report, 1, UUID.randomUUID(), now)).code());
+            var claim = reports.claim(developer, project, report, 1, UUID.randomUUID(), now.plusSeconds(1));
+            assertEquals(developer, claim.assignedDeveloperId());
+            assertEquals(2, claim.version());
+            assertEquals("INVALID_STATE", assertThrows(ReportService.Failure.class,
+                    () -> reports.claim(other, project, report, 2, UUID.randomUUID(), now)).code());
+            assertEquals("STALE_VERSION", assertThrows(ReportService.Failure.class,
+                    () -> reports.release(developer, project, report, "Back to queue", 1, UUID.randomUUID(), now)).code());
+            assertEquals("VALIDATION_ERROR", assertThrows(ReportService.Failure.class,
+                    () -> reports.release(developer, project, report, "\u00a0", 2, UUID.randomUUID(), now)).code());
+            assertEquals("INVALID_STATE", assertThrows(ReportService.Failure.class,
+                    () -> reports.release(other, project, report, "Not mine", 2, UUID.randomUUID(), now)).code());
+
+            sql.execute("""
+                    create function fail_claim_release_audit() returns trigger language plpgsql as $$
+                    begin raise exception 'synthetic audit failure'; end $$
+                    """);
+            sql.execute("create trigger fail_claim_release_audit before insert on td_business_audit_events for each row execute function fail_claim_release_audit()");
+            assertThrows(DataAccessException.class, () -> reports.release(developer, project, report,
+                    "Back to queue", 2, UUID.randomUUID(), now.plusSeconds(2)));
+            assertEquals(developer, reports.detail(developer, project, report).orElseThrow().assignedDeveloperId());
+            assertEquals(2, reports.detail(developer, project, report).orElseThrow().version());
+            sql.execute("drop trigger fail_claim_release_audit on td_business_audit_events");
+
+            var release = reports.release(developer, project, report, "Back to queue", 2,
+                    UUID.randomUUID(), now.plusSeconds(3));
+            assertNull(release.assignedDeveloperId());
+            assertEquals(3, release.version());
+            assertEquals(List.of("REPORT_CLAIMED", "REPORT_RELEASED"), sql.queryForList("""
+                    select event_code from td_business_audit_events
+                     where report_id=? and event_code in ('REPORT_CLAIMED','REPORT_RELEASED') order by id
+                    """, String.class, report));
+
+            UUID racedReport = reports.create(reporter, project, UUID.randomUUID(),
+                    new ReportData("Race", "description", "environment", "steps", "expected", "actual", ""),
+                    UUID.randomUUID(), now).id();
+            var ready = new CountDownLatch(2); var start = new CountDownLatch(1);
+            try (var workers = Executors.newFixedThreadPool(2)) {
+                var first = workers.submit(() -> assignmentRace(ready, start,
+                        () -> reports.claim(developer, project, racedReport, 1, UUID.randomUUID(), now)));
+                var second = workers.submit(() -> assignmentRace(ready, start,
+                        () -> reports.claim(other, project, racedReport, 1, UUID.randomUUID(), now)));
+                assertTrue(ready.await(5, TimeUnit.SECONDS)); start.countDown();
+                assertEquals(java.util.Set.of("SUCCESS", "STALE_VERSION"),
+                        java.util.Set.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS)));
+            }
+            assertEquals(2, reports.detail(developer, project, racedReport).orElseThrow().version());
+            assertEquals(1, sql.queryForObject("select count(*) from td_business_audit_events where report_id=? and event_code='REPORT_CLAIMED'", Integer.class, racedReport));
         }
     }
 

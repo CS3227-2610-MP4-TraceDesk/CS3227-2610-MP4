@@ -281,8 +281,9 @@ export async function updateReport(projectId: string, reportId: string, body: st
 
 export type AssignmentResult = Pick<ReportSummary, 'assignedDeveloperId' | 'version' | 'updatedAt'>
 export type AssignmentPage = Omit<AssignmentResult, 'updatedAt'> & {
+  assignedDeveloperLogin: string | null
   assignmentEligible: boolean
-  items: { id: string }[]
+  items: { id: string; login: string }[]
   nextCursor: string | null
 }
 
@@ -296,8 +297,11 @@ export async function fetchAssignment(projectId: string, reportId: string, curso
   const query = cursor ? '?' + new URLSearchParams({ cursor }).toString() : ''
   const response = await request(`/api/projects/${projectId}/reports/${reportId}/assignment${query}`, signal)
   return jsonOrThrow(response, (value): value is AssignmentPage => isAssignmentState(value) &&
+    (value.assignedDeveloperId === null ? value.assignedDeveloperLogin === null :
+      (typeof value.assignedDeveloperLogin === 'string' && value.assignedDeveloperLogin.length > 0 && value.assignedDeveloperLogin.length <= 254)) &&
     typeof value.assignmentEligible === 'boolean' && Array.isArray(value.items) &&
-    value.items.every(item => isObject(item) && typeof item.id === 'string' && isCanonicalUuid(item.id)) &&
+    value.items.every(item => isObject(item) && typeof item.id === 'string' && isCanonicalUuid(item.id) &&
+      typeof item.login === 'string' && item.login.length > 0 && item.login.length <= 254) &&
     (value.nextCursor === null || (typeof value.nextCursor === 'string' && value.nextCursor.length > 0)))
 }
 

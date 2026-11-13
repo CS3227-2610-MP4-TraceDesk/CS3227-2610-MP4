@@ -357,8 +357,10 @@ describe('login and server session flow', () => {
       if (path === `${reportPath}/qa-comments`) return reply(200, { items: [], nextCursor: null })
       if (path === `${reportPath}/assignment`) {
         if (init?.method !== 'PATCH') return reply(200, {
-          assignedDeveloperId: report.assignedDeveloperId, assignmentEligible: report.assignedDeveloperId === candidate,
-          items: [{ id: candidate }], nextCursor: null, version: report.version,
+          assignedDeveloperId: report.assignedDeveloperId,
+          assignedDeveloperLogin: report.assignedDeveloperId ? (report.assignedDeveloperId === candidate ? 'developer.one' : 'developer.current') : null,
+          assignmentEligible: report.assignedDeveloperId === candidate,
+          items: [{ id: candidate, login: 'developer.one' }], nextCursor: null, version: report.version,
         })
         expect(new Headers(init.headers).get('X-CSRF-TOKEN')).toBe('synthetic-csrf')
         const change = JSON.parse(String(init.body)) as { developerId?: string }
@@ -379,7 +381,7 @@ describe('login and server session flow', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Refund display duplicates.*Open/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Manage assignment' }))
     fireEvent.keyDown(await screen.findByRole('button', { name: /Choose a developer/ }), { key: 'ArrowDown' })
-    fireEvent.pointerUp(await screen.findByRole('option', { name: candidate }))
+    fireEvent.pointerUp(await screen.findByRole('option', { name: 'developer.one' }))
     fireEvent.change(screen.getByLabelText('Reason'), { target: { value: ' Move to the payments team ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save assignment' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('This assignment changed')
@@ -389,7 +391,7 @@ describe('login and server session flow', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save assignment' })).toBeEnabled())
     fireEvent.click(screen.getByRole('button', { name: 'Save assignment' }))
     expect(await screen.findByText('Developer assignment updated.')).toBeVisible()
-    expect(screen.getByText(`Current developer: ${candidate}`)).toBeVisible()
+    expect(screen.getByText('Current developer: developer.one')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Manage assignment' }))
     fireEvent.keyDown(await screen.findByRole('button', { name: /Choose a developer/ }), { key: 'ArrowDown' })
     fireEvent.pointerUp(await screen.findByRole('option', { name: 'Clear assignment' }))
@@ -398,10 +400,10 @@ describe('login and server session flow', () => {
     expect(await screen.findByText('Current developer: Unassigned')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Manage assignment' }))
     fireEvent.keyDown(await screen.findByRole('button', { name: /Choose a developer/ }), { key: 'ArrowDown' })
-    fireEvent.pointerUp(await screen.findByRole('option', { name: candidate }))
+    fireEvent.pointerUp(await screen.findByRole('option', { name: 'developer.one' }))
     expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Save assignment' }))
-    expect(await screen.findByText(`Current developer: ${candidate}`)).toBeVisible()
+    expect(await screen.findByText('Current developer: developer.one')).toBeVisible()
     expect(patches).toEqual([
       { developerId: candidate, expectedVersion: 3, reason: ' Move to the payments team ' },
       { developerId: candidate, expectedVersion: 4, reason: ' Move to the payments team ' },

@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createNote,
+  claimReport,
   deleteNote,
   fetchDeveloperContext,
   fetchDeveloperReports,
   fetchNotes,
   fetchResolutions,
   proposeResolution,
+  releaseReport,
   requestInvestigationSuggestions,
   startInvestigation,
   updateNote,
@@ -147,6 +149,26 @@ describe('developer API', () => {
     expect(new Headers(fetchMock.mock.calls[3][1]?.headers).get('Idempotency-Key')).toBe('66666666-6666-4666-8666-666666666666')
     expect(fetchMock.mock.calls[5][1]).toMatchObject({ method: 'PATCH', body: JSON.stringify({ body: 'edited', expectedVersion: 1 }) })
     expect(fetchMock.mock.calls[7][0]).toContain('expectedVersion=2')
+  })
+
+  it('claims and releases only server-confirmed assignments with strict result validation', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(200, { token: 'csrf' }))
+      .mockResolvedValueOnce(response(200, { assignedDeveloperId: actor, version: 2, updatedAt: '2026-11-08T00:02:00Z' }))
+      .mockResolvedValueOnce(response(200, { token: 'csrf' }))
+      .mockResolvedValueOnce(response(200, { assignedDeveloperId: null, version: 3, updatedAt: '2026-11-08T00:03:00Z' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(claimReport(project, report, 1, actor)).resolves.toMatchObject({ assignedDeveloperId: actor, version: 2 })
+    await expect(releaseReport(project, report, 2, 'Queue for another developer')).resolves.toMatchObject({ assignedDeveloperId: null, version: 3 })
+    expect(fetchMock.mock.calls[1][0]).toBe(`/api/projects/${project}/reports/${report}/claim`)
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'POST', body: JSON.stringify({ expectedVersion: 1 }) })
+    expect(fetchMock.mock.calls[3][0]).toBe(`/api/projects/${project}/reports/${report}/release`)
+    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: 'POST', body: JSON.stringify({ expectedVersion: 2, reason: 'Queue for another developer' }) })
+
+    fetchMock.mockResolvedValueOnce(response(200, { token: 'csrf' }))
+      .mockResolvedValueOnce(response(200, { assignedDeveloperId: actor, version: 4, updatedAt: '2026-11-08T00:04:00Z' }))
+    await expect(releaseReport(project, report, 3, 'Still mine')).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
   })
 
   it('validates note pages and rejects cross-report notes', async () => {

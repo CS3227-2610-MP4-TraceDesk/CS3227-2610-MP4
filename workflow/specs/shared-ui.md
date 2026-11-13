@@ -59,6 +59,15 @@ AI restores the document width. Switching bugs restores each bug's own tab,
 conversation and draft. Another bug's text/results cannot leak into the selection.
 Essential report, fix and verification content stays accessible without the map.
 
+The QA Summary report document is the shared report-detail layout for Reporter,
+Developer and QA. One shared presentational component owns the centered document,
+status/ID/title metadata, report field sections and responsive structure. Each role
+slots its authorized actions and supplementary panels into that layout: Reporter
+editing, Developer claim/release/start plus notes and resolution, and QA verification
+plus assignment override. Role workspaces retain their existing data loading,
+permission decisions, drafts, stale recovery and mutation behavior; the shared
+component is presentation, never an authorization source.
+
 The existing summary popover is a contextual shortcut to this bug's resources,
 not a pinned PR summary. Use its actual SDK anchor, grouped rows, available-width
 clamp and keyboard focus handling from the reference CSS and component behavior.
@@ -119,6 +128,7 @@ specification before integration.
 | TD-UI-08 | Keyboard labels/focus/tab/disclosure behavior, contrast and reduced motion are verified | Focused accessibility scan plus manual keyboard/reduced-motion checks |
 | TD-UI-09 | Untrusted content renders safely; unavailable/denied/stale states are explicit without fabricated success | Synthetic text/AI failure fixtures and integration tests when APIs exist |
 | TD-UI-10 | Production integration retains real identity/security contracts; demo role switching, AI and file counts remain isolated fixtures | Review imports, feature integration checks and owning security tests |
+| TD-UI-11 | Reporter, Developer and QA authenticated report details use one shared QA-based presentational layout with role-specific action/panel slots and no behavior or draft loss. | Shared component tests plus role workspace tests at narrow and desktop widths, including stale/denied recovery and draft preservation. |
 
 All criteria remain pending for the production frontend. Screenshots of the
 prototype and a passing documentation check do not mark them implemented.

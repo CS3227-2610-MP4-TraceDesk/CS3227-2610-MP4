@@ -11,6 +11,7 @@ import { createDraft, createReport, deleteDraft, fetchDraft, fetchDrafts, fetchP
 import { emptyReport, reportFieldRules, reportFields, validateReport, type FieldErrors, type ReportField, type ReportValues } from './reportValidation'
 import { ReporterAiPanel } from './ReporterAiPanel'
 import { ReportActivity } from './ReportActivity'
+import { ReportDetailLayout } from './ReportDetailLayout'
 import './reporter-workspace.css'
 
 type WorkspaceArea = 'reports' | 'settings'
@@ -1153,27 +1154,15 @@ export function ReporterWorkspace({
     if (detailLoading) return <p className="report-status-message" role="status">Loading report…</p>
     if (!detail && detailError) return <section className="report-notice" role="alert"><p>{detailError}</p><Button color="secondary" variant="outline" onClick={retryDetail}>Retry</Button><Button color="secondary" variant="ghost" onClick={returnToList}>Back to reports</Button></section>
     if (!detail) return <p className="report-status-message" role="status">Loading report…</p>
-    return (
-      <article className="report-detail">
-        <div className="report-detail-top">
-          <Button color="secondary" variant="ghost" onClick={returnToList}>Back to reports</Button>
-          <Badge color={statusColor(detail.status)}>{statusLabel(detail.status)}</Badge>
-          <span className="report-version">Version {detail.version}</span>
-          {detail.status === 'OPEN' && <Button color="primary" variant="outline" onClick={beginReportEdit}>Edit report</Button>}
-        </div>
-        <h1>{detail.title}</h1>
-        <p className="report-detail-meta">Report {detail.id} · Updated {new Date(detail.updatedAt).toLocaleString()}</p>
-        <dl className="report-detail-fields">
-          {reportFields.map(field => (
-            <div key={field} className={field === 'textLogs' ? 'report-detail-field report-detail-logs' : 'report-detail-field'}>
-              <dt>{reportFieldRules[field].label}</dt>
-              <dd>{detail[field] || <span className="muted">No logs provided</span>}</dd>
-            </div>
-          ))}
-        </dl>
-        <ReportActivity key={`${projectId}:${detail.id}:${detail.version}`} projectId={projectId} reportId={detail.id} onProtectedFailure={handleProtectedFailure} onRefresh={retryDetail} />
-      </article>
-    )
+    return <div className="report-detail"><ReportDetailLayout report={{
+      id: detail.id, title: detail.title, statusLabel: statusLabel(detail.status), statusColor: statusColor(detail.status),
+      projectName: context?.project.name ?? detail.projectId, description: detail.description, environment: detail.environment,
+      expectedBehavior: detail.expectedBehavior, actualBehavior: detail.actualBehavior,
+      reproductionSteps: detail.reproductionSteps, textLogs: detail.textLogs,
+    }} metadata={<span>Updated {new Date(detail.updatedAt).toLocaleString()} · Version {detail.version}</span>}
+      topActions={<><Button color="secondary" variant="ghost" onClick={returnToList}>Back to reports</Button>{detail.status === 'OPEN' && <Button color="primary" variant="outline" onClick={beginReportEdit}>Edit report</Button>}</>}
+      activitySection={<ReportActivity key={`${projectId}:${detail.id}:${detail.version}`} projectId={projectId} reportId={detail.id} onProtectedFailure={handleProtectedFailure} onRefresh={retryDetail} />} />
+    </div>
   }
 
   function renderComposer() {

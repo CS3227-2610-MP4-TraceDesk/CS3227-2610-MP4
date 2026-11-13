@@ -15,8 +15,10 @@ public interface ReportRepository {
                    UUID assignedDeveloperId, Instant createdAt, Instant updatedAt, int version) { }
     record Page(List<Summary> items, boolean hasMore) { }
     record Assignment(UUID assignedDeveloperId, int version, Instant updatedAt) { }
-    record AssignmentCandidates(UUID assignedDeveloperId, boolean assignmentEligible, int version,
-                                List<UUID> items, boolean hasMore) { }
+    record AssignmentCandidate(UUID id, String login) { }
+    record AssignmentCandidates(UUID assignedDeveloperId, String assignedDeveloperLogin,
+                                boolean assignmentEligible, int version,
+                                List<AssignmentCandidate> items, boolean hasMore) { }
     record Draft(UUID id, UUID projectId, UUID ownerId, ReportData fields, Instant createdAt,
                  Instant updatedAt, Instant expiresAt, int version, UUID submittedReportId) { }
     record DraftSummary(UUID id, UUID projectId, String title, Instant createdAt, Instant updatedAt,
@@ -32,6 +34,9 @@ public interface ReportRepository {
     AssignmentCandidates assignmentCandidates(UUID actor, UUID project, UUID report, UUID after, int limit);
     Assignment changeAssignment(UUID actor, UUID project, UUID report, UUID developer, String reason,
                                 int expectedVersion, UUID requestId, Instant now);
+    Assignment claim(UUID actor, UUID project, UUID report, int expectedVersion, UUID requestId, Instant now);
+    Assignment release(UUID actor, UUID project, UUID report, String reason, int expectedVersion,
+                       UUID requestId, Instant now);
     Draft createDraft(UUID actor, UUID project, UUID key, ReportData fields, UUID requestId, Instant now);
     DraftPage listDrafts(UUID actor, UUID project, int limit, Instant beforeUpdatedAt, UUID beforeId, Instant now);
     Optional<Draft> draft(UUID actor, UUID project, UUID draft, Instant now);

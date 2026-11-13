@@ -69,13 +69,20 @@ public final class ReportService {
         var page = repository.assignmentCandidates(actor, project, report, after, ASSIGNMENT_PAGE_SIZE);
         String next = page.hasMore() ? cursors.issue(new ReportCursorSigner.Cursor(
                 actor, project, ASSIGNMENT_CURSOR, report.toString(), Instant.EPOCH,
-                page.items().getLast(), clock.millis())) : null;
+                page.items().getLast().id(), clock.millis())) : null;
         return new AssignmentPage(page, next);
     }
 
     public ReportRepository.Assignment changeAssignment(UUID actor, UUID project, UUID report, UUID developer,
                                                          String reason, int version, UUID requestId) {
         return repository.changeAssignment(actor, project, report, developer, reason, version, requestId, clock.instant());
+    }
+    public ReportRepository.Assignment claim(UUID actor, UUID project, UUID report, int version, UUID requestId) {
+        return repository.claim(actor, project, report, version, requestId, clock.instant());
+    }
+    public ReportRepository.Assignment release(UUID actor, UUID project, UUID report, String reason,
+                                                int version, UUID requestId) {
+        return repository.release(actor, project, report, reason, version, requestId, clock.instant());
     }
     public record ActivityResult(java.util.List<ReportRepository.Activity> items, String nextCursor) { }
     public ActivityResult activity(UUID actor, UUID project, UUID report, Integer requestedLimit, String cursor) {

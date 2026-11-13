@@ -1,6 +1,8 @@
-# QA Developer assignment
+# QA assignment override
 
-Issue #32. The QA contributor owns assignment so eligible Developers can start investigation.
+Issue #32. Developer self-pickup is the ordinary assignment path. QA retains an
+override so eligible Developers can be routed to work or a stuck report can be
+returned to the queue.
 The [report contract](reporter-reports.md) defines the allowed states, reason limits, and access rules.
 
 ## Workspace and API
@@ -10,10 +12,14 @@ contains the current assignment and controls to assign, reassign, or clear it.
 Closed reports show the recorded assignment without mutation controls.
 
 - `GET /api/projects/{projectId}/reports/{reportId}/assignment?cursor=…`
-  returns `{assignedDeveloperId, assignmentEligible, items, nextCursor, version}`.
+  returns `{assignedDeveloperId, assignedDeveloperLogin, assignmentEligible, items, nextCursor, version}`.
   The current assignee can be null. The eligibility flag describes the current assignee.
-  Each candidate contains only `id`. Pages are limited to 25 eligible same-project
-  Developers, ordered by UUID. The cursor is signed and bound to actor, project, and report.
+  Each candidate contains only `{id, login}`, where `login` is the Developer's
+  `td_users.login_normalized`; the nullable current-assignee login uses the same
+  label. Pages are limited to 25 active same-project Developers, ordered by UUID.
+  Only a same-project QA reviewer can read this endpoint. It is an assignment
+  picker, not a general user directory. The cursor is signed and bound to actor,
+  project, and report.
 - `PATCH` to the same route takes `{expectedVersion, developerId?, reason?}`.
   Omitting the Developer ID clears the current assignment. Reassignment and clear
   require a nonblank reason. The limit is 500 Unicode code points and 2,000 UTF-8
@@ -23,6 +29,12 @@ Closed reports show the recorded assignment without mutation controls.
   assignee returns `INVALID_STATE`. An ineligible target returns `INVALID_TARGET`
   without distinguishing absent, wrong-project, inactive, or wrong-role targets.
   Stale commands return `STALE_VERSION` and the current authorized version.
+
+QA is the lifecycle gatekeeper: it sees stalled claims, failed verifications and
+reopen cycles, so it can return a stuck bug to the queue or route it to a
+Developer. Developers already present in the bug's history are the usual target,
+but no separate directory is exposed. A reason is required for reassignment and
+clear.
 
 The server derives the actor from the authenticated session and checks CSRF for
 writes. The mutation locks actor/project/membership and target eligibility before
@@ -41,3 +53,5 @@ operations continue to require fresh active membership and a current assignment.
 | TD-ASG-03 | The report and business audit update together. Failed and concurrent requests commit no partial change. |
 | TD-ASG-04 | Disabled or former Developers lose access while QA can recover the historical assignment. |
 | TD-ASG-05 | API and isolated database tests cover allowed, denied, stale and rollback cases. |
+| TD-ASG-06 | Candidate and current-assignee labels are normalized logins returned only to active same-project QA; no general Developer directory is exposed. |
+| TD-ASG-07 | QA override remains available for eligible assignment, reasoned reassignment and reasoned clear across stalled claims, failed verification and reopen cycles. |
