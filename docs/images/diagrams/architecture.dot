@@ -1,0 +1,23 @@
+digraph Architecture {
+  graph [rankdir=TB, bgcolor="white", pad="0.3", nodesep="0.4", ranksep="0.6", label="TraceDesk — UML component view", labelloc=t, fontname="Helvetica", fontsize=20];
+  node [shape=component, fontname="Helvetica", fontsize=13, style=filled, fillcolor="#f3f6fa", color="#53657d", margin="0.18,0.12"];
+  edge [fontname="Helvetica", fontsize=11, color="#53657d"];
+  ui [label="React / TypeScript\nrole workspaces + shared shell"];
+  security [label="auth-app\nSession / CSRF / trusted actor"];
+  app [label="auth-app\nApplication services + role AI adapters"];
+  domain [label="Domain policies\nValidation + lifecycle rules"];
+  persistence [label="Persistence adapters\nJDBC / transactions / migrations"];
+  gateway [label="ai-gateway\nSecured facade + admission / accounting"];
+  transport [label="ai-transport\nInternal bounded provider adapter"];
+  db [shape=cylinder,label="PostgreSQL\nBusiness data / audit / sessions / AI ledger"];
+  provider [label="SoCLaaS\nConfigured external provider"];
+  ui -> security [label="HTTPS / JSON"];
+  security -> app [label="authenticated request"];
+  app -> domain [style=dashed, label="depends on"];
+  app -> persistence [label="repository ports"];
+  persistence -> db;
+  app -> gateway [label="authorized typed context"];
+  gateway -> transport;
+  transport -> provider [label="bounded HTTPS"];
+  gateway -> persistence [style=dashed, label="accounting port", constraint=false];
+}

@@ -1,0 +1,21 @@
+digraph Domain {
+  graph [rankdir=TB,bgcolor="white",pad="0.3",nodesep="0.5",ranksep="0.65",label="TraceDesk — conceptual UML class model",labelloc=t,fontname="Helvetica",fontsize=20];
+  node [shape=record,fontname="Helvetica",fontsize=12,style=filled,fillcolor="#f3f6fa",color="#53657d",margin="0.15,0.1"];
+  edge [fontname="Helvetica",fontsize=10,color="#53657d",dir=none];
+  Account [label="{Account|id: UUID\lrole: AccountRole\lenabled: boolean\l}"];
+  Project [label="{Project|id: UUID\lname: String\lenabled: boolean\l}"];
+  Membership [label="{ProjectMembership|userId: UUID\lprojectId: UUID\lstate: MembershipState\l}"];
+  Draft [label="{ReportDraft|id: UUID\lownerUserId: UUID\lexpiresAt: Instant\lversion: int\lsubmittedReportId: UUID [0..1]\l}"];
+  Report [label="{Report|id: UUID\lprojectId: UUID\lreporterUserId: UUID\lassignedDeveloperId: UUID [0..1]\lstatus: ReportStatus\lversion: int\l}"];
+  Note [label="{InvestigationNote|id: UUID\lauthorUserId: UUID\lbody: String\lversion: int\l}"];
+  Resolution [label="{ProposedResolution|id: UUID\lrevision: int\lrootCause: String\lchangeSummary: String\lverificationSteps: String\lfixReference: String\l}"];
+  Verification [label="{QaVerification|resolutionId: UUID\lchecks: Check[]\lnotes: String\ldecision: SAVE / CLOSE / SEND_BACK\lreason: String\l}"];
+  Account -> Membership [taillabel="1",headlabel="0..*",label="has"];
+  Project -> Membership [taillabel="1",headlabel="0..*",label="has"];
+  Account -> Draft [taillabel="1",headlabel="0..*",label="owns"];
+  Project -> Report [taillabel="1",headlabel="0..*",label="contains"];
+  Draft -> Report [taillabel="0..1",headlabel="0..1",label="submitted as"];
+  Report -> Note [taillabel="1",headlabel="0..*",label="private investigation"];
+  Report -> Resolution [taillabel="1",headlabel="0..*",label="immutable revisions"];
+  Resolution -> Verification [taillabel="1",headlabel="0..1",label="reviewed by"];
+}

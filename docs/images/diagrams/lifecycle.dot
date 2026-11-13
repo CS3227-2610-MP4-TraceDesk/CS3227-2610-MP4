@@ -1,0 +1,14 @@
+digraph Lifecycle {
+  graph [rankdir=TB, bgcolor="white",pad="0.3",ranksep="0.65",label="TraceDesk — UML report state machine",labelloc=t,fontname="Helvetica",fontsize=20];
+  node [shape=box,style="rounded,filled",fillcolor="#f3f6fa",color="#53657d",fontname="Helvetica",fontsize=14,margin="0.22,0.15"];
+  edge [fontname="Helvetica",fontsize=11,color="#53657d"];
+  initial [shape=point,width=0.13,label="",fillcolor="#182536"];
+  OPEN; IN_PROGRESS; READY_FOR_QA; CLOSED;
+  initial -> OPEN [label="Reporter creates / submits report"];
+  OPEN -> IN_PROGRESS [label="Assigned Developer starts investigation"];
+  IN_PROGRESS -> READY_FOR_QA [label="Assigned Developer submits\nvalid resolution"];
+  READY_FOR_QA -> IN_PROGRESS [label="QA sends back\n[nonblank reason]"];
+  READY_FOR_QA -> CLOSED [label="QA verifies [at least one check; all Pass]"];
+  note [shape=note,style=filled,fillcolor="#fff9e8",fontsize=11,label="Drafts are separate from report states.\nAssignment and verification saves may change\nthe version without changing the state.\nEvery transition requires server authorization\nand commits with its business audit event."];
+  CLOSED -> note [style=invis];
+}
