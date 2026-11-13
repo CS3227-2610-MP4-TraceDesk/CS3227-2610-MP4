@@ -1,6 +1,7 @@
 ---
 layout: default
-title: Home
+title: Documentation home
+permalink: /documentation.html
 nav_order: 1
 ---
 
