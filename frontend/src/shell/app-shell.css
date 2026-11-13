@@ -222,6 +222,7 @@
   flex: none;
   align-items: center;
   height: var(--td-header-height);
+  gap: 10px;
   padding: 0 8px 0 12px;
   color: var(--td-muted);
 }
