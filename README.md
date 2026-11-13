@@ -1,5 +1,8 @@
 # TraceDesk
 
+- Live application: <https://tracedesk-run-660566661066.asia-southeast1.run.app>
+- Project website: <https://cs3227-2610-mp4-tracedesk.github.io/CS3227-2610-MP4/>
+
 TraceDesk is a local web app for reporting software bugs, investigating them,
 and reviewing proposed fixes. This guide starts the current application on your
 computer with Docker, PostgreSQL, Spring Boot, and the React frontend. It is for
