@@ -41,6 +41,7 @@ function selectStage(index,focus=false){
   Promise.all(activeAnimations.map(animation=>animation.finished)).then(()=>{
     if(version!==transitionVersion)return;
     updateContent();
+    activeAnimations.forEach(animation=>animation.cancel());
     activeAnimations=animatedContent.map(element=>element.animate([{opacity:0,transform:'translateY(5px)'},{opacity:1,transform:'translateY(0)'}],{duration:300,easing:'cubic-bezier(.22,1,.36,1)'}));
   }).catch(()=>{});
 }
