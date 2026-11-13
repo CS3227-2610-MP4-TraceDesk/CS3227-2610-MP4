@@ -21,6 +21,8 @@ public class ReportController {
     private static final String REPORTS = "/api/projects/{projectId}/reports";
     private static final String DETAIL = "/api/projects/{projectId}/reports/{reportId}";
     private static final String ASSIGNMENT = DETAIL + "/assignment";
+    private static final String CLAIM = DETAIL + "/claim";
+    private static final String RELEASE = DETAIL + "/release";
     private static final String ACTIVITY = "/api/projects/{projectId}/reports/{reportId}/activity";
     private static final String CONTEXT = "/api/projects/{projectId}/reporter-context";
     private static final String DRAFTS = "/api/projects/{projectId}/drafts";
@@ -115,8 +117,10 @@ public class ReportController {
             var page = result.candidates();
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("assignedDeveloperId", page.assignedDeveloperId());
+            response.put("assignedDeveloperLogin", page.assignedDeveloperLogin());
             response.put("assignmentEligible", page.assignmentEligible());
-            response.put("items", page.items().stream().map(id -> Map.of("id", id)).toList());
+            response.put("items", page.items().stream().map(candidate ->
+                    Map.of("id", candidate.id(), "login", candidate.login())).toList());
             response.put("nextCursor", result.nextCursor());
             response.put("version", page.version());
             return ResponseEntity.ok(response);
@@ -152,6 +156,36 @@ public class ReportController {
         } catch (ReportService.Failure failure) {
             return failure(failure, DETAIL, actor, project);
         }
+    }
+
+    @PostMapping(CLAIM)
+    public ResponseEntity<?> claim(@PathVariable String projectId, @PathVariable String reportId,
+                                   @RequestBody String rawBody, HttpServletRequest request) {
+        UUID project=parseUuid(projectId), report=parseUuid(reportId); validateQuery(request,Set.of());
+        JsonNode body=strictBody(rawBody);
+        if(body==null || !body.isObject() || !Set.of("expectedVersion").equals(new HashSet<>(body.propertyNames())))
+            throw new ReportService.Failure("INVALID_REQUEST",400);
+        int version=expectedVersion(body);
+        if(!csrf(request)) return denied("CSRF_INVALID",CLAIM,403,trustedActor(request),project,"CSRF_INVALID");
+        UUID actor=TrustedSessionActor.resolve(request,clock);
+        if(actor==null) return denied("UNAUTHENTICATED",CLAIM,401,null,project,"UNAUTHENTICATED");
+        try { return ResponseEntity.ok(service.claim(actor,project,report,version,UUID.randomUUID())); }
+        catch(ReportService.Failure failure) { return failure(failure,CLAIM,actor,project); }
+    }
+
+    @PostMapping(RELEASE)
+    public ResponseEntity<?> release(@PathVariable String projectId, @PathVariable String reportId,
+                                     @RequestBody String rawBody, HttpServletRequest request) {
+        UUID project=parseUuid(projectId), report=parseUuid(reportId); validateQuery(request,Set.of());
+        JsonNode body=strictBody(rawBody);
+        if(body==null || !body.isObject() || !Set.of("expectedVersion","reason").equals(new HashSet<>(body.propertyNames()))
+                || !body.path("reason").isTextual()) throw new ReportService.Failure("INVALID_REQUEST",400);
+        int version=expectedVersion(body); String reason=body.path("reason").textValue();
+        if(!csrf(request)) return denied("CSRF_INVALID",RELEASE,403,trustedActor(request),project,"CSRF_INVALID");
+        UUID actor=TrustedSessionActor.resolve(request,clock);
+        if(actor==null) return denied("UNAUTHENTICATED",RELEASE,401,null,project,"UNAUTHENTICATED");
+        try { return ResponseEntity.ok(service.release(actor,project,report,reason,version,UUID.randomUUID())); }
+        catch(ReportService.Failure failure) { return failure(failure,RELEASE,actor,project); }
     }
 
     @PostMapping(DRAFTS)

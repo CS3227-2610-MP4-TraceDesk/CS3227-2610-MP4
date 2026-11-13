@@ -443,11 +443,12 @@ class ReportHttpsIntegrationTest {
         var candidates = request(qa, base, "GET", path, null, null);
         assertEquals(200, candidates.statusCode());
         var page = parse(candidates.body());
-        assertEquals(Set.of("assignedDeveloperId", "assignmentEligible", "version", "items", "nextCursor"),
+        assertEquals(Set.of("assignedDeveloperId", "assignedDeveloperLogin", "assignmentEligible", "version", "items", "nextCursor"),
                 Set.copyOf(onlyKeys(page)));
         assertEquals(1, page.path("items").size());
-        assertEquals(Set.of("id"), Set.copyOf(onlyKeys(page.path("items").get(0))));
+        assertEquals(Set.of("id", "login"), Set.copyOf(onlyKeys(page.path("items").get(0))));
         assertEquals(fixture.developerId().toString(), page.path("items").get(0).path("id").asText());
+        assertEquals("report-developer@example.test", page.path("items").get(0).path("login").asText());
         assertEquals(403, request(developer, base, "GET", path, null, null).statusCode());
         assertEquals(404, request(foreign, base, "GET", path, null, null).statusCode());
 
@@ -469,6 +470,22 @@ class ReportHttpsIntegrationTest {
         assertEquals(200, cleared.statusCode());
         assertTrue(parse(cleared.body()).path("assignedDeveloperId").isNull());
         assertFalse(cleared.body().contains(reason));
+
+        String reportPath = path.substring(0, path.length() - "/assignment".length());
+        String claimBody = json.writeValueAsString(Map.of("expectedVersion", 3));
+        assertEquals("CSRF_INVALID", errorCode(requestWithoutCsrf(developer, base, "POST", reportPath + "/claim", claimBody, null)));
+        var claimed = request(developer, base, "POST", reportPath + "/claim", claimBody, null);
+        assertEquals(200, claimed.statusCode());
+        assertEquals(fixture.developerId().toString(), parse(claimed.body()).path("assignedDeveloperId").asText());
+        assertEquals("INVALID_STATE", errorCode(request(developer, base, "POST", reportPath + "/claim",
+                json.writeValueAsString(Map.of("expectedVersion", 4)), null)));
+        String releaseReason = "release-reason-private-canary";
+        canaries.add(releaseReason);
+        var released = request(developer, base, "POST", reportPath + "/release",
+                json.writeValueAsString(Map.of("expectedVersion", 4, "reason", releaseReason)), null);
+        assertEquals(200, released.statusCode());
+        assertTrue(parse(released.body()).path("assignedDeveloperId").isNull());
+        assertFalse(released.body().contains(releaseReason));
     }
 
     private Fixture seed(JdbcTemplate sql) {
