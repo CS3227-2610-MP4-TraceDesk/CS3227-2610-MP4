@@ -81,18 +81,30 @@ are fixed to match the demo sign-in shortcuts.
 Keep the setup terminal open so its database environment variables remain set.
 In a second terminal at the repository root, configure and start the backend:
 
+AI is enabled in this local setup. Before running the commands below, configure
+the required model, daily resource budgets, and actual sponsorship approval
+settings from the [AI configuration guide](docs/ai-enablement.md#backend-settings)
+in this same terminal. A valid SoCLaaS API key and unexpired approved access are
+required; `AI_ENABLED=true` alone does not make AI available.
+
 ```sh
 export TRACEDESK_DATABASE_URL=jdbc:postgresql://127.0.0.1:54329/tracedesk_dev
 export TRACEDESK_DATABASE_USER=tracedesk_dev
 export TRACEDESK_DATABASE_PASSWORD=tracedesk_dev_only
 export TRACEDESK_PROJECT_CURSOR_SECRET="$(openssl rand -hex 32)"
-export AI_ENABLED=false
+export AI_ENABLED=true
+read -rs 'SOCLAAS_API_KEY?SoCLaaS API key: '
+export SOCLAAS_API_KEY
+printf '\n'
 ./gradlew :backend:auth-app:bootRun
 ```
 
 If your local database password or port differs, set the corresponding values
 here too. The backend applies database migrations on startup and listens on port
-8080. AI is disabled for this local run.
+8080. Keep the API key private and backend-only. To run without AI, set
+`AI_ENABLED=false` and omit the API-key prompt; follow the
+[policy revision instructions](docs/ai-enablement.md#publication-recovery-and-emergency-disable)
+when changing an already published AI policy.
 
 ### 4. Sign in
 
