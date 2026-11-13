@@ -745,8 +745,8 @@ export function DeveloperWorkspace({
   }
 
   function renderNotes() {
-    if (!assigned) return <section className="developer-inline-notice"><h2>Private notes</h2><p>Private investigation notes are available only to the current assignee.</p></section>
-    if (notesState === 'denied') return <section className="developer-inline-notice" role="alert"><h2>Private notes unavailable</h2><p>Your assignment changed. Private notes and investigation actions are no longer available.</p></section>
+    if (!assigned) return <section className="developer-notes" aria-labelledby="private-notes-title"><div className="developer-section-heading"><div><h2 id="private-notes-title">Private notes</h2><p>Visible only to the current assigned Developer.</p></div></div><p className="muted">Private investigation notes are available only to the current assignee.</p></section>
+    if (notesState === 'denied') return <section className="developer-notes" role="alert" aria-labelledby="private-notes-title"><div className="developer-section-heading"><div><h2 id="private-notes-title">Private notes unavailable</h2><p>Visible only to the current assigned Developer.</p></div></div><p className="muted">Your assignment changed. Private notes and investigation actions are no longer available.</p></section>
     return <section className="developer-notes" aria-labelledby="private-notes-title"><div className="developer-section-heading"><div><h2 id="private-notes-title">Private notes</h2><p>Visible only to the current assigned Developer.</p></div></div>
       {notesState === 'loading' && <p role="status">Loading private notes…</p>}
       {notesState === 'unavailable' && <div className="developer-inline-notice" role="alert"><p>Private notes are temporarily unavailable.</p><Button color="secondary" variant="outline" onClick={() => selectedId && void loadDetail(selectedId)}>Retry</Button></div>}
