@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@openai/apps-sdk-ui/components/Button'
 import { Code, Sparkle } from '@openai/apps-sdk-ui/components/Icon'
 import { DeveloperApiError, fetchResolutions, type ProposedResolution } from '../developer/developerApi'
-import { QaReviewSummary } from '../preview/qa/QaReviewSummary'
 import type { QaBug } from '../preview/qa/qaFixtures'
 import type { TestTemplate } from '../preview/qa/qaTemplateFixtures'
 import { fetchReport, ReportApiError, type AssignmentResult, type ReportDetail, type ReportStatus } from '../reports/reportApi'
+import { ReportDetailLayout } from '../reports/ReportDetailLayout'
 import { Disclosure } from '../shared/Disclosure'
 import { QaAiPanel } from './QaAiPanel'
 import { QaDiscussion } from './QaDiscussion'
@@ -200,13 +200,15 @@ export function QaReportSummary({ project, reportId, onSessionExpired, onDecisio
         setDetail(null)
         setReload(value => value + 1)
       }} />}
-    <QaReviewSummary bug={{
-      id: report.id, title: report.title, status: statuses[report.status], project: project.name,
-      lastActivity: report.updatedAt, expected: report.expectedBehavior, actual: report.actualBehavior,
-      steps: report.reproductionSteps, logs: report.textLogs, checks: [], entries: [],
-    }} description={report.description} environment={report.environment}
+    <ReportDetailLayout report={{
+      id: report.id, title: report.title, statusLabel: statuses[report.status] === 'Ready for QA' ? 'Awaiting verification' : statuses[report.status],
+      statusColor: report.status === 'READY_FOR_QA' ? 'warning' : report.status === 'CLOSED' ? 'success' : 'secondary',
+      projectName: project.name, description: report.description, environment: report.environment,
+      expectedBehavior: report.expectedBehavior, actualBehavior: report.actualBehavior,
+      reproductionSteps: report.reproductionSteps, textLogs: report.textLogs,
+    }}
       activityContent={<QaDiscussion projectId={project.id} reportId={reportId} onSessionExpired={onSessionExpired} />}
-      resolution={<>
+      panels={<>
       <QaAssignment projectId={project.id} reportId={report.id} assignedDeveloperId={report.assignedDeveloperId}
         reportVersion={report.version} closed={report.status === 'CLOSED'} onSessionExpired={onSessionExpired} onRefresh={refreshAssignment} />
       <section id="qa-review-fix" tabIndex={-1} className="qa-summary-fix qa-resolution-history" aria-label="Developer resolutions">

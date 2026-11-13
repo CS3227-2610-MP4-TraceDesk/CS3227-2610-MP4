@@ -1,0 +1,34 @@
+.report-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: 1152px; margin-inline: auto; padding: 8px 24px 24px; --qa-card-fill: var(--td-sidebar); --qa-inset-fill: var(--td-rail); --qa-card-border: color-mix(in srgb, var(--td-ink) 18%, transparent); --qa-nested-radius: 24px; --qa-inset-gap: 12px; --qa-inset-radius: calc(var(--qa-nested-radius) - var(--qa-inset-gap) - 1px); }
+:root[data-theme="dark"] .report-detail-layout { --qa-card-fill: #2b2a2a; --qa-inset-fill: #222121; }
+.report-detail-layout .qa-summary-main { min-width: 0; }
+.report-detail-layout .qa-summary-heading { display: grid; gap: 8px; margin-bottom: 16px; }
+.report-detail-layout .qa-summary-heading > div:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; }
+.report-detail-layout .qa-summary-heading h1 { overflow-wrap: anywhere; font: 600 22px/1.25 var(--td-ui-font); letter-spacing: -.015em; }
+.report-detail-layout .qa-summary-meta { display: flex; flex-wrap: wrap; gap: 8px 12px; color: var(--td-muted); font-size: 13px; }
+.report-detail-layout .qa-summary-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.report-detail-layout .qa-summary-description { margin-bottom: 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.report-detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-inline-start: auto; }
+.report-detail-layout .qa-summary-fix, .report-detail-layout .qa-activity-row { border: 1px solid var(--qa-card-border); border-radius: 10px; background: var(--qa-card-fill); }
+.report-detail-layout .qa-summary-fix { margin-top: 12px; padding: 12px; }
+.report-detail-layout .qa-summary-activity { margin-top: 24px; padding-top: 16px; border-top: .5px solid var(--td-line); }
+.report-detail-layout .qa-summary-activity > h2 { margin-bottom: 12px; font-size: 16px; font-weight: 600; }
+.report-detail-layout .qa-activity-row { margin-bottom: 4px; }
+.report-detail-layout .qa-activity-row summary { display: flex; min-height: 32px; align-items: center; gap: 8px; padding: 4px 8px; font-size: 13px; list-style: none; }
+.report-detail-layout .qa-activity-row summary::-webkit-details-marker { display: none; }
+.report-detail-layout .qa-activity-row > p, .report-detail-layout .qa-activity-row > dl, .report-detail-layout .qa-activity-row > pre { margin: 0 12px 12px 30px; }
+.report-detail-layout .qa-summary-fields { overflow-wrap: anywhere; }
+.report-detail-layout .qa-summary-fields > div { padding-block: 10px; }
+.report-detail-layout .qa-summary-fields > div + div { border-top: 1px solid var(--td-line); }
+.report-detail-layout .qa-summary-fields dt { margin: 0 0 4px; font-weight: 600; }
+.report-detail-layout .qa-summary-fields dd { margin: 0; white-space: pre-wrap; }
+.report-detail-layout #qa-report-logs > pre { overflow-wrap: anywhere; white-space: pre-wrap; }
+.report-detail-layout .qa-change-map { display: none; align-self: start; position: sticky; top: 8px; padding-top: 6px; min-width: 0; }
+.report-detail-layout .qa-change-map h2 { margin-bottom: 16px; font-size: 13px; font-weight: 500; }
+.report-detail-layout .qa-change-map-file { margin-bottom: 16px; }
+.report-detail-layout .qa-change-map-label { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+.report-detail-layout .qa-change-map-label > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report-detail-layout .qa-change-map-label > span:last-child { margin-left: auto; flex: none; color: var(--td-muted); font-size: 11px; }
+.report-detail-layout .qa-change-map-track { height: 3px; overflow: hidden; border-radius: 2px; background: var(--td-line); }
+.report-detail-layout .qa-change-map-track span { display: block; height: 100%; border-radius: inherit; background: var(--color-text-info-soft); }
+@container qa-summary (min-width: 800px) { .report-detail-layout[data-change-map="true"] { grid-template-columns: minmax(0, 1fr) 300px; gap: 40px; } .report-detail-layout .qa-change-map { display: block; } }
+@media (max-width: 700px) { .report-detail-layout { padding: 8px 24px 24px; } .report-detail-actions { width: 100%; margin-inline-start: 0; } }
